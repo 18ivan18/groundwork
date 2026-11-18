@@ -8,30 +8,30 @@ MRR counts ranks up to 10.
 
 | Chunk tokens | Chunks | Mode | Questions | R@1 | R@3 | R@6 | R@8 | R@10 | R@20 | MRR |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 200 | 2363 | reranked | HTM filings (24) | 0.62 | 0.75 | 0.88 | 0.92 | 0.92 | 0.96 | 0.705 |
-| 200 | 2363 | reranked | TXT filings (21) | 0.52 | 0.76 | 0.90 | 0.90 | 0.90 | 0.95 | 0.666 |
-| 200 | 2363 | hybrid | HTM filings (24) | 0.62 | 0.75 | 0.83 | 0.92 | 0.92 | 0.96 | 0.710 |
-| 200 | 2363 | hybrid | TXT filings (21) | 0.29 | 0.67 | 0.81 | 0.86 | 0.90 | 0.95 | 0.503 |
-| 200 | 2363 | dense | HTM filings (24) | 0.46 | 0.67 | 0.88 | 0.96 | 0.96 | 0.96 | 0.608 |
-| 200 | 2363 | dense | TXT filings (21) | 0.38 | 0.67 | 0.90 | 0.90 | 0.90 | 0.95 | 0.561 |
-| 200 | 2363 | sparse | HTM filings (24) | 0.42 | 0.62 | 0.67 | 0.67 | 0.67 | 0.88 | 0.515 |
-| 200 | 2363 | sparse | TXT filings (21) | 0.19 | 0.33 | 0.57 | 0.67 | 0.71 | 0.71 | 0.336 |
-| 300 | 1434 | reranked | HTM filings (24) | 0.46 | 0.88 | 0.92 | 0.92 | 0.92 | 0.96 | 0.654 |
-| 300 | 1434 | reranked | TXT filings (21) | 0.67 | 0.81 | 0.86 | 0.90 | 0.90 | 0.90 | 0.748 |
-| 300 | 1434 | hybrid | HTM filings (24) | 0.54 | 0.83 | 0.88 | 0.88 | 0.88 | 0.96 | 0.684 |
-| 300 | 1434 | hybrid | TXT filings (21) | 0.38 | 0.67 | 0.86 | 0.86 | 0.86 | 0.90 | 0.552 |
-| 300 | 1434 | dense | HTM filings (24) | 0.46 | 0.83 | 0.92 | 0.96 | 0.96 | 0.96 | 0.664 |
-| 300 | 1434 | dense | TXT filings (21) | 0.43 | 0.62 | 0.71 | 0.81 | 0.81 | 0.86 | 0.548 |
-| 300 | 1434 | sparse | HTM filings (24) | 0.25 | 0.58 | 0.79 | 0.79 | 0.79 | 0.79 | 0.446 |
-| 300 | 1434 | sparse | TXT filings (21) | 0.29 | 0.43 | 0.57 | 0.67 | 0.76 | 0.81 | 0.390 |
-| 400 | 1028 | reranked | HTM filings (24) | 0.58 | 0.83 | 0.92 | 0.92 | 0.92 | 0.92 | 0.715 |
-| 400 | 1028 | reranked | TXT filings (21) | 0.62 | 0.67 | 0.81 | 0.81 | 0.81 | 0.81 | 0.676 |
-| 400 | 1028 | hybrid | HTM filings (24) | 0.58 | 0.79 | 0.83 | 0.83 | 0.83 | 0.92 | 0.684 |
-| 400 | 1028 | hybrid | TXT filings (21) | 0.33 | 0.62 | 0.76 | 0.81 | 0.81 | 0.81 | 0.496 |
-| 400 | 1028 | dense | HTM filings (24) | 0.54 | 0.71 | 0.75 | 0.79 | 0.88 | 0.92 | 0.642 |
-| 400 | 1028 | dense | TXT filings (21) | 0.33 | 0.57 | 0.71 | 0.71 | 0.76 | 0.81 | 0.484 |
-| 400 | 1028 | sparse | HTM filings (24) | 0.29 | 0.71 | 0.75 | 0.75 | 0.79 | 0.83 | 0.487 |
-| 400 | 1028 | sparse | TXT filings (21) | 0.24 | 0.38 | 0.52 | 0.62 | 0.71 | 0.90 | 0.361 |
+| 200 | 2364 | reranked | HTM filings (24) | 0.58 | 0.79 | 0.88 | 0.92 | 0.92 | 0.96 | 0.690 |
+| 200 | 2364 | reranked | TXT filings (21) | 0.52 | 0.76 | 0.90 | 0.90 | 0.90 | 0.95 | 0.666 |
+| 200 | 2364 | hybrid | HTM filings (24) | 0.62 | 0.71 | 0.83 | 0.92 | 0.92 | 0.96 | 0.709 |
+| 200 | 2364 | hybrid | TXT filings (21) | 0.29 | 0.67 | 0.81 | 0.86 | 0.90 | 0.95 | 0.510 |
+| 200 | 2364 | dense | HTM filings (24) | 0.38 | 0.62 | 0.88 | 0.92 | 0.92 | 0.96 | 0.547 |
+| 200 | 2364 | dense | TXT filings (21) | 0.38 | 0.71 | 0.90 | 0.90 | 0.90 | 0.95 | 0.565 |
+| 200 | 2364 | sparse | HTM filings (24) | 0.42 | 0.62 | 0.67 | 0.67 | 0.67 | 0.88 | 0.515 |
+| 200 | 2364 | sparse | TXT filings (21) | 0.19 | 0.33 | 0.57 | 0.67 | 0.71 | 0.71 | 0.336 |
+| 300 | 1439 | reranked | HTM filings (24) | 0.50 | 0.83 | 0.88 | 0.92 | 0.92 | 0.96 | 0.669 |
+| 300 | 1439 | reranked | TXT filings (21) | 0.67 | 0.81 | 0.86 | 0.90 | 0.90 | 0.90 | 0.748 |
+| 300 | 1439 | hybrid | HTM filings (24) | 0.62 | 0.83 | 0.88 | 0.88 | 0.88 | 0.96 | 0.731 |
+| 300 | 1439 | hybrid | TXT filings (21) | 0.38 | 0.67 | 0.86 | 0.86 | 0.86 | 0.90 | 0.552 |
+| 300 | 1439 | dense | HTM filings (24) | 0.50 | 0.83 | 0.88 | 0.96 | 0.96 | 0.96 | 0.667 |
+| 300 | 1439 | dense | TXT filings (21) | 0.43 | 0.62 | 0.71 | 0.81 | 0.81 | 0.90 | 0.549 |
+| 300 | 1439 | sparse | HTM filings (24) | 0.25 | 0.58 | 0.83 | 0.83 | 0.83 | 0.83 | 0.453 |
+| 300 | 1439 | sparse | TXT filings (21) | 0.29 | 0.43 | 0.57 | 0.71 | 0.76 | 0.81 | 0.391 |
+| 400 | 1030 | reranked | HTM filings (24) | 0.58 | 0.83 | 0.92 | 0.92 | 0.92 | 0.92 | 0.715 |
+| 400 | 1030 | reranked | TXT filings (21) | 0.62 | 0.67 | 0.81 | 0.81 | 0.81 | 0.81 | 0.676 |
+| 400 | 1030 | hybrid | HTM filings (24) | 0.62 | 0.79 | 0.83 | 0.83 | 0.83 | 0.92 | 0.705 |
+| 400 | 1030 | hybrid | TXT filings (21) | 0.33 | 0.62 | 0.76 | 0.81 | 0.81 | 0.81 | 0.496 |
+| 400 | 1030 | dense | HTM filings (24) | 0.50 | 0.71 | 0.75 | 0.83 | 0.88 | 0.92 | 0.628 |
+| 400 | 1030 | dense | TXT filings (21) | 0.33 | 0.57 | 0.71 | 0.71 | 0.76 | 0.81 | 0.484 |
+| 400 | 1030 | sparse | HTM filings (24) | 0.29 | 0.71 | 0.75 | 0.75 | 0.79 | 0.83 | 0.487 |
+| 400 | 1030 | sparse | TXT filings (21) | 0.24 | 0.38 | 0.52 | 0.62 | 0.67 | 0.90 | 0.356 |
 
 ## Candidates before fusion
 
@@ -41,8 +41,8 @@ Each retriever passes its top 20 passages to RRF. *Either* is the share found by
 |---|---|---|---|---|---|---|---|---|
 | 200 | HTM filings (24) | 0.96 | 0.88 | 0.96 | 0.83 | a25, n24 | none | a23, m25, n24 |
 | 200 | TXT filings (21) | 0.95 | 0.71 | 0.95 | 0.81 | a01, a02, m01, m04, m07 | none | a02, m07, n01 |
-| 300 | HTM filings (24) | 0.96 | 0.79 | 0.96 | 0.88 | a25, a27, m25, n24 | none | m25, n24 |
-| 300 | TXT filings (21) | 0.86 | 0.81 | 0.90 | 0.86 | m01, m07 | m02 | m02 |
+| 300 | HTM filings (24) | 0.96 | 0.83 | 0.96 | 0.88 | a25, m25, n24 | none | m25, n24 |
+| 300 | TXT filings (21) | 0.90 | 0.81 | 0.95 | 0.86 | a01, m01, m07 | m02 | a01, m02 |
 | 400 | HTM filings (24) | 0.92 | 0.83 | 0.96 | 0.83 | a25, a27, n24 | m28 | a25, m28, n24 |
 | 400 | TXT filings (21) | 0.81 | 0.90 | 0.90 | 0.76 | none | m01, m02 | m01, m02, n02 |
 
@@ -52,9 +52,9 @@ A rank of None means the passage was not in the top 20.
 
 | Chunk tokens | Mode | Question | Rank |
 |---|---|---|---|
-| 200 | reranked | a02 | 14 |
+| 200 | reranked | a02 | 13 |
 | 200 | reranked | n04 | None |
-| 200 | reranked | m25 | 19 |
+| 200 | reranked | m25 | 18 |
 | 200 | reranked | m28 | None |
 | 200 | reranked | n24 | 7 |
 | 200 | hybrid | a02 | 11 |
@@ -62,14 +62,14 @@ A rank of None means the passage was not in the top 20.
 | 200 | hybrid | n01 | 7 |
 | 200 | hybrid | n04 | None |
 | 200 | hybrid | a23 | 7 |
-| 200 | hybrid | m25 | 14 |
+| 200 | hybrid | m25 | 13 |
 | 200 | hybrid | m28 | None |
 | 200 | hybrid | n24 | 8 |
 | 200 | dense | n01 | 18 |
 | 200 | dense | n04 | None |
-| 200 | dense | a23 | 8 |
-| 200 | dense | m25 | 7 |
+| 200 | dense | a23 | 12 |
 | 200 | dense | m28 | None |
+| 200 | dense | n23 | 7 |
 | 200 | sparse | a01 | None |
 | 200 | sparse | a02 | None |
 | 200 | sparse | a03 | 9 |
@@ -79,33 +79,35 @@ A rank of None means the passage was not in the top 20.
 | 200 | sparse | n02 | 8 |
 | 200 | sparse | n04 | None |
 | 200 | sparse | n06 | 7 |
-| 200 | sparse | a22 | 11 |
+| 200 | sparse | a22 | 14 |
 | 200 | sparse | a23 | 11 |
 | 200 | sparse | a25 | None |
-| 200 | sparse | a27 | 16 |
+| 200 | sparse | a27 | 15 |
 | 200 | sparse | m25 | 20 |
 | 200 | sparse | m28 | None |
-| 200 | sparse | n23 | 19 |
+| 200 | sparse | n23 | 14 |
 | 200 | sparse | n24 | None |
 | 300 | reranked | a01 | None |
 | 300 | reranked | a02 | 8 |
 | 300 | reranked | n04 | None |
-| 300 | reranked | m25 | 15 |
+| 300 | reranked | m25 | 16 |
 | 300 | reranked | m28 | None |
+| 300 | reranked | n24 | 7 |
 | 300 | hybrid | a01 | None |
 | 300 | hybrid | m02 | 15 |
 | 300 | hybrid | n04 | None |
-| 300 | hybrid | m25 | 14 |
+| 300 | hybrid | m25 | 16 |
 | 300 | hybrid | m28 | None |
-| 300 | hybrid | n24 | 12 |
-| 300 | dense | a01 | None |
+| 300 | hybrid | n24 | 15 |
+| 300 | dense | a01 | 17 |
 | 300 | dense | m02 | None |
 | 300 | dense | m04 | 14 |
 | 300 | dense | m06 | 7 |
-| 300 | dense | n01 | 8 |
+| 300 | dense | n01 | 7 |
 | 300 | dense | n04 | None |
-| 300 | dense | m25 | 7 |
+| 300 | dense | m25 | 8 |
 | 300 | dense | m28 | None |
+| 300 | dense | n24 | 7 |
 | 300 | sparse | a01 | None |
 | 300 | sparse | a03 | 8 |
 | 300 | sparse | a07 | 7 |
@@ -114,9 +116,8 @@ A rank of None means the passage was not in the top 20.
 | 300 | sparse | m04 | 12 |
 | 300 | sparse | m07 | None |
 | 300 | sparse | n04 | None |
-| 300 | sparse | n06 | 9 |
+| 300 | sparse | n06 | 8 |
 | 300 | sparse | a25 | None |
-| 300 | sparse | a27 | None |
 | 300 | sparse | m25 | None |
 | 300 | sparse | m28 | None |
 | 300 | sparse | n24 | None |
@@ -131,7 +132,7 @@ A rank of None means the passage was not in the top 20.
 | 400 | hybrid | m02 | None |
 | 400 | hybrid | n02 | 7 |
 | 400 | hybrid | n04 | None |
-| 400 | hybrid | a25 | 18 |
+| 400 | hybrid | a25 | 16 |
 | 400 | hybrid | m25 | None |
 | 400 | hybrid | m28 | None |
 | 400 | hybrid | n24 | 16 |
@@ -141,8 +142,8 @@ A rank of None means the passage was not in the top 20.
 | 400 | dense | m06 | 10 |
 | 400 | dense | n01 | 15 |
 | 400 | dense | n04 | None |
-| 400 | dense | a21 | 17 |
-| 400 | dense | a25 | 9 |
+| 400 | dense | a21 | 16 |
+| 400 | dense | a25 | 8 |
 | 400 | dense | m25 | None |
 | 400 | dense | m28 | None |
 | 400 | dense | n23 | 7 |
@@ -154,9 +155,9 @@ A rank of None means the passage was not in the top 20.
 | 400 | sparse | m02 | 12 |
 | 400 | sparse | m03 | 7 |
 | 400 | sparse | m04 | 16 |
-| 400 | sparse | m07 | 16 |
+| 400 | sparse | m07 | 18 |
 | 400 | sparse | n04 | None |
-| 400 | sparse | n06 | 10 |
+| 400 | sparse | n06 | 11 |
 | 400 | sparse | a25 | None |
 | 400 | sparse | a27 | None |
 | 400 | sparse | m25 | None |
@@ -170,18 +171,18 @@ Wall time of one search on this machine, embedding the question included. One ru
 
 | Chunk tokens | Mode | Median ms | Max ms |
 |---|---|---|---|
-| 200 | reranked | 277 | 293 |
+| 200 | reranked | 272 | 297 |
 | 200 | hybrid | 7 | 12 |
-| 200 | dense | 6 | 9 |
-| 200 | sparse | 1 | 1 |
-| 300 | reranked | 390 | 410 |
-| 300 | hybrid | 7 | 13 |
-| 300 | dense | 6 | 14 |
-| 300 | sparse | 1 | 3 |
-| 400 | reranked | 525 | 565 |
-| 400 | hybrid | 8 | 12 |
-| 400 | dense | 7 | 10 |
-| 400 | sparse | 1 | 2 |
+| 200 | dense | 7 | 8 |
+| 200 | sparse | 1 | 2 |
+| 300 | reranked | 404 | 607 |
+| 300 | hybrid | 8 | 14 |
+| 300 | dense | 7 | 24 |
+| 300 | sparse | 1 | 2 |
+| 400 | reranked | 558 | 944 |
+| 400 | hybrid | 7 | 12 |
+| 400 | dense | 6 | 7 |
+| 400 | sparse | 1 | 1 |
 
 ## Relevance gate (MIN_RELEVANCE)
 
@@ -213,7 +214,7 @@ Best dense similarity: answerable min 0.658, median 0.776; off-topic max 0.535; 
 
 ### 400 tokens
 
-Best dense similarity: answerable min 0.665, median 0.771; off-topic max 0.528; in-domain unanswerable max 0.716.
+Best dense similarity: answerable min 0.665, median 0.772; off-topic max 0.528; in-domain unanswerable max 0.716.
 
 | Threshold | Answerable kept | Off-topic blocked | In-domain unanswerable blocked |
 |---|---|---|---|

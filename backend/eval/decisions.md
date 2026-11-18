@@ -230,6 +230,28 @@ comparison):
 So HTML does not make the header problem worse, and mostly avoids it. A table longer than one chunk
 still loses its header in the later chunks.
 
+### Cells stay in their columns (M1)
+
+The loader used to drop every empty cell. That removed inline XBRL's spacer cells, but a row with a
+blank in the middle then slid its later values one column left. In Apple's share repurchase table
+the authorisation still available, $114,004 million, landed under "Average Price Paid Per Share",
+and the first answer run read it as the cost of the buybacks (`a25`).
+
+Now each cell is placed in its real column, counting `colspan` and `rowspan`:
+
+- `$` joins the next cell with text, and `)` or `%` the previous one, inside the row, so the
+  symbols' own columns end up empty.
+- A column is dropped only when no single-column cell in any row has text in it: those are the
+  spacers. A blank in one row stays an empty cell: `Total | 81,767 | | | | $114,004`.
+- A header that spans several columns (`2026` over `$`, the value and `)`) is written in the first
+  kept column of its span, which is the value column.
+- A row's trailing blanks are trimmed. A leading blank stays, so `| 2026 | 2025` sits over
+  `Revenue | $100 | $90`.
+
+On the three HTML filings 206 of 1,927 table rows changed (AAPL 47, MSFT 93, NVDA 66), and 112
+rows that had lost every separator now show their empty label column. Layout tables on cover pages
+and in tables of contents gain a leading empty cell too: correct, and a little noise.
+
 ## Answer evaluation
 
 `run_answer_eval.py` asks each question through `QAService` and saves the raw answers, then scores

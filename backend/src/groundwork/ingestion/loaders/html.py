@@ -122,33 +122,99 @@ def _cell_text(cell: Tag) -> str:
     return " ".join(" ".join(block.text for block in builder.blocks).split())
 
 
-def _merge_symbols(cells: list[str]) -> list[str]:
-    merged: list[str] = []
-    prefix = ""
-    for cell in cells:
-        if _LEADING_SYMBOL.match(cell):
-            prefix += cell
-        elif _TRAILING_SYMBOL.match(cell) and merged and not prefix:
-            merged[-1] += cell
-        else:
-            merged.append(prefix + cell)
-            prefix = ""
-    if prefix:
-        merged.append(prefix)
-    return merged
+@dataclass
+class _Cell:
+    text: str
+    # How many grid columns the cell covers: its colspan.
+    span: int
 
 
-def _render_table(table: Tag) -> str:
-    """One line per row, cells joined by CELL_SEPARATOR. Empty spacer cells are dropped."""
-    rows = []
+def _span(cell: Tag, attribute: str) -> int:
+    value = cell.get(attribute)
+    try:
+        return max(1, min(int(str(value)), 100)) if value is not None else 1
+    except ValueError:
+        return 1
+
+
+def _grid(table: Tag) -> list[dict[int, _Cell]]:
+    """Each row as {column: cell}, with every cell at the column it really starts in. Columns
+    count colspan, and cells pushed right by a rowspan from a row above."""
+    grid: list[dict[int, _Cell]] = []
+    # column -> rows it is still taken for, by a cell with a rowspan.
+    taken: dict[int, int] = {}
     for row in table.find_all("tr"):
         # Rows of a nested table belong to it, and are rendered inside their cell.
         if row.find_parent("table") is not table:
             continue
-        cells = [_cell_text(cell) for cell in row.find_all(["td", "th"], recursive=False)]
-        cells = _merge_symbols([cell for cell in cells if cell])
-        if cells:
-            rows.append(CELL_SEPARATOR.join(cells))
+        cells: dict[int, _Cell] = {}
+        column = 0
+        for cell in row.find_all(["td", "th"], recursive=False):
+            while taken.get(column, 0) > 0:
+                column += 1
+            span = _span(cell, "colspan")
+            cells[column] = _Cell(_cell_text(cell), span)
+            rows_down = _span(cell, "rowspan") - 1
+            for covered in range(column, column + span):
+                taken[covered] = max(taken.get(covered, 0), rows_down + 1)
+            column += span
+        taken = {col: left - 1 for col, left in taken.items() if left > 1}
+        grid.append(cells)
+    return grid
+
+
+def _merge_symbols(cells: dict[int, _Cell]) -> None:
+    """Move a "$" into the next cell with text and a ")" or "%" into the previous one, so the
+    symbol's own column is left empty and can be dropped as a spacer."""
+    columns = sorted(column for column, cell in cells.items() if cell.text)
+    for index, column in enumerate(columns):
+        text = cells[column].text
+        if _LEADING_SYMBOL.match(text):
+            after = [c for c in columns[index + 1 :] if cells[c].text]
+            if after and not _LEADING_SYMBOL.match(cells[after[0]].text):
+                cells[after[0]].text = text + cells[after[0]].text
+                cells[column].text = ""
+        elif _TRAILING_SYMBOL.match(text):
+            before = [c for c in columns[:index] if cells[c].text]
+            if before and not _LEADING_SYMBOL.match(cells[before[-1]].text):
+                cells[before[-1]].text += text
+                cells[column].text = ""
+
+
+def _render_table(table: Tag) -> str:
+    """One line per row, cells joined by CELL_SEPARATOR, each in its own column.
+
+    Inline XBRL tables are full of empty spacer columns. A column empty in every row is dropped;
+    a cell left blank in a row that has other values stays as an empty cell, so the values after
+    it keep their columns. A heading cell that spans several columns is written in the first
+    column of its span that holds values.
+    """
+    grid = _grid(table)
+    for cells in grid:
+        _merge_symbols(cells)
+    # Columns kept: those where a single-column cell has text.
+    kept = sorted(
+        {column for cells in grid for column, cell in cells.items() if cell.text and cell.span == 1}
+    )
+    # A spanning cell over no kept column (a title row, say) keeps its first column.
+    for cells in grid:
+        for column, cell in cells.items():
+            if cell.text and not any(column <= k < column + cell.span for k in kept):
+                kept.append(column)
+    kept.sort()
+    rows = []
+    for cells in grid:
+        texts = dict.fromkeys(kept, "")
+        for column, cell in cells.items():
+            if cell.text:
+                home = next(k for k in kept if column <= k < column + cell.span)
+                texts[home] = f"{texts[home]} {cell.text}".strip()
+        values = list(texts.values())
+        while values and not values[-1]:
+            values.pop()
+        if values:
+            # Empty cells read "a | | b" rather than "a |  | b".
+            rows.append(CELL_SEPARATOR.join(values).replace("  ", " ").strip())
     return "\n".join(rows)
 
 
