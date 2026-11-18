@@ -6,18 +6,49 @@ x-backend: &backend
   image: groundwork-api
   env_file: .env
   environment:
-    # Overrides .env, whose ./data is the path for running outside Docker.
+    # Override .env, whose values are for running outside Docker.
     DATA_DIR: /app/data
+    DATABASE_URL: postgresql://groundwork:groundwork@db:5432/groundwork
   volumes:
     - data:/app/data
 
 services:
-  # Runs before the API and exits. It cannot run beside it: Chroma's local store is for one
-  # process at a time. Files already indexed are skipped, so later starts take a few seconds.
-  ingest:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: groundwork
+      # Local only: the port is bound to 127.0.0.1.
+      POSTGRES_PASSWORD: groundwork
+      POSTGRES_DB: groundwork
+    # 5434 on the host, because 5432 is often taken by a local Postgres.
+    ports:
+      - "127.0.0.1:${DB_PORT:-5434}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U groundwork -d groundwork"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Applies the migrations, then exits.
+  migrate:
     <<: *backend
     build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Indexes data/raw/ and exits. Documents already indexed are skipped, so later starts take
+  # a few seconds.
+  ingest:
+    <<: *backend
+    pull_policy: never
     command: ["python", "scripts/ingest.py"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
   api:
     <<: *backend
@@ -68,4 +99,5 @@ services:
 
 volumes:
   data:
+  pgdata:
   ollama:
