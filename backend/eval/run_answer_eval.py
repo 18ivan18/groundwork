@@ -47,6 +47,7 @@ from groundwork.domain.models import ScoredPassage, SearchFilters, section_label
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.llm.base import LLMError, RateLimitError
+from groundwork.qa.prompt import PROMPT_VERSION
 from groundwork.qa.service import Answer, QAService
 
 EVAL_DIR = Path(__file__).parent
@@ -516,6 +517,7 @@ def run_header(settings: Settings, index_chunks: int) -> Record:
         "model": settings.anthropic_model if anthropic else settings.llm_model,
         "provider": settings.llm_provider,
         "embedding_model": settings.embedding_model,
+        "prompt_version": PROMPT_VERSION,
         "top_k": settings.top_k,
         "min_relevance": settings.min_relevance,
         "chunk_tokens": settings.chunk_tokens,
@@ -542,11 +544,19 @@ def main() -> None:
         "--run", help="Run name. Default: today and the model for ask, the latest run for score."
     )
     parser.add_argument("--only", help="Comma-separated question ids to ask (again).")
+    parser.add_argument(
+        "--collections", help="Comma-separated collections whose questions to ask or score."
+    )
     parser.add_argument("--tokens-per-minute", type=int, default=DEFAULT_TOKENS_PER_MINUTE)
     args = parser.parse_args()
 
     settings = Settings()
     questions = load_questions(EVAL_DIR / "questions.jsonl")
+    if args.collections:
+        wanted = set(args.collections.split(","))
+        if unknown := wanted - {q.collection for q in questions}:
+            sys.exit(f"No questions for {', '.join(sorted(unknown))}.")
+        questions = [q for q in questions if q.collection in wanted]
     entries = corpus_entries(settings.data_dir / "raw", eval_collections(questions))
     by_key = {(e.meta.collection_id, e.key): e for e in entries}
     validate(questions, {key: normalize(load_file(e.path).text) for key, e in by_key.items()})

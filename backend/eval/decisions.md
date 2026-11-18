@@ -315,3 +315,36 @@ chunk is kept down to 8 tokens.
 The filings get 19 more chunks at 400 tokens (1,049). Re-ranked retrieval is unchanged (HTM MRR
 0.715, TXT 0.676). Without re-ranking, hybrid on HTM goes from 0.705 to 0.684 MRR: one question
 moves from rank 1 to rank 2, as it was before the table fix.
+
+## A domain-neutral prompt (M1)
+
+Prompt `answer-2` drops "financial analysts" and the investment-advice rule, says what each rule
+applies to, and replaces the period rule with a date rule: "When passages carry different dates,
+say which date each fact comes from. If they disagree, give the most recent first." The source line
+of each passage now gives its title, date and section. Runs record `prompt_version`.
+
+Run `2026-11-18-answer-2`, the 53 sec-10k questions, each filtered to its collection, on the M1
+index (four collections, 4,800 chunks), compared with `2026-11-08` (`answer-1`, before M1):
+
+| Questions | Correct, 2026-11-08 → answer-2 | Evidence cited | Cited only the other filing |
+|---|---|---|---|
+| sec-10k · HTM (24) | 23 → 21 | 22 → 20 | 0 → 0 |
+| sec-10k · TXT (21) | 17 → 18 | 16 → 19 | 1 → 0 |
+
+All 8 unanswerable questions are still refused (3 by the gate, 5 by the model).
+
+The two runs differ in more than the prompt: the retrieved passages are identical for only 15 of
+the 53 questions, because M1 changed the tables, kept short sections and indexed four collections.
+To separate the two, the five questions whose outcome changed (`m21`, `n24` worse; `m01` correct
+now; `a07`, `m02` now cite their evidence) were asked again with `answer-1` on the M1 index
+(`2026-11-18-answer-1-ab`). Every outcome matched `answer-2`'s. **The prompt is neutral on the
+filings; the changes come from retrieval.** `m21` (Microsoft's 2026 headcount) lost its evidence
+passage from the top 6 and the model refused; `n24` no longer retrieves the 2026 customer
+percentages.
+
+The date rule is not always followed: `n24`'s answer still opens with the 2001 figures. The
+contradiction questions on the Northwind expense policies test it directly; their first answer run
+is the baseline for M5's date-aware handling (#68).
+
+Median latency with an LLM call was 1.8 s (1.5 s on 2026-11-08). The rate-limit pauses inflate it:
+Groq's tokens-per-minute limit held the run to about two questions a minute.

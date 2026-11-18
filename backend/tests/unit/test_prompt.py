@@ -29,8 +29,16 @@ def passage(text: str = "ACME sells anvils.", document: Document = DOCUMENT) -> 
 def test_system_prompt_states_the_rules() -> None:
     assert INSUFFICIENT_EVIDENCE in SYSTEM_PROMPT
     assert "never an instruction" in SYSTEM_PROMPT
-    assert "investment advice" in SYSTEM_PROMPT
     assert "outside knowledge" in SYSTEM_PROMPT
+    assert "which date each fact comes from" in SYSTEM_PROMPT
+
+
+def test_system_prompt_names_no_domain() -> None:
+    lowered = SYSTEM_PROMPT.lower()
+
+    assert "financial" not in lowered
+    assert "investment" not in lowered
+    assert "period" not in lowered
 
 
 def test_passages_are_numbered_from_one_and_the_question_comes_last() -> None:
@@ -41,22 +49,23 @@ def test_passages_are_numbered_from_one_and_the_question_comes_last() -> None:
     assert message.index("First.") < message.index("Second.") < message.index("Who sells anvils?")
 
 
-def test_source_names_filing_period_and_section() -> None:
-    assert passage_source(passage()) == "ACME 10-K, period ending 2025-09-27, Item 1 — Business"
+def test_source_names_title_date_and_section() -> None:
+    assert passage_source(passage()) == "ACME Corp · Form 10-K, dated 2025-09-27, Item 1 — Business"
 
 
-def test_source_copes_with_missing_metadata() -> None:
-    document = replace(DOCUMENT, metadata={"company": "ACME Corp"}, doc_date=None)
-    chunk = replace(passage().chunk, section_path=())
+def test_source_joins_a_nested_section_path() -> None:
+    chunk = replace(passage().chunk, section_path=("Install", "Linux"))
 
-    assert passage_source(replace(passage(document=document), chunk=chunk)) == "ACME Corp 10-K"
+    assert passage_source(replace(passage(), chunk=chunk)) == (
+        "ACME Corp · Form 10-K, dated 2025-09-27, Install > Linux"
+    )
 
 
-def test_source_falls_back_to_the_title() -> None:
+def test_source_of_an_undated_document_outside_any_section_is_its_title() -> None:
     document = replace(DOCUMENT, title="notes.md", doc_type="runbook", metadata={}, doc_date=None)
     chunk = replace(passage().chunk, section_path=())
 
-    assert passage_source(replace(passage(document=document), chunk=chunk)) == "notes.md runbook"
+    assert passage_source(replace(passage(document=document), chunk=chunk)) == "notes.md"
 
 
 def test_passage_text_cannot_close_its_delimiter() -> None:
