@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile, status
 from fastapi import Path as PathParam
 
-from groundwork.api.deps import ContainerDep, UploadServiceDep
+from groundwork.api.deps import ContainerDep, CurrentUser, UploadServiceDep
 from groundwork.api.schemas import (
     CollectionId,
     DocTypeText,
@@ -16,6 +16,7 @@ from groundwork.api.schemas import (
     JobResponse,
     UploadResponse,
 )
+from groundwork.domain.models import Access
 from groundwork.ingestion.loaders import NoTextError, UnsupportedFormatError
 from groundwork.ingestion.uploads import FileTooLargeError
 
@@ -28,13 +29,11 @@ UPLOADS_COLLECTION = "uploads"
 @router.get(
     "/documents",
     summary="List the document library",
-    description="Returns every indexed document, in title order.",
+    description="Returns every indexed document the user may read, in title order.",
 )
-async def list_documents(container: ContainerDep) -> list[DocumentResponse]:
-    return [
-        DocumentResponse(**asdict(document), chunks=chunks)
-        for document, chunks in await container.store.documents()
-    ]
+async def list_documents(container: ContainerDep, user: CurrentUser) -> list[DocumentResponse]:
+    documents = await container.store.documents(access=Access.of(user.groups))
+    return [DocumentResponse(**asdict(document), chunks=chunks) for document, chunks in documents]
 
 
 @router.post(

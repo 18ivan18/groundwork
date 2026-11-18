@@ -2,12 +2,14 @@
 
 from collections.abc import AsyncIterator
 from datetime import date
+from urllib.parse import quote
 
 import pytest
 from conftest import empty_database
 
-from groundwork.domain.models import Chunk, DocumentMeta, SearchFilters
-from groundwork.retrieval.indexes import IndexSpec, ensure_index
+from groundwork.db.pool import open_pool
+from groundwork.domain.models import UNRESTRICTED, Access, Chunk, DocumentMeta, SearchFilters
+from groundwork.retrieval.indexes import IndexSpec, ensure_index, hnsw_index_name
 from groundwork.retrieval.memory_store import MemoryStore, memory_index
 from groundwork.retrieval.pgvector_store import PgVectorStore
 from groundwork.retrieval.store import ChunkStore
@@ -81,7 +83,7 @@ async def test_added_chunks_get_ids_from_their_document(store: ChunkStore) -> No
 async def test_search_ranks_by_cosine_similarity(store: ChunkStore) -> None:
     await store.add(meta("acme"), "h1", chunks("east", "north"), [vector(1), vector(0, 1)])
 
-    hits = await store.search(vector(0.2, 1), 2)
+    hits = await store.search(vector(0.2, 1), 2, access=UNRESTRICTED)
 
     assert [hit.chunk.text for hit in hits] == ["north", "east"]
     assert hits[0].similarity == pytest.approx(1 / (1.04**0.5), abs=1e-4)
@@ -92,7 +94,7 @@ async def test_search_returns_at_most_n(store: ChunkStore) -> None:
         meta("acme"), "h1", chunks("a", "b", "c"), [vector(1), vector(1, 1), vector(0, 1)]
     )
 
-    assert len(await store.search(vector(1), 2)) == 2
+    assert len(await store.search(vector(1), 2, access=UNRESTRICTED)) == 2
 
 
 async def test_find_document_needs_the_same_bytes_collection_groups_and_owner(
@@ -140,7 +142,9 @@ async def test_one_file_in_two_collections_is_two_documents(store: ChunkStore) -
 async def test_get_returns_requested_chunks_and_skips_unknown_ids(store: ChunkStore) -> None:
     document = await store.add(meta("acme"), "h1", chunks("a", "b"), [vector(1)] * 2)
 
-    found = await store.get([f"{document.doc_id}:1", f"{document.doc_id}:9", "999:0"])
+    found = await store.get(
+        [f"{document.doc_id}:1", f"{document.doc_id}:9", "999:0"], access=UNRESTRICTED
+    )
 
     assert list(found) == [f"{document.doc_id}:1"]
     assert found[f"{document.doc_id}:1"][0].text == "b"
@@ -170,7 +174,7 @@ async def test_filters_narrow_search_and_matching_ids(store: ChunkStore) -> None
         SearchFilters(metadata={"ticker": "ACME"}),
     ]
     for filters in cases:
-        hits = await store.search(vector(1), 10, filters)
+        hits = await store.search(vector(1), 10, filters, access=UNRESTRICTED)
         assert [hit.chunk.chunk_id for hit in hits] == [only_acme], filters
         assert await store.matching_ids(filters) == {only_acme}, filters
 
@@ -179,7 +183,9 @@ async def test_documents_lists_chunk_counts_by_title(store: ChunkStore) -> None:
     await store.add(meta("zeta"), "h1", chunks("a"), [vector(1)])
     await store.add(meta("alpha"), "h2", chunks("a", "b"), [vector(1)] * 2)
 
-    listed = [(document.title, count) for document, count in await store.documents()]
+    listed = [
+        (document.title, count) for document, count in await store.documents(access=UNRESTRICTED)
+    ]
 
     assert listed == [("alpha", 2), ("zeta", 1)]
     assert await store.count_documents() == 2
@@ -193,7 +199,7 @@ async def test_count_document_chunks(store: ChunkStore) -> None:
 
 
 async def test_an_empty_store_finds_nothing(store: ChunkStore) -> None:
-    assert await store.search(vector(1), 5) == []
+    assert await store.search(vector(1), 5, access=UNRESTRICTED) == []
     assert await store.all_passages() == []
     assert await store.count_chunks() == 0
 
@@ -201,3 +207,48 @@ async def test_an_empty_store_finds_nothing(store: ChunkStore) -> None:
 async def test_a_chunk_count_must_match_its_embeddings(store: ChunkStore) -> None:
     with pytest.raises(ValueError, match="one embedding"):
         await store.add(meta("acme"), "h1", chunks("a", "b"), [vector(1)])
+
+
+def graph_only(database_url: str) -> str:
+    """The test database, with every session forced through the HNSW index and searching only
+    10 neighbours, as a much larger table would be. Without a sort, the btree on index_id cannot
+    order by distance, so it cannot compete whatever the statistics say."""
+    options = quote(
+        "-c enable_seqscan=off -c enable_bitmapscan=off -c enable_sort=off -c hnsw.ef_search=10"
+    )
+    return f"{database_url}{'&' if '?' in database_url else '?'}options={options}"
+
+
+@pytest.mark.db
+async def test_a_restrictive_filter_still_returns_n_rows(database_url: str) -> None:
+    """#39. 200 chunks everyone may read sit next to the query; 10 hr chunks are further away.
+    HNSW finds its ef_search nearest neighbours and filters after: an hr-only user gets fewer
+    than 10 rows unless pgvector keeps scanning (hnsw.iterative_scan)."""
+    hr_only = Access.of({"hr"})
+    query = [1.0, 0.0, 0.0, 0.0]
+    async with empty_database(database_url) as setup:
+        spec = IndexSpec(name="acl", chunker="window", embedder_model="fake", dimension=DIMENSION)
+        index = await ensure_index(setup, spec)
+        writer = PgVectorStore(setup, index)
+        near = [[1.0, 0.01 * i, 0.001 * (i % 7), 0.0] for i in range(200)]
+        await writer.add(meta("everyone"), "e", chunks(*["e"] * 200), near)
+        far = [[0.3, 1.0, 0.01 * i, 0.0] for i in range(10)]
+        await writer.add(meta("salaries", groups=("hr",)), "h", chunks(*["h"] * 10), far)
+
+    pool = await open_pool(graph_only(database_url))
+    try:
+        store = PgVectorStore(pool, index)
+        sql, params = store.search_sql(query, 10, None, hr_only)
+        async with pool.connection() as connection, connection.transaction():
+            await connection.execute("SET LOCAL hnsw.iterative_scan = off")
+            plan = await connection.execute("EXPLAIN " + sql, params)
+            assert hnsw_index_name(index.id) in str(await plan.fetchall())
+            without = await (await connection.execute(sql, params)).fetchall()
+
+        hits = await store.search(query, 10, access=hr_only)
+    finally:
+        await pool.close()
+
+    assert len(without) < 10
+    assert len(hits) == 10
+    assert {hit.document.title for hit in hits} == {"salaries"}

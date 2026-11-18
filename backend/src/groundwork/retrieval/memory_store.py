@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 import numpy as np
 
 from groundwork.domain.models import (
+    UNRESTRICTED,
+    Access,
     Chunk,
     Document,
     DocumentMeta,
@@ -91,32 +93,40 @@ class MemoryStore:
         return {document.doc_id: document for document in self._documents.values()}
 
     def _passages(
-        self, filters: SearchFilters | None = None
+        self, filters: SearchFilters | None = None, access: Access = UNRESTRICTED
     ) -> list[tuple[Chunk, Document, np.ndarray]]:
         documents = self._by_id()
         return [
             (chunk, documents[doc_id], vector)
             for doc_id, items in sorted(self._chunks.items(), key=lambda item: int(item[0]))
             if matches(documents[doc_id], filters)
+            and access.allows(documents[doc_id].access_groups)
             for chunk, vector in items
         ]
 
     async def search(
-        self, query_embedding: Sequence[float], n: int, filters: SearchFilters | None = None
+        self,
+        query_embedding: Sequence[float],
+        n: int,
+        filters: SearchFilters | None = None,
+        *,
+        access: Access,
     ) -> list[DenseHit]:
         query = _unit(query_embedding)
         scored = [
             DenseHit(chunk, document, similarity=float(vector @ query))
-            for chunk, document, vector in self._passages(filters)
+            for chunk, document, vector in self._passages(filters, access)
         ]
         # sorted() is stable, so ties keep document then chunk order.
         return sorted(scored, key=lambda hit: -hit.similarity)[:n]
 
-    async def get(self, chunk_ids: Sequence[str]) -> dict[str, tuple[Chunk, Document]]:
+    async def get(
+        self, chunk_ids: Sequence[str], *, access: Access
+    ) -> dict[str, tuple[Chunk, Document]]:
         wanted = set(chunk_ids)
         return {
             chunk.chunk_id: (chunk, document)
-            for chunk, document, _ in self._passages()
+            for chunk, document, _ in self._passages(access=access)
             if chunk.chunk_id in wanted
         }
 
@@ -126,10 +136,14 @@ class MemoryStore:
     async def matching_ids(self, filters: SearchFilters) -> set[str]:
         return {chunk.chunk_id for chunk, _, _ in self._passages(filters)}
 
-    async def documents(self) -> list[tuple[Document, int]]:
+    async def documents(self, *, access: Access) -> list[tuple[Document, int]]:
         documents = self._by_id()
         return sorted(
-            ((documents[doc_id], len(items)) for doc_id, items in self._chunks.items() if items),
+            (
+                (documents[doc_id], len(items))
+                for doc_id, items in self._chunks.items()
+                if items and access.allows(documents[doc_id].access_groups)
+            ),
             key=lambda item: (item[0].title, int(item[0].doc_id)),
         )
 

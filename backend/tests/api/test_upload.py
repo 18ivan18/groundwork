@@ -11,7 +11,7 @@ from pdf_builder import make_pdf
 
 from groundwork.api.deps import get_upload_service
 from groundwork.container import Container
-from groundwork.domain.models import ScoredPassage, SearchFilters
+from groundwork.domain.models import UNRESTRICTED, Access, ScoredPassage, SearchFilters
 from groundwork.ingestion import pipeline
 from groundwork.ingestion.jobs import Job
 from groundwork.ingestion.uploads import UploadService
@@ -53,8 +53,10 @@ class Harness:
         k: int,
         filters: SearchFilters | None = None,
         mode: SearchMode = "reranked",
+        *,
+        access: Access = UNRESTRICTED,
     ) -> list[ScoredPassage]:
-        return asyncio.run(self.retriever.search(query, k, filters, mode))
+        return asyncio.run(self.retriever.search(query, k, filters, mode, access=access))
 
     def count_chunks(self) -> int:
         return asyncio.run(self.store.count_chunks())

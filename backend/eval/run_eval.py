@@ -40,7 +40,8 @@ from tsrank import ts_rank_search
 from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
 from groundwork.db.pool import Pool, open_pool
-from groundwork.domain.models import Document, ScoredPassage
+from groundwork.domain.models import Access, Document, ScoredPassage
+from groundwork.domain.users import access_for, load_users
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.ingestion.pipeline import ingest_file
@@ -91,7 +92,7 @@ class Question(BaseModel):
     # Facts the answer must state, each a case-insensitive pattern whose alternatives are
     # accepted ways of writing it. Used by run_answer_eval.py.
     expected: tuple[str, ...] = ()
-    # Who asks: a user from conf/users.yaml. Access is enforced from M3.
+    # Who asks: a user from conf/users.yaml. Retrieval searches only what they may read.
     user: str = "alice"
     # For unanswerable questions: a pattern that must not occur anywhere in the collection, which
     # proves the answer is not there.
@@ -439,6 +440,12 @@ def baseline_check(
     return failures
 
 
+def question_access(settings: Settings, questions: Sequence[Question]) -> dict[str, Access]:
+    """What each question's user may read: the evaluation searches as they would."""
+    users = load_users(settings.users_file)
+    return {q.id: access_for(users, q.user) for q in questions}
+
+
 async def ci(update_baseline: bool) -> int:
     settings = Settings()
     questions = [
@@ -460,9 +467,10 @@ async def ci(update_baseline: bool) -> int:
             pool, settings, entries, embedder, settings.chunk_tokens, exact=True, prefix="ci"
         )
         retriever = await build_retriever(settings, store, embedder, build_reranker(settings))
+        access = question_access(settings, answerable)
         found: dict[str, list[EvidenceRanks]] = {}
         for q in answerable:
-            passages = await retriever.search(q.question, settings.top_k)
+            passages = await retriever.search(q.question, settings.top_k, access=access[q.id])
             found.setdefault(q.collection, []).append(evidence_ranks(passages, q, keys))
     finally:
         await pool.close()
@@ -500,6 +508,7 @@ async def main() -> None:
     gate_sections: list[str] = []
     latencies: list[str] = []
     ts_rows: list[Row] = []
+    access = question_access(settings, questions)
     pool = await open_pool(settings.database_url)
     for chunk_tokens in CHUNK_SIZES:
         dense = await eval_store(pool, settings, entries, embedder, chunk_tokens)
@@ -511,7 +520,9 @@ async def main() -> None:
             seconds = []
             for q in answerable:
                 started = time.perf_counter()
-                passages = await retriever.search(q.question, max(K_VALUES), mode=mode)
+                passages = await retriever.search(
+                    q.question, max(K_VALUES), mode=mode, access=access[q.id]
+                )
                 seconds.append(time.perf_counter() - started)
                 found.append(evidence_ranks(passages, q, keys))
             ranks = [first_hit(evidence) for evidence in found]
@@ -536,7 +547,9 @@ async def main() -> None:
             candidate_rows.append((chunk_tokens, name, candidates))
 
         ts_found = [
-            evidence_ranks(await ts_rank_search(dense, q.question, max(K_VALUES)), q, keys)
+            evidence_ranks(
+                await ts_rank_search(dense, q.question, max(K_VALUES), access[q.id]), q, keys
+            )
             for q in answerable
         ]
         for name, positions in sets.items():
@@ -545,7 +558,7 @@ async def main() -> None:
 
         top: dict[str, float] = {}
         for q in questions:
-            [hit] = await dense.search(embedder.embed_query(q.question), 1)
+            [hit] = await dense.search(embedder.embed_query(q.question), 1, access=access[q.id])
             top[q.id] = hit.similarity
         kept = [top[q.id] for q in answerable]
         off_topic = [top[q.id] for q in questions if q.type == "unanswerable_off_topic"]

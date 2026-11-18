@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, replace
 from typing import Literal
 
-from groundwork.domain.models import ScoredPassage, SearchFilters
+from groundwork.domain.models import Access, ScoredPassage, SearchFilters
 from groundwork.llm.base import ChatMessage, LLMClient
 from groundwork.qa.citations import validate
 from groundwork.qa.prompt import INSUFFICIENT_EVIDENCE, SYSTEM_PROMPT, build_user_message
@@ -81,11 +81,18 @@ class QAService:
         self._max_tokens = max_tokens
 
     async def ask(
-        self, question: str, filters: SearchFilters | None = None, top_k: int | None = None
+        self,
+        question: str,
+        filters: SearchFilters | None = None,
+        top_k: int | None = None,
+        *,
+        access: Access,
     ) -> Answer:
-        """Answer from the indexed documents. Raises LLMError if the provider fails."""
+        """Answer from the documents `access` may read. Raises LLMError if the provider fails."""
         started = time.perf_counter()
-        result = await self._retriever.retrieve(question, top_k or self._top_k, filters)
+        result = await self._retriever.retrieve(
+            question, top_k or self._top_k, filters, access=access
+        )
         passages = tuple(result.passages)
         retrieval_ms = _elapsed_ms(started)
 

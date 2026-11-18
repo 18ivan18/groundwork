@@ -15,6 +15,8 @@ from psycopg.types.json import Jsonb
 
 from groundwork.db.pool import Pool
 from groundwork.domain.models import (
+    UNRESTRICTED,
+    Access,
     Chunk,
     Document,
     DocumentMeta,
@@ -66,12 +68,18 @@ def _passage(row: Sequence[Any]) -> tuple[Chunk, Document]:
     return chunk, document
 
 
-def _filter_sql(filters: SearchFilters | None) -> tuple[str, list[Any]]:
-    """Extra `AND` clauses on `chunks c`, with their parameters."""
-    if filters is None:
-        return "", []
+def _filter_sql(
+    filters: SearchFilters | None, access: Access = UNRESTRICTED
+) -> tuple[str, list[Any]]:
+    """Extra `AND` clauses on `chunks c`, with their parameters. The groups are checked on the
+    copy in `chunks`, so the ACL runs in the vector query itself."""
     clauses: list[str] = []
     params: list[Any] = []
+    if access.groups is not None:
+        clauses.append("c.access_groups && %s::text[]")
+        params.append(sorted(access.groups))
+    if filters is None:
+        return "".join(f" AND {clause}" for clause in clauses), params
     if filters.collections:
         clauses.append("c.collection_id = ANY(%s)")
         params.append(list(filters.collections))
@@ -208,7 +216,11 @@ class PgVectorStore:
         return _document(row)
 
     def search_sql(
-        self, query_embedding: Sequence[float], n: int, filters: SearchFilters | None = None
+        self,
+        query_embedding: Sequence[float],
+        n: int,
+        filters: SearchFilters | None = None,
+        access: Access = UNRESTRICTED,
     ) -> tuple[str, list[Any]]:
         """The vector query and its parameters. Public so tests and docs/RETRIEVAL.md can EXPLAIN
         exactly what `search` runs.
@@ -219,7 +231,7 @@ class PgVectorStore:
         unknown, Postgres keeps re-planning every search rather than use a generic plan; with it
         written in, the generic plan uses the index and planning is skipped (docs/RETRIEVAL.md).
         Both are ints from this code, never user input."""
-        where, params = _filter_sql(filters)
+        where, params = _filter_sql(filters, access)
         cast = vector_cast(self._index, "c")
         query = np.asarray(query_embedding, dtype=np.float32)
         sql = (
@@ -232,15 +244,21 @@ class PgVectorStore:
         return sql, [query, *params]
 
     async def search(
-        self, query_embedding: Sequence[float], n: int, filters: SearchFilters | None = None
+        self,
+        query_embedding: Sequence[float],
+        n: int,
+        filters: SearchFilters | None = None,
+        *,
+        access: Access,
     ) -> list[DenseHit]:
-        sql, params = self.search_sql(query_embedding, n, filters)
+        sql, params = self.search_sql(query_embedding, n, filters, access)
         async with self._pool.connection() as connection, connection.transaction():
             if self._exact:
                 await connection.execute("SET LOCAL enable_indexscan = off")
-            elif filters is not None:
+            elif filters is not None or access.groups is not None:
                 # pgvector 0.8: keep scanning the graph until n rows pass the filter, rather than
-                # filtering the first ef_search rows and returning fewer than n.
+                # filtering the first ef_search rows and returning fewer than n
+                # (test_a_restrictive_filter_still_returns_n_rows).
                 await connection.execute("SET LOCAL hnsw.iterative_scan = strict_order")
             cursor = await connection.execute(sql, params)
             rows = await cursor.fetchall()
@@ -250,18 +268,21 @@ class PgVectorStore:
             hits.append(DenseHit(chunk, document, similarity=1.0 - float(row[16])))
         return hits
 
-    async def get(self, chunk_ids: Sequence[str]) -> dict[str, tuple[Chunk, Document]]:
+    async def get(
+        self, chunk_ids: Sequence[str], *, access: Access
+    ) -> dict[str, tuple[Chunk, Document]]:
         if not chunk_ids:
             return {}
         keys = [parse_chunk_id(chunk_id) for chunk_id in chunk_ids]
+        where, params = _filter_sql(None, access)
         async with self._pool.connection() as connection:
             cursor = await connection.execute(
                 f"SELECT {_DOCUMENT_COLUMNS}, {_CHUNK_COLUMNS} FROM chunks c "
                 f"JOIN documents d ON d.id = c.document_id "
                 f"JOIN unnest(%s::bigint[], %s::int[]) AS k(document_id, ordinal) "
                 f"ON k.document_id = c.document_id AND k.ordinal = c.ordinal "
-                f"WHERE c.index_id = {self._id}",
-                ([int(doc_id) for doc_id, _ in keys], [ordinal for _, ordinal in keys]),
+                f"WHERE c.index_id = {self._id}{where}",
+                [[int(doc_id) for doc_id, _ in keys], [ordinal for _, ordinal in keys], *params],
             )
             rows = await cursor.fetchall()
         passages = [_passage(row) for row in rows]
@@ -288,12 +309,14 @@ class PgVectorStore:
             rows = await cursor.fetchall()
         return {make_chunk_id(str(doc_id), ordinal) for doc_id, ordinal in rows}
 
-    async def documents(self) -> list[tuple[Document, int]]:
+    async def documents(self, *, access: Access) -> list[tuple[Document, int]]:
+        where, params = _filter_sql(None, access)
         async with self._pool.connection() as connection:
             cursor = await connection.execute(
                 f"SELECT {_DOCUMENT_COLUMNS}, count(*) FROM documents d "
-                f"JOIN chunks c ON c.document_id = d.id AND c.index_id = {self._id} "
-                f"GROUP BY d.id ORDER BY d.title, d.id"
+                f"JOIN chunks c ON c.document_id = d.id AND c.index_id = {self._id}{where} "
+                f"GROUP BY d.id ORDER BY d.title, d.id",
+                params,
             )
             rows = await cursor.fetchall()
         return [(_document(row[:10]), int(row[10])) for row in rows]
