@@ -2,8 +2,6 @@
 // and the response types in types.ts are inferred from them, so the two cannot disagree.
 import { z } from "zod";
 
-export const DocTypeSchema = z.enum(["10-K", "10-Q", "8-K", "earnings_call", "news", "other"]);
-export const DocSourceSchema = z.enum(["edgar", "upload"]);
 export const JobStatusSchema = z.enum(["queued", "parsing", "embedding", "indexed", "failed"]);
 
 export const HealthSchema = z.object({
@@ -22,11 +20,10 @@ export const ClientConfigSchema = z.object({
 export const LibraryDocumentSchema = z.object({
   doc_id: z.string(),
   title: z.string(),
-  company: z.string(),
-  ticker: z.string().nullable(),
-  doc_type: DocTypeSchema,
-  period_end: z.string().nullable(),
-  source: DocSourceSchema,
+  collection_id: z.string(),
+  doc_type: z.string(),
+  doc_date: z.string().nullable(),
+  metadata: z.record(z.string(), z.string()),
   filename: z.string(),
   ingested_at: z.string(),
   chunks: z.number(),
@@ -35,9 +32,10 @@ export const LibraryDocumentSchema = z.object({
 export const PassageSchema = z.object({
   doc_id: z.string(),
   title: z.string(),
-  ticker: z.string().nullable(),
-  doc_type: DocTypeSchema,
-  period_end: z.string().nullable(),
+  collection_id: z.string(),
+  doc_type: z.string(),
+  doc_date: z.string().nullable(),
+  metadata: z.record(z.string(), z.string()),
   section: z.string().nullable(),
   page: z.number().nullable(),
   excerpt: z.string(),

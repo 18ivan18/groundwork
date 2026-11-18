@@ -4,9 +4,10 @@ export function makePassage(number: number): Passage {
   return {
     doc_id: "doc",
     title: "ACME Corp · Form 10-K",
-    ticker: "ACME",
+    collection_id: "sec-10k",
     doc_type: "10-K",
-    period_end: "2025-09-27",
+    doc_date: "2025-09-27",
+    metadata: { company: "ACME Corp", ticker: "ACME" },
     section: "Item 1 — Business",
     page: null,
     excerpt: `Anvil fact ${number}.`,

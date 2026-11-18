@@ -8,11 +8,10 @@ import type { LibraryDocument } from "./types";
 const DOCUMENT: LibraryDocument = {
   doc_id: "doc",
   title: "ACME Corp · Form 10-K",
-  company: "ACME Corp",
-  ticker: "ACME",
+  collection_id: "sec-10k",
   doc_type: "10-K",
-  period_end: "2025-09-27",
-  source: "edgar",
+  doc_date: "2025-09-27",
+  metadata: { company: "ACME Corp", ticker: "ACME" },
   filename: "acme.txt",
   ingested_at: "2025-11-01T09:30:00Z",
   chunks: 12,
@@ -122,15 +121,16 @@ describe("api client", () => {
     expect((await failure(getDocuments)).message).toContain("could not be read");
   });
 
-  it("leaves an empty period out of an upload", async () => {
+  it("leaves an empty date out of an upload", async () => {
     const mock = stubFetch(json({ job_id: "j", doc_id: "d" }, 202));
     const file = new File(["text"], "notes.txt");
 
-    await uploadDocument(file, { company: "ACME", doc_type: "other", period_end: "" });
+    await uploadDocument(file, { collection: "uploads", doc_type: "notes", doc_date: "" });
 
     const [, init] = mock.mock.calls[0] as unknown as [string, RequestInit];
     const form = init.body as FormData;
-    expect(form.get("company")).toBe("ACME");
-    expect(form.has("period_end")).toBe(false);
+    expect(form.get("collection")).toBe("uploads");
+    expect(form.get("doc_type")).toBe("notes");
+    expect(form.has("doc_date")).toBe(false);
   });
 });

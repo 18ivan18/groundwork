@@ -4,7 +4,6 @@ import { useRef, useState, type DragEvent } from "react";
 
 import { getConfig } from "@/api/client";
 import type { UploadTags } from "@/api/types";
-import { NativeSelect } from "@/components/NativeSelect";
 import { UploadQueueItem } from "@/components/UploadQueueItem";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,10 +16,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UploadQueue } from "@/hooks/useUploadQueue";
-import { DOC_TYPES, docTypeLabel, plural, uploadLimits } from "@/lib/format";
+import { plural, uploadLimits } from "@/lib/format";
 
 const FIELD_LABEL = "text-[13px] font-normal text-muted-foreground";
 const FIELD_INPUT = "h-11 rounded-lg border-input bg-card";
+// The API's rule for collection ids: lowercase words joined by hyphens.
+const COLLECTION_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/** Why the tags can't be uploaded yet, or null when they can. */
+function tagProblem(tags: UploadTags): string | null {
+  if (!COLLECTION_ID.test(tags.collection.trim())) {
+    return "Name the collection in lowercase words joined by hyphens, such as team-notes.";
+  }
+  if (!tags.doc_type.trim()) return "Enter a document type to upload.";
+  return null;
+}
 
 interface UploadDialogProps {
   open: boolean;
@@ -29,14 +39,14 @@ interface UploadDialogProps {
 }
 
 export function UploadDialog({ open, onOpenChange, queue }: UploadDialogProps) {
-  const [tags, setTags] = useState<UploadTags>({ company: "", doc_type: "other", period_end: "" });
+  const [tags, setTags] = useState<UploadTags>({ collection: "uploads", doc_type: "", doc_date: "" });
   // The server's limits only change on a restart. Until they load, any file can be picked: the
   // upload endpoint checks the same limits itself.
   const config = useQuery({ queryKey: ["config"], queryFn: getConfig, staleTime: Infinity });
   // Radix only returns focus to a DialogTrigger, and this dialog opens from more than one place.
   const opener = useRef<HTMLElement | null>(null);
   const readyCount = queue.rows.filter((row) => row.view.kind === "ready").length;
-  const missingCompany = !tags.company.trim();
+  const problem = tagProblem(tags);
 
   function handleDrop(event: DragEvent) {
     event.preventDefault();
@@ -117,15 +127,15 @@ export function UploadDialog({ open, onOpenChange, queue }: UploadDialogProps) {
         <fieldset className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
           <legend className="pb-2.5 text-sm font-semibold">Tags for filtering and citations</legend>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="company" className={FIELD_LABEL}>
-              Company or ticker
+            <Label htmlFor="collection" className={FIELD_LABEL}>
+              Collection
             </Label>
             <Input
-              id="company"
+              id="collection"
               required
-              maxLength={200}
-              value={tags.company}
-              onChange={(event) => setTags({ ...tags, company: event.target.value })}
+              maxLength={40}
+              value={tags.collection}
+              onChange={(event) => setTags({ ...tags, collection: event.target.value })}
               className={FIELD_INPUT}
             />
           </div>
@@ -133,29 +143,25 @@ export function UploadDialog({ open, onOpenChange, queue }: UploadDialogProps) {
             <Label htmlFor="doctype" className={FIELD_LABEL}>
               Document type
             </Label>
-            <NativeSelect
+            <Input
               id="doctype"
+              required
+              maxLength={50}
+              placeholder="runbook, policy, report…"
               value={tags.doc_type}
-              onChange={(event) =>
-                setTags({ ...tags, doc_type: event.target.value as UploadTags["doc_type"] })
-              }
-            >
-              {DOC_TYPES.map((docType) => (
-                <option key={docType} value={docType}>
-                  {docTypeLabel(docType)}
-                </option>
-              ))}
-            </NativeSelect>
+              onChange={(event) => setTags({ ...tags, doc_type: event.target.value })}
+              className={FIELD_INPUT}
+            />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="period" className={FIELD_LABEL}>
-              Period end
+            <Label htmlFor="docdate" className={FIELD_LABEL}>
+              Date
             </Label>
             <Input
-              id="period"
+              id="docdate"
               type="date"
-              value={tags.period_end}
-              onChange={(event) => setTags({ ...tags, period_end: event.target.value })}
+              value={tags.doc_date}
+              onChange={(event) => setTags({ ...tags, doc_date: event.target.value })}
               className={FIELD_INPUT}
             />
           </div>
@@ -174,8 +180,8 @@ export function UploadDialog({ open, onOpenChange, queue }: UploadDialogProps) {
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <p className="text-xs text-muted-foreground">
-            {readyCount > 0 && missingCompany
-              ? "Enter a company or ticker to upload."
+            {readyCount > 0 && problem
+              ? problem
               : "You can close this window. Indexing continues in the background."}
           </p>
           <div className="flex gap-2.5">
@@ -184,8 +190,14 @@ export function UploadDialog({ open, onOpenChange, queue }: UploadDialogProps) {
             </Button>
             {readyCount > 0 ? (
               <Button
-                disabled={missingCompany}
-                onClick={() => void queue.submit({ ...tags, company: tags.company.trim() })}
+                disabled={problem !== null}
+                onClick={() =>
+                  void queue.submit({
+                    ...tags,
+                    collection: tags.collection.trim(),
+                    doc_type: tags.doc_type.trim(),
+                  })
+                }
                 className="font-semibold"
               >
                 Upload {plural(readyCount, "file")}
