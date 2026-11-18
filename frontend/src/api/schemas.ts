@@ -36,7 +36,8 @@ export const PassageSchema = z.object({
   doc_type: z.string(),
   doc_date: z.string().nullable(),
   metadata: z.record(z.string(), z.string()),
-  section: z.string().nullable(),
+  /** Headings the passage sits under, outermost first. */
+  section_path: z.array(z.string()),
   page: z.number().nullable(),
   excerpt: z.string(),
   chunk_id: z.string(),

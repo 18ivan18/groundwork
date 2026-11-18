@@ -16,7 +16,8 @@ from groundwork.domain.models import Chunk, Document, SearchFilters, make_chunk_
 
 COLLECTION = "chunks"
 # Bumped when the metadata stored with each chunk changes shape. 2: generic documents (M1).
-LAYOUT = 2
+# 3: heading paths instead of one section title (M1).
+LAYOUT = 3
 
 
 class EmbeddingModelMismatchError(ValueError):
@@ -53,7 +54,8 @@ def _to_metadata(document: Document, chunk: Chunk) -> dict[str, str | int]:
         "access_groups": json.dumps(document.access_groups),
         "owner_id": document.owner_id,
         "ingested_at": document.ingested_at.isoformat(),
-        "section": chunk.section,
+        # JSON keeps a heading that contains the separator apart from the next one.
+        "section_path": json.dumps(chunk.section_path),
         "page": chunk.page,
         "char_start": chunk.char_start,
         "char_end": chunk.char_end,
@@ -69,7 +71,7 @@ def _from_metadata(chunk_id: str, text: str, metadata: Mapping[str, Any]) -> tup
         chunk_id=chunk_id,
         doc_id=metadata["doc_id"],
         text=text,
-        section=metadata.get("section"),
+        section_path=tuple(json.loads(metadata["section_path"])),
         page=metadata.get("page"),
         char_start=metadata["char_start"],
         char_end=metadata["char_end"],

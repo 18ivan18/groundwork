@@ -4,7 +4,7 @@ import html
 import re
 from collections.abc import Sequence
 
-from groundwork.domain.models import ScoredPassage
+from groundwork.domain.models import ScoredPassage, section_label
 
 INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
 
@@ -33,8 +33,8 @@ def passage_source(passage: ScoredPassage) -> str:
     parts = [f"{name} {document.doc_type}"]
     if document.doc_date:
         parts.append(f"period ending {document.doc_date.isoformat()}")
-    if passage.chunk.section:
-        parts.append(passage.chunk.section)
+    if section := section_label(passage.chunk):
+        parts.append(section)
     return ", ".join(parts)
 
 

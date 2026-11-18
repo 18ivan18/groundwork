@@ -11,7 +11,7 @@ from groundwork.retrieval.embedder import FakeEmbedder
 
 def add(app: FastAPI, doc_id: str, title: str, chunks: int) -> None:
     container: Container = app.state.container
-    items = [Chunk(f"{doc_id}:{i}", doc_id, "anvils", None, None, 0, 6) for i in range(chunks)]
+    items = [Chunk(f"{doc_id}:{i}", doc_id, "anvils", (), None, 0, 6) for i in range(chunks)]
     vectors = FakeEmbedder().embed_documents(["anvils"] * chunks)
     container.dense_index.add(replace(DOCUMENT, doc_id=doc_id, title=title), items, vectors)
 

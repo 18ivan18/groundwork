@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from groundwork.domain.models import Chunk, make_chunk_id
-from groundwork.ingestion.sections import Section
+from groundwork.ingestion.structure import Section
 
 MIN_CHUNK_TOKENS = 30
 
@@ -115,7 +115,7 @@ def chunk_document(
                     chunk_id=make_chunk_id(doc_id, len(chunks)),
                     doc_id=doc_id,
                     text=text[start:end],
-                    section=section.title,
+                    section_path=section.path,
                     page=None,
                     char_start=start,
                     char_end=end,

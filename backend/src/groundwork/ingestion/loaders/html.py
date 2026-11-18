@@ -7,11 +7,12 @@ not reach the passages. Hidden elements go before any text is read.
 
 import re
 import warnings
+from dataclasses import dataclass
 
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 from bs4.element import Comment, NavigableString, Tag
 
-from groundwork.ingestion.loaders.base import CELL_SEPARATOR, LoadedDocument
+from groundwork.ingestion.loaders.base import CELL_SEPARATOR, Heading, LoadedDocument
 
 # Elements that start a new paragraph. Every other element is inline, and its text joins the
 # text around it with no space added: filings split single words across spans ("ITEM 1. B",
@@ -35,13 +36,24 @@ _PAGE_NUMBER = re.compile(r"^\d{1,3}$")
 # paragraphs or as two spans spaced apart by CSS alone.
 _BULLET = re.compile(r"^[•●◦▪■]$")
 _BULLET_TOUCHING_TEXT = re.compile(r"^([•●◦▪■])(?=\S)", re.MULTILINE)
+# Headings that structure detection uses. h5 and h6 are usually styled labels, not sections.
+_HEADING_LEVELS = {"h1": 1, "h2": 2, "h3": 3, "h4": 4}
+_PARAGRAPH_BREAK = "\n\n"
+
+
+@dataclass(frozen=True)
+class _Block:
+    text: str
+    # The heading level when the block is an h1-h4 element, else None.
+    heading: int | None = None
 
 
 class _TextBuilder:
     """Collects text into paragraphs, collapsing whitespace the way a browser does."""
 
     def __init__(self) -> None:
-        self.blocks: list[str] = []
+        self.blocks: list[_Block] = []
+        self.heading: int | None = None
         self._inline: list[str] = []
 
     def add_inline(self, text: str) -> None:
@@ -54,12 +66,12 @@ class _TextBuilder:
         self._inline = []
         block = "\n".join(line for line in lines if line)
         if block:
-            self.blocks.append(block)
+            self.blocks.append(_Block(block, self.heading))
 
     def add_block(self, block: str) -> None:
         self.end_block()
         if block:
-            self.blocks.append(block)
+            self.blocks.append(_Block(block))
 
 
 def _is_hidden(tag: Tag) -> bool:
@@ -89,6 +101,12 @@ def _walk(node: Tag, builder: _TextBuilder) -> None:
                 builder.add_block(_render_table(child))
             elif child.name == "br":
                 builder.add_inline("\n")
+            elif child.name in _HEADING_LEVELS:
+                builder.end_block()
+                builder.heading = _HEADING_LEVELS[child.name]
+                _walk(child, builder)
+                builder.end_block()
+                builder.heading = None
             elif child.name in _BLOCK_TAGS:
                 builder.end_block()
                 _walk(child, builder)
@@ -101,7 +119,7 @@ def _cell_text(cell: Tag) -> str:
     builder = _TextBuilder()
     _walk(cell, builder)
     builder.end_block()
-    return " ".join(" ".join(builder.blocks).split())
+    return " ".join(" ".join(block.text for block in builder.blocks).split())
 
 
 def _merge_symbols(cells: list[str]) -> list[str]:
@@ -134,22 +152,23 @@ def _render_table(table: Tag) -> str:
     return "\n".join(rows)
 
 
-def _tidy(blocks: list[str]) -> list[str]:
+def _tidy(blocks: list[_Block]) -> list[_Block]:
     """Drop page numbers and join each lone bullet to the paragraph it marks."""
-    tidied: list[str] = []
+    tidied: list[_Block] = []
     bullet = ""
     for block in blocks:
-        if _PAGE_NUMBER.match(block):
+        if _PAGE_NUMBER.match(block.text):
             continue
-        if _BULLET.match(block):
-            bullet = f"{block} "
+        if _BULLET.match(block.text):
+            bullet = f"{block.text} "
             continue
-        tidied.append(bullet + _BULLET_TOUCHING_TEXT.sub(r"\1 ", block))
+        text = bullet + _BULLET_TOUCHING_TEXT.sub(r"\1 ", block.text)
+        tidied.append(_Block(text, block.heading))
         bullet = ""
     return tidied
 
 
-def html_to_text(raw: bytes) -> str:
+def _parse(raw: bytes) -> tuple[str, tuple[Heading, ...]]:
     with warnings.catch_warnings():
         # Inline XBRL opens with an XML declaration. The HTML parser is still the right one: it
         # tolerates the malformed markup that ordinary uploaded HTML often has.
@@ -159,8 +178,21 @@ def html_to_text(raw: bytes) -> str:
     builder = _TextBuilder()
     _walk(soup, builder)
     builder.end_block()
-    return "\n\n".join(_tidy(builder.blocks))
+    blocks = _tidy(builder.blocks)
+    headings = []
+    position = 0
+    for block in blocks:
+        if block.heading is not None:
+            # A heading with a <br> spans lines; its title reads as one.
+            headings.append(Heading(block.heading, " ".join(block.text.split()), position))
+        position += len(block.text) + len(_PARAGRAPH_BREAK)
+    return _PARAGRAPH_BREAK.join(block.text for block in blocks), tuple(headings)
+
+
+def html_to_text(raw: bytes) -> str:
+    return _parse(raw)[0]
 
 
 def load_html(raw: bytes) -> LoadedDocument:
-    return LoadedDocument(text=html_to_text(raw))
+    text, headings = _parse(raw)
+    return LoadedDocument(text=text, headings=headings)

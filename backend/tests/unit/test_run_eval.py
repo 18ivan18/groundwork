@@ -27,7 +27,7 @@ def passage(text: str, ticker: str = "ACME", period_end: str = "2025-01-31") -> 
         doc_id="d",
         ingested_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
-    chunk = Chunk("d:0", "d", text, None, None, 0, 1)
+    chunk = Chunk("d:0", "d", text, (), None, 0, 1)
     return ScoredPassage(chunk, document, 1, 1, 0.1, 0.5)
 
 

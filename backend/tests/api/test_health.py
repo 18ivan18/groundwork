@@ -40,7 +40,7 @@ def test_health_counts_what_is_indexed(tmp_path: Path) -> None:
         doc_id="doc",
         ingested_at=datetime.now(UTC),
     )
-    chunks = [Chunk(f"doc:{i}", "doc", "anvils", None, None, 0, 6) for i in range(2)]
+    chunks = [Chunk(f"doc:{i}", "doc", "anvils", (), None, 0, 6) for i in range(2)]
     container.dense_index.add(document, chunks, FakeEmbedder().embed_documents(["a", "b"]))
 
     body = client.get("/api/health").json()

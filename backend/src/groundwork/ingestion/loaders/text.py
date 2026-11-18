@@ -2,7 +2,7 @@
 
 import re
 
-from groundwork.ingestion.loaders.base import LoadedDocument
+from groundwork.ingestion.loaders.base import Heading, LoadedDocument
 
 # Metadata lines that open an EDGAR document, such as "<FILENAME>d10k.txt".
 _EDGAR_HEADER_LINE = re.compile(r"^<(?:TYPE|SEQUENCE|FILENAME|DESCRIPTION)>.*\n?", re.MULTILINE)
@@ -13,6 +13,10 @@ _PAGE_NUMBER = re.compile(r"^[ \t]+\d{1,3}[ \t]*\n\s*(?=<(?:PAGE|/TEXT)>)", re.M
 _RULE_LINE = re.compile(r"^[ \t]*[-=_]{3,}[-=_ \t]*$", re.MULTILINE)
 _TRAILING_SPACE = re.compile(r"[ \t]+$", re.MULTILINE)
 _EXTRA_BLANK_LINES = re.compile(r"\n{3,}")
+# An ATX heading: up to three spaces, 1-6 hashes, a space, the title, optional closing hashes.
+_ATX_HEADING = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$")
+# A fenced code block opens and closes with ``` or ~~~. A "# comment" inside one is code.
+_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 
 
 def decode_text(raw: bytes) -> str:
@@ -36,6 +40,29 @@ def strip_edgar_markup(text: str) -> str:
     text = _RULE_LINE.sub("", text)
     text = _TRAILING_SPACE.sub("", text)
     return _EXTRA_BLANK_LINES.sub("\n\n", text).strip()
+
+
+def markdown_headings(text: str) -> tuple[Heading, ...]:
+    headings = []
+    fence: str | None = None
+    position = 0
+    for line in text.split("\n"):
+        if fence_match := _FENCE.match(line):
+            marker = fence_match[1]
+            if fence is None:
+                fence = marker
+            elif marker[0] == fence[0] and len(marker) >= len(fence):
+                fence = None
+        elif fence is None and (match := _ATX_HEADING.match(line)):
+            headings.append(Heading(level=len(match[1]), title=match[2].strip(), start=position))
+        position += len(line) + 1
+    return tuple(headings)
+
+
+def load_markdown(raw: bytes) -> LoadedDocument:
+    """The text stays as written, `#` marks included, so cited passages match the file."""
+    text = decode_text(raw)
+    return LoadedDocument(text=text, headings=markdown_headings(text))
 
 
 def load_text(raw: bytes) -> LoadedDocument:

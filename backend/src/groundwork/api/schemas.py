@@ -21,7 +21,7 @@ _EXAMPLE_PASSAGE: dict[str, JsonValue] = {
     "doc_type": "10-K",
     "doc_date": "2025-09-27",
     "metadata": {"company": "ACME Corp", "ticker": "ACME", "form": "10-K"},
-    "section": "Item 1 — Business",
+    "section_path": ["Item 1 — Business"],
     "page": None,
     "excerpt": "ACME Corp sells anvils to blacksmiths.",
     "chunk_id": "9f2c1e7a:4",
@@ -130,7 +130,10 @@ class PassageResponse(BaseModel):
     doc_type: str = Field(description="The kind of document, such as `10-K` or `runbook`.")
     doc_date: date | None = Field(description="The date the document is about, if known.")
     metadata: dict[str, str] = Field(description="Fields only some collections have.")
-    section: str | None = Field(description="The section, such as an Item of a 10-K, if detected.")
+    section_path: list[str] = Field(
+        description="The headings the passage sits under, outermost first, such as an Item of "
+        "a 10-K or a chapter. Empty when it is under none."
+    )
     page: int | None = Field(description="The page number, for formats that have pages.")
     excerpt: str = Field(description="The full passage text, exactly as indexed.")
     chunk_id: str = Field(description="The passage's ID: the doc_id and its position.")

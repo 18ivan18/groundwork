@@ -67,7 +67,8 @@ class Chunk:
     chunk_id: str
     doc_id: str
     text: str
-    section: str | None
+    # The headings the chunk sits under, outermost first. Empty when it is under none.
+    section_path: tuple[str, ...]
     page: int | None
     char_start: int
     char_end: int
@@ -80,8 +81,13 @@ def indexed_text(chunk: Chunk, document: Document) -> str:
     question names, and the same passage from three filings looks alike to both retrievers. The
     title does the same for any document whose text doesn't name its subject.
     """
-    header = " · ".join(part for part in (document.title, chunk.section) if part)
+    header = " · ".join((document.title, *chunk.section_path))
     return f"{header}\n{chunk.text}"
+
+
+def section_label(chunk: Chunk) -> str | None:
+    """The heading path as one line, such as "Install > Linux", or None under no heading."""
+    return " > ".join(chunk.section_path) or None
 
 
 @dataclass(frozen=True)

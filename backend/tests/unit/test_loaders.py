@@ -10,6 +10,7 @@ from groundwork.ingestion.loaders import (
     is_supported,
     load_file,
     load_html,
+    load_markdown,
     load_text,
     loader_for,
     strip_edgar_markup,
@@ -105,7 +106,7 @@ def test_decode_handles_bom_windows_newlines_and_cp1252() -> None:
 
 @pytest.mark.parametrize(
     ("suffix", "loader"),
-    [(".txt", load_text), (".md", load_text), (".htm", load_html), (".html", load_html)],
+    [(".txt", load_text), (".md", load_markdown), (".htm", load_html), (".html", load_html)],
 )
 def test_each_suffix_has_its_loader(suffix: str, loader: object) -> None:
     assert LOADERS[suffix] is loader

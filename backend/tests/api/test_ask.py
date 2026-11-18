@@ -27,7 +27,7 @@ def test_answer_has_the_documented_shape(make_client: ClientFactory) -> None:
             "doc_type": "10-K",
             "doc_date": "2025-09-27",
             "metadata": {"company": "ACME Corp", "ticker": "ACME"},
-            "section": "Item 1 — Business",
+            "section_path": ["Item 1 — Business"],
             "page": None,
             "excerpt": "Anvil fact 2.",
             "chunk_id": "doc:2",

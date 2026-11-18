@@ -1,14 +1,20 @@
 from itertools import pairwise
 
-from groundwork.ingestion.sections import FRONT_MATTER, Section, detect_sections
+from groundwork.ingestion.loaders import LoadedDocument
+from groundwork.ingestion.structure.base import Section
+from groundwork.ingestion.structure.sec import FRONT_MATTER, detect_sec_items
+
+
+def detect_sections(text: str) -> list[Section]:
+    return detect_sec_items(LoadedDocument(text))
 
 
 def titles(text: str) -> list[str | None]:
-    return [section.title for section in detect_sections(text)]
+    return [section.path[0] if section.path else None for section in detect_sections(text)]
 
 
 def test_text_without_headings_is_one_untitled_section() -> None:
-    assert detect_sections("ACME Corp makes anvils.") == [Section(None, 0, 23)]
+    assert detect_sections("ACME Corp makes anvils.") == [Section((), 0, 23)]
 
 
 def test_sections_cover_the_text_without_gaps() -> None:
@@ -74,7 +80,7 @@ def test_contents_entries_are_skipped() -> None:
 
     sections = detect_sections(text)
 
-    assert [s.title for s in sections] == [FRONT_MATTER, "Item 1 — Business", "Item 5 — Market"]
+    assert [s.path[0] for s in sections] == [FRONT_MATTER, "Item 1 — Business", "Item 5 — Market"]
     assert text[sections[1].start :].startswith("Item 1. Business\n\nAnvils")
 
 

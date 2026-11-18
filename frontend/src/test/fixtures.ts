@@ -8,7 +8,7 @@ export function makePassage(number: number): Passage {
     doc_type: "10-K",
     doc_date: "2025-09-27",
     metadata: { company: "ACME Corp", ticker: "ACME" },
-    section: "Item 1 — Business",
+    section_path: ["Item 1 — Business"],
     page: null,
     excerpt: `Anvil fact ${number}.`,
     chunk_id: `doc:${number}`,

@@ -105,7 +105,7 @@ DOCUMENT = Document(
 
 class StubRetriever:
     def retrieve(self, query: str, k: int, filters: SearchFilters | None = None) -> SearchResult:
-        chunk = Chunk("doc:0", "doc", "ACME sold 10 anvils.", "Item 7", None, 0, 20)
+        chunk = Chunk("doc:0", "doc", "ACME sold 10 anvils.", ("Item 7",), None, 0, 20)
         return SearchResult([ScoredPassage(chunk, DOCUMENT, 1, 1, 0.03, 0.9)], 0.9)
 
 

@@ -31,7 +31,7 @@ DOCUMENT = Document(
 
 def make_chunks(*texts: str) -> list[Chunk]:
     return [
-        Chunk(f"doc:{i}", "doc", text, "Item 1 — Business", None, i * 10, i * 10 + 9)
+        Chunk(f"doc:{i}", "doc", text, ("Item 1 — Business",), None, i * 10, i * 10 + 9)
         for i, text in enumerate(texts)
     ]
 
@@ -77,7 +77,7 @@ def test_chunk_and_document_survive_a_round_trip(index: DenseIndex) -> None:
 
 def test_optional_fields_survive_a_round_trip(index: DenseIndex) -> None:
     document = replace(DOCUMENT, doc_date=None, metadata={}, owner_id=None)
-    chunks = [replace(make_chunks("anvils")[0], section=None, page=3)]
+    chunks = [replace(make_chunks("anvils")[0], section_path=(), page=3)]
     add(index, chunks, document)
 
     hit = index.search(FakeEmbedder().embed_query("anvils"), 1)[0]
@@ -102,7 +102,7 @@ def test_every_field_survives_a_round_trip(index: DenseIndex) -> None:
 
 def test_counts(index: DenseIndex) -> None:
     add(index, make_chunks("one", "two"))
-    other = Chunk("other:0", "other", "three", None, None, 0, 5)
+    other = Chunk("other:0", "other", "three", (), None, 0, 5)
     add(index, [other], replace(DOCUMENT, doc_id="other"))
 
     assert index.count_documents() == 2

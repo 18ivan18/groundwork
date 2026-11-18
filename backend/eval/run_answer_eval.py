@@ -41,7 +41,7 @@ from run_eval import (
 
 from groundwork.config import Settings
 from groundwork.container import build_dense_index, build_services
-from groundwork.domain.models import ScoredPassage
+from groundwork.domain.models import ScoredPassage, section_label
 from groundwork.ingestion.corpus import load_corpus
 from groundwork.ingestion.loaders import load_file
 from groundwork.llm.base import LLMError, RateLimitError
@@ -121,7 +121,7 @@ def passage_record(passage: ScoredPassage) -> Record:
         # Named as in the runs recorded before M1, so they can still be scored.
         "ticker": document.metadata.get("ticker"),
         "period_end": document.doc_date.isoformat() if document.doc_date else None,
-        "section": passage.chunk.section,
+        "section": section_label(passage.chunk),
         "dense_rank": passage.dense_rank,
         "sparse_rank": passage.sparse_rank,
         "rrf_score": passage.rrf_score,

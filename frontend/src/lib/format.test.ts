@@ -9,6 +9,7 @@ import {
   documentBadge,
   documentDetails,
   retrievalLine,
+  sourceLocation,
   sourceTitle,
   uploadLimits,
 } from "./format";
@@ -53,6 +54,18 @@ describe("uploadLimits", () => {
     expect(uploadLimits({ upload_types: [".csv"], max_upload_mb: 5 })).toBe(
       "CSV · up to 5 MB each",
     );
+  });
+});
+
+describe("sourceLocation", () => {
+  it("joins the heading path and the page", () => {
+    const passage = { ...makePassage(1), section_path: ["Install", "Linux"], page: 4 };
+
+    expect(sourceLocation(passage)).toBe("Install › Linux · Page 4");
+  });
+
+  it("is empty for a passage under no heading", () => {
+    expect(sourceLocation({ ...makePassage(1), section_path: [] })).toBe("");
   });
 });
 

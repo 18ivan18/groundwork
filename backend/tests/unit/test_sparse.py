@@ -18,7 +18,7 @@ DOCUMENT = Document(
 
 def make_passages(*texts: str) -> list[tuple[Chunk, Document]]:
     return [
-        (Chunk(f"doc:{i}", "doc", text, None, None, 0, 1), DOCUMENT) for i, text in enumerate(texts)
+        (Chunk(f"doc:{i}", "doc", text, (), None, 0, 1), DOCUMENT) for i, text in enumerate(texts)
     ]
 
 
@@ -64,7 +64,7 @@ def test_allowed_restricts_results_before_n_applies() -> None:
 
 
 def test_document_title_and_section_are_searchable() -> None:
-    chunk = Chunk("doc:0", "doc", "Headcount grew.", "Item 1 — Business", None, 0, 1)
+    chunk = Chunk("doc:0", "doc", "Headcount grew.", ("Item 1 — Business",), None, 0, 1)
     index = SparseIndex.build([(chunk, DOCUMENT)])
 
     assert ids(index.search("report", 5)) == ["doc:0"]

@@ -8,6 +8,7 @@ from typing import get_args
 
 from groundwork.config import Settings
 from groundwork.container import build_dense_index, build_embedder, build_retriever
+from groundwork.domain.models import section_label
 from groundwork.retrieval.hybrid import SearchMode
 
 
@@ -27,7 +28,8 @@ def main() -> None:
         print(
             f"{rank}. rerank={passage.rerank_rank} rrf={passage.rrf_score:.4f} "
             f"dense={passage.dense_rank} "
-            f"sparse={passage.sparse_rank}  {passage.document.title} | {passage.chunk.section}"
+            f"sparse={passage.sparse_rank}  {passage.document.title} | "
+            f"{section_label(passage.chunk)}"
         )
         print(f"   {excerpt}")
 

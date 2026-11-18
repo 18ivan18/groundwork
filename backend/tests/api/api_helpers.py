@@ -21,7 +21,9 @@ DOCUMENT = Document(
 
 
 def make_passage(number: int, similarity: float = 0.9) -> ScoredPassage:
-    chunk = Chunk(f"doc:{number}", "doc", f"Anvil fact {number}.", "Item 1 — Business", None, 0, 1)
+    chunk = Chunk(
+        f"doc:{number}", "doc", f"Anvil fact {number}.", ("Item 1 — Business",), None, 0, 1
+    )
     return ScoredPassage(
         chunk,
         DOCUMENT,

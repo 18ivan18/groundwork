@@ -22,7 +22,7 @@ DOCUMENT = Document(
 
 
 def passage(text: str = "ACME sells anvils.", document: Document = DOCUMENT) -> ScoredPassage:
-    chunk = Chunk("doc:0", "doc", text, "Item 1 — Business", None, 0, 10)
+    chunk = Chunk("doc:0", "doc", text, ("Item 1 — Business",), None, 0, 10)
     return ScoredPassage(chunk, document, 1, 1, 0.03, 0.7)
 
 
@@ -47,14 +47,14 @@ def test_source_names_filing_period_and_section() -> None:
 
 def test_source_copes_with_missing_metadata() -> None:
     document = replace(DOCUMENT, metadata={"company": "ACME Corp"}, doc_date=None)
-    chunk = replace(passage().chunk, section=None)
+    chunk = replace(passage().chunk, section_path=())
 
     assert passage_source(replace(passage(document=document), chunk=chunk)) == "ACME Corp 10-K"
 
 
 def test_source_falls_back_to_the_title() -> None:
     document = replace(DOCUMENT, title="notes.md", doc_type="runbook", metadata={}, doc_date=None)
-    chunk = replace(passage().chunk, section=None)
+    chunk = replace(passage().chunk, section_path=())
 
     assert passage_source(replace(passage(document=document), chunk=chunk)) == "notes.md runbook"
 

@@ -10,7 +10,7 @@ from collections import Counter
 
 from groundwork.config import Settings
 from groundwork.container import build_embedder
-from groundwork.domain.models import Chunk
+from groundwork.domain.models import Chunk, section_label
 from groundwork.ingestion.corpus import load_corpus
 from groundwork.ingestion.pipeline import chunk_file
 
@@ -37,6 +37,7 @@ def main() -> None:
     for path, meta in load_corpus(settings.data_dir / "raw"):
         chunks = chunk_file(
             path,
+            meta,
             path.stem,
             embedder,
             chunk_tokens=settings.chunk_tokens,
@@ -48,7 +49,7 @@ def main() -> None:
         all_sizes.extend(sizes)
 
         print(f"\n{path.name}")
-        for section, count in Counter(chunk.section for chunk in chunks).items():
+        for section, count in Counter(section_label(chunk) for chunk in chunks).items():
             print(f"  {count:>4}  {section}")
         print_distribution(ticker, sizes)
 
@@ -57,7 +58,8 @@ def main() -> None:
 
     for ticker, chunk in random.Random(args.seed).sample(all_chunks, args.samples):
         print(
-            f"\n{'=' * 78}\n{ticker} | {chunk.section} | chars {chunk.char_start}-{chunk.char_end}"
+            f"\n{'=' * 78}\n{ticker} | {section_label(chunk)} | "
+            f"chars {chunk.char_start}-{chunk.char_end}"
         )
         print(chunk.text)
 

@@ -4,7 +4,7 @@ import pytest
 
 from groundwork.domain.models import Chunk
 from groundwork.ingestion.chunking import MIN_CHUNK_TOKENS, chunk_document
-from groundwork.ingestion.sections import Section
+from groundwork.ingestion.structure import Section
 
 
 class WordCounter:
@@ -23,7 +23,7 @@ def chunk(text: str, chunk_tokens: int = 50, overlap: int = 10) -> list[Chunk]:
     return chunk_document(
         "doc",
         text,
-        [Section("Item 1 — Business", 0, len(text))],
+        [Section(("Item 1 — Business",), 0, len(text))],
         WordCounter(),
         chunk_tokens=chunk_tokens,
         chunk_overlap=overlap,
@@ -113,12 +113,12 @@ def test_chunks_never_cross_sections_and_ids_are_sequential() -> None:
     chunks = chunk_document(
         "doc",
         text,
-        [Section("Item 1 — A", 0, boundary), Section("Item 2 — B", boundary, len(text))],
+        [Section(("Item 1 — A",), 0, boundary), Section(("Item 2 — B",), boundary, len(text))],
         WordCounter(),
         chunk_tokens=200,
         chunk_overlap=10,
     )
 
-    assert [c.section for c in chunks] == ["Item 1 — A", "Item 2 — B"]
+    assert [c.section_path for c in chunks] == [("Item 1 — A",), ("Item 2 — B",)]
     assert [c.chunk_id for c in chunks] == ["doc:0", "doc:1"]
     assert chunks[1].char_start >= boundary

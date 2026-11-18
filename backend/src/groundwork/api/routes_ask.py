@@ -31,7 +31,7 @@ def _to_passage(passage: ScoredPassage) -> PassageResponse:
         doc_type=document.doc_type,
         doc_date=document.doc_date,
         metadata=dict(document.metadata),
-        section=chunk.section,
+        section_path=list(chunk.section_path),
         page=chunk.page,
         excerpt=chunk.text,
         chunk_id=chunk.chunk_id,

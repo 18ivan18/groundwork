@@ -1,5 +1,5 @@
-from groundwork.ingestion.loaders import CELL_SEPARATOR, load_html
-from groundwork.ingestion.sections import FRONT_MATTER, detect_sections
+from groundwork.ingestion.loaders import CELL_SEPARATOR, LoadedDocument, load_html
+from groundwork.ingestion.structure.sec import FRONT_MATTER, detect_sec_items
 
 # Synthetic, but shaped like the real inline XBRL 10-Ks: hidden facts in ix:header, a table of
 # contents laid out as a table, headings split across spans or joined by &nbsp;, and financial
@@ -92,7 +92,7 @@ def test_page_numbers_are_dropped_and_bullets_join_their_text() -> None:
 def test_sections_skip_the_table_of_contents() -> None:
     loaded = text()
 
-    titles = [section.title for section in detect_sections(loaded)]
+    titles = [section.path[0] for section in detect_sec_items(LoadedDocument(loaded))]
 
     assert f"Item 1.{CELL_SEPARATOR}Business" in loaded
     assert titles == [FRONT_MATTER, "Item 1 — Business", "Item 7 — Management's Discussion"]

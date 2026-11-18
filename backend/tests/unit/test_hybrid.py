@@ -34,7 +34,7 @@ def make_document(
 
 def add(index: DenseIndex, document: Document, *texts: str) -> None:
     chunks = [
-        Chunk(f"{document.doc_id}:{i}", document.doc_id, text, None, None, 0, 1)
+        Chunk(f"{document.doc_id}:{i}", document.doc_id, text, (), None, 0, 1)
         for i, text in enumerate(texts)
     ]
     index.add(document, chunks, FakeEmbedder().embed_documents(texts))

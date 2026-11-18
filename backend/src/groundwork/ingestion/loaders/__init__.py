@@ -10,6 +10,7 @@ from pathlib import Path
 
 from groundwork.ingestion.loaders.base import (
     CELL_SEPARATOR,
+    Heading,
     LoadedDocument,
     Loader,
     NoTextError,
@@ -17,11 +18,16 @@ from groundwork.ingestion.loaders.base import (
     UnsupportedFormatError,
 )
 from groundwork.ingestion.loaders.html import load_html
-from groundwork.ingestion.loaders.text import decode_text, load_text, strip_edgar_markup
+from groundwork.ingestion.loaders.text import (
+    decode_text,
+    load_markdown,
+    load_text,
+    strip_edgar_markup,
+)
 
 LOADERS: Mapping[str, Loader] = {
     ".txt": load_text,
-    ".md": load_text,
+    ".md": load_markdown,
     ".htm": load_html,
     ".html": load_html,
 }
@@ -50,6 +56,7 @@ __all__ = [
     "CELL_SEPARATOR",
     "LOADERS",
     "SUPPORTED_SUFFIXES",
+    "Heading",
     "LoadedDocument",
     "Loader",
     "NoTextError",
@@ -59,6 +66,7 @@ __all__ = [
     "is_supported",
     "load_file",
     "load_html",
+    "load_markdown",
     "load_text",
     "loader_for",
     "strip_edgar_markup",

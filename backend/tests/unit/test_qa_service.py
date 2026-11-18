@@ -27,7 +27,7 @@ DOCUMENT = Document(
 
 
 def passage(number: int, similarity: float | None = 0.7) -> ScoredPassage:
-    chunk = Chunk(f"doc:{number}", "doc", f"Passage {number}.", None, None, 0, 1)
+    chunk = Chunk(f"doc:{number}", "doc", f"Passage {number}.", (), None, 0, 1)
     return ScoredPassage(chunk, DOCUMENT, number, number, 0.03, similarity)
 
 
@@ -218,7 +218,7 @@ def test_top_k_defaults_to_the_setting() -> None:
 def test_end_to_end_with_a_real_index(tmp_path: Path) -> None:
     dense = DenseIndex(tmp_path, "fake-model")
     texts = ["ACME sells anvils to coyotes.", "The warehouse roof leaks."]
-    chunks = [Chunk(f"doc:{i}", "doc", t, None, None, 0, 1) for i, t in enumerate(texts)]
+    chunks = [Chunk(f"doc:{i}", "doc", t, (), None, 0, 1) for i, t in enumerate(texts)]
     embedder = FakeEmbedder()
     dense.add(DOCUMENT, chunks, embedder.embed_documents(texts))
     sparse = SparseIndex.build(dense.all_passages())

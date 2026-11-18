@@ -1,10 +1,10 @@
-"""Find the `Item N.` sections of a 10-K."""
+"""Find the `Item N.` sections of an SEC filing (10-K, 10-Q)."""
 
 import re
 import string
-from dataclasses import dataclass
 
-from groundwork.ingestion.loaders.base import CELL_SEPARATOR
+from groundwork.ingestion.loaders.base import CELL_SEPARATOR, LoadedDocument
+from groundwork.ingestion.structure.base import Section, whole_document
 
 FRONT_MATTER = "Front matter"
 
@@ -15,15 +15,6 @@ _DOT_LEADER = re.compile(r"\.{4,}")
 _FORM_NAME = re.compile(r"\b(\d+)-k\b")
 # Headings shorter than this cannot have wrapped, so their next line is body text.
 _MIN_WRAPPED_TITLE = 50
-
-
-@dataclass(frozen=True)
-class Section:
-    """A slice `start:end` of the document text. `title` is None if no headings were found."""
-
-    title: str | None
-    start: int
-    end: int
 
 
 def _next_line(text: str, position: int) -> str:
@@ -42,13 +33,14 @@ def _clean_title(first_line: str, next_line: str) -> str:
     return title
 
 
-def detect_sections(text: str) -> list[Section]:
+def detect_sec_items(loaded: LoadedDocument) -> list[Section]:
     """Split text at its `Item N.` headings, or return one untitled section if it has none.
 
     A table-of-contents entry has a dot leader on its own line or, when wrapped, on the next one.
     In HTML filings the table of contents is a table, so a line holding a cell separator is skipped.
     If an item still repeats, the first one is kept: it is the heading, later ones are references.
     """
+    text = loaded.text
     headings: dict[str, tuple[int, str]] = {}
     for match in _HEADING.finditer(text):
         first_line = match[2]
@@ -63,13 +55,13 @@ def detect_sections(text: str) -> list[Section]:
             headings[number] = (match.start(), label)
 
     if not headings:
-        return [Section(title=None, start=0, end=len(text))]
+        return whole_document(loaded)
 
     starts = sorted(headings.values())
     sections = []
     if text[: starts[0][0]].strip():
-        sections.append(Section(title=FRONT_MATTER, start=0, end=starts[0][0]))
+        sections.append(Section(path=(FRONT_MATTER,), start=0, end=starts[0][0]))
     ends = [start for start, _ in starts[1:]] + [len(text)]
     for (start, label), end in zip(starts, ends, strict=True):
-        sections.append(Section(title=label, start=start, end=end))
+        sections.append(Section(path=(label,), start=start, end=end))
     return sections

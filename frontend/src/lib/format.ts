@@ -23,15 +23,20 @@ export function sourceTitle(passage: Passage): string {
   return join([ticker, docTypeLabel(passage.doc_type), dateLabel(passage.doc_date, ticker)]);
 }
 
+/** The heading path on one line, such as "Install › Linux". */
+export function sectionLabel(passage: Passage): string | null {
+  return passage.section_path.join(" › ") || null;
+}
+
 export function sourceLocation(passage: Passage): string {
-  return join([passage.section, passage.page === null ? null : `Page ${passage.page}`]);
+  return join([sectionLabel(passage), passage.page === null ? null : `Page ${passage.page}`]);
 }
 
 /** One line for lists of passages, such as "AAPL 10-K · Item 7". */
 export function passageLabel(passage: Passage): string {
   const ticker = passage.metadata.ticker;
   const name = ticker ? `${ticker} ${passage.doc_type}` : passage.title;
-  return join([name, passage.section]);
+  return join([name, sectionLabel(passage)]);
 }
 
 const isTableRow = (line: string) => /\S {2,}\S/.test(line);
