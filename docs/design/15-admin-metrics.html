@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>groundwork — Admin, metrics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="groundwork.css">
+</head>
+<body>
+<div class="app">
+<header class="top">
+<a class="brand" href="00-index.html"><svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="6" fill="#1E3A8A"></rect><path d="M7 19h14M9 15h10M11 11h6M13 7h2" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"></path></svg>groundwork <span class="sub">knowledge assistant</span></a>
+<div class="top-right">
+<span class="small muted mono" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px">index · window-400-header</span>
+<button class="user-switch" type="button" aria-haspopup="listbox" aria-label="Switch user: admin"><span class="avatar">A</span><span style="font-weight:600">admin</span><span class="chip group">everyone</span> <span class="chip group">hr</span> <span class="chip group">finance</span> <span class="chip group">admin</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+</div>
+</header>
+<div class="body">
+<nav class="nav" aria-label="Main">
+<a href="01-chat.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
+<a href="03-library.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.5 1-3 14-3.5-1z"/></svg>Library</a>
+<a href="07-jobs.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Jobs<span class="count">1</span></a>
+<a href="08-tickets.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z"/></svg>Tickets<span class="count">1</span></a>
+<h4>Lab</h4>
+<a href="09-lab-indexes.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4"/></svg>Indexes</a>
+<a href="10-lab-compare.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h5v16H5zM14 4h5v16h-5z"/></svg>Compare</a>
+<a href="11-lab-chunks.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16M4 10h10M4 15h16M4 20h8"/></svg>Chunk viewer</a>
+<a href="12-lab-evals.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19V9M10 19V5M15 19v-7M20 19v-4"/></svg>Evaluations</a>
+<a href="13-lab-labelling.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h8l8 8-8 8-8-8z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg>Labelling<span class="count">18</span></a>
+<a href="14-lab-prompts.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7"/></svg>Prompts</a>
+<h4>Admin</h4>
+<a href="15-admin-metrics.html" class="on" aria-current="page"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16M7 16l4-5 3 3 5-7"/></svg>Metrics</a>
+<div style="margin-top:auto"></div>
+<a href="17-settings.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Settings</a>
+</nav>
+<main class="main">
+<div class="page-head"><div><h1>Metrics</h1><p>From traces. Last 7 days · 1,284 questions.</p></div>
+<div class="row"><select class="select" aria-label="Time window"><option>Last 7 days</option><option>Last 24 hours</option><option>Last 30 days</option></select></div></div>
+<div class="kpis">
+<div class="kpi"><div class="label">p50 latency</div><div class="v">1.6 s</div><div class="d">first token 0.7 s</div></div>
+<div class="kpi"><div class="label">p95 latency</div><div class="v">4.2 s</div><div class="d">agent runs excluded</div></div>
+<div class="kpi"><div class="label">Cost per question</div><div class="v">$0.0041</div><div class="d">$5.26 total</div></div>
+<div class="kpi"><div class="label">Cache hit rate</div><div class="v">18%</div><div class="d">answer cache, first turns</div></div>
+<div class="kpi"><div class="label">Refused</div><div class="v">9%</div><div class="d">gate 5% · model 4% · no citations 0.2%</div></div>
+</div>
+<div class="split">
+<div class="card pad col"><h2 style="font-size:15px">p50 latency by stage</h2>
+<div class="bars"><div class="bar-row" title="Re-rank: 540 ms"><span>Re-rank</span><div class="bar-track"><div class="bar-fill" style="width:55.1%"></div></div><span class="val">540 ms</span></div><div class="bar-row" title="Generation: 980 ms"><span>Generation</span><div class="bar-track"><div class="bar-fill" style="width:100.0%"></div></div><span class="val">980 ms</span></div><div class="bar-row" title="Rewrite: 210 ms"><span>Rewrite</span><div class="bar-track"><div class="bar-fill" style="width:21.4%"></div></div><span class="val">210 ms</span></div><div class="bar-row" title="Embed query: 12 ms"><span>Embed query</span><div class="bar-track"><div class="bar-fill" style="width:1.2%"></div></div><span class="val">12 ms</span></div><div class="bar-row" title="Dense search: 9 ms"><span>Dense search</span><div class="bar-track"><div class="bar-fill" style="width:0.9%"></div></div><span class="val">9 ms</span></div><div class="bar-row" title="BM25: 4 ms"><span>BM25</span><div class="bar-track"><div class="bar-fill" style="width:0.4%"></div></div><span class="val">4 ms</span></div><div class="bar-row" title="Citation check: 1 ms"><span>Citation check</span><div class="bar-track"><div class="bar-fill" style="width:0.1%"></div></div><span class="val">1 ms</span></div></div>
+<a class="small" href="#">Show as table</a></div>
+<div class="card pad col"><h2 style="font-size:15px">Tokens by task (7 days)</h2>
+<div class="bars"><div class="bar-row" title="answer: 3.1 M"><span>answer</span><div class="bar-track"><div class="bar-fill" style="width:100.0%"></div></div><span class="val">3.1 M</span></div><div class="bar-row" title="agent: 1.2 M"><span>agent</span><div class="bar-track"><div class="bar-fill" style="width:38.7%"></div></div><span class="val">1.2 M</span></div><div class="bar-row" title="rewrite: 0.31 M"><span>rewrite</span><div class="bar-track"><div class="bar-fill" style="width:10.0%"></div></div><span class="val">0.31 M</span></div><div class="bar-row" title="route: 0.12 M"><span>route</span><div class="bar-track"><div class="bar-fill" style="width:3.9%"></div></div><span class="val">0.12 M</span></div><div class="bar-row" title="contextualize: 0"><span>contextualize</span><div class="bar-track"><div class="bar-fill" style="width:0.0%"></div></div><span class="val">0</span></div></div>
+<a class="small" href="#">Show as table</a></div>
+</div>
+<div class="card table-wrap"><table class="t"><thead><tr><th>Slowest requests</th><th>User</th><th>Mode</th><th class="num">Latency</th><th class="num">Cost</th><th></th></tr></thead><tbody>
+<tr><td>Compare the old and new hotel limits and open a ticket…</td><td>hana</td><td>agent</td><td class="num">9.8 s</td><td class="num">$0.011</td><td><a href="16-admin-trace.html">Trace</a></td></tr>
+<tr><td>How did the escalation rules change between…</td><td>alice</td><td>agent</td><td class="num">7.1 s</td><td class="num">$0.009</td><td><a href="16-admin-trace.html">Trace</a></td></tr>
+</tbody></table></div>
+<aside class="notes"><h3>Design notes</h3><ul><li>Single-series bars, one hue, values labelled; each chart has a table view. Hovering a bar shows p50, p95 and the count.</li><li>Question text is shown to admins only and is redacted for emails and phone numbers.</li><li>The numbers match <code>scripts/metrics_report.py</code> run on the same traces.</li></ul></aside>
+<p class="footer-note">Mockup · illustrative data, not measured results · <a href="00-index.html">all screens</a></p>
+</main>
+</div>
+</div>
+
+</body>
+</html>

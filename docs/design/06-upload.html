@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>groundwork — Upload</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="groundwork.css">
+</head>
+<body>
+<div class="app">
+<header class="top">
+<a class="brand" href="00-index.html"><svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="6" fill="#1E3A8A"></rect><path d="M7 19h14M9 15h10M11 11h6M13 7h2" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"></path></svg>groundwork <span class="sub">knowledge assistant</span></a>
+<div class="top-right">
+<span class="small muted mono" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px">index · window-400-header</span>
+<button class="user-switch" type="button" aria-haspopup="listbox" aria-label="Switch user: hana"><span class="avatar">H</span><span style="font-weight:600">hana</span><span class="chip group">everyone</span> <span class="chip group">hr</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+</div>
+</header>
+<div class="body">
+<nav class="nav" aria-label="Main">
+<a href="01-chat.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
+<a href="03-library.html" class="on" aria-current="page"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.5 1-3 14-3.5-1z"/></svg>Library</a>
+<a href="07-jobs.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Jobs<span class="count">1</span></a>
+<a href="08-tickets.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z"/></svg>Tickets<span class="count">1</span></a>
+<div style="margin-top:auto"></div>
+<a href="17-settings.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Settings</a>
+</nav>
+<main class="main">
+<div class="page-head"><div><h1>Library</h1><p>Documents you can see. 412 documents · 9,870 chunks in the active index.</p></div>
+<a class="btn primary lg" href="06-upload.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>Upload documents</a></div>
+<div class="row">
+<div class="row" style="position:relative;flex:1 1 260px"><span style="position:absolute;left:10px;color:var(--muted-fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg></span><label class="sr" for="ls">Search titles</label><input id="ls" class="input" placeholder="Search titles" style="width:100%;padding-left:34px"></div>
+<select class="select" aria-label="Collection"><option>All collections</option><option>northwind</option><option>engineering</option><option>books</option><option>sec-10k</option><option>uploads</option></select>
+<select class="select" aria-label="Type"><option>Any type</option></select>
+<select class="select" aria-label="Access group"><option>Any access</option><option>everyone</option><option>hr</option><option>private:hana</option></select>
+<select class="select" aria-label="Status"><option>Any status</option><option>Indexed</option><option>In progress</option><option>Failed</option></select>
+<select class="select" aria-label="Owner"><option>Anyone</option><option>Me</option></select>
+<button class="btn ghost sm">Clear filters</button>
+</div>
+<div class="row card" style="padding:8px 12px;background:var(--chip);border-color:var(--chip)"><b style="color:var(--primary)">2 selected</b><span class="small muted">You can delete 1 of them; the other belongs to admin.</span><div class="grow"></div><button class="btn sm">Clear</button><a class="btn sm danger" href="05-library-delete.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Delete 1 document</a></div>
+<div class="card table-wrap"><table class="t">
+<thead><tr><th><input type="checkbox" class="check" aria-label="Select all on this page"></th><th>Title ↑</th><th>Collection</th><th>Type</th><th>Date</th><th>Format</th><th>Owner</th><th>Access</th><th class="num">Chunks</th><th>Status</th></tr></thead>
+<tbody><tr><td><input type="checkbox" class="check" aria-label="Select Expense policy"></td><td><a href="04-library-drawer.html" style="font-weight:500;color:var(--foreground);text-decoration:none">Expense policy</a></td><td><span class="chip">northwind</span></td><td>policy</td><td class="mono small">2026-03-01</td><td><span class="tag">MD</span></td><td>admin</td><td><span class="chip group">hr</span></td><td class="num">14</td><td><span class="badge ok">Indexed</span></td></tr><tr class="sel"><td><input type="checkbox" class="check" aria-label="Select Expense policy (2024)" checked></td><td><a href="04-library-drawer.html" style="font-weight:500;color:var(--foreground);text-decoration:none">Expense policy (2024)</a></td><td><span class="chip">northwind</span></td><td>policy</td><td class="mono small">2024-06-01</td><td><span class="tag">MD</span></td><td>admin</td><td><span class="chip group">hr</span></td><td class="num">11</td><td><span class="badge ok">Indexed</span></td></tr><tr><td><input type="checkbox" class="check" aria-label="Select Leave policy"></td><td><a href="04-library-drawer.html" style="font-weight:500;color:var(--foreground);text-decoration:none">Leave policy</a></td><td><span class="chip">northwind</span></td><td>policy</td><td class="mono small">2025-11-15</td><td><span class="tag">MD</span></td><td>admin</td><td><span class="chip group">hr</span></td><td class="num">18</td><td><span class="badge ok">Indexed</span></td></tr><tr><td><input type="checkbox" class="check" aria-label="Select On-call handbook"></td><td><a href="04-library-drawer.html" style="font-weight:500;color:var(--foreground);text-decoration:none">On-call handbook</a></td><td><span class="chip">northwind</span></td><td>runbook</td><td class="mono small">2026-01-20</td><td><span class="tag">MD</span></td><td>admin</td><td><span class="chip group">everyone</span></td><td class="num">26</td><td><span class="badge ok">Indexed</span></td></tr><tr><td><input type="checkbox" class="check" aria-label="Select Configure Liveness, Readiness and Startup Probes"></td><td><a href="04-library-drawer.html" style="font-weight:500;color:var(--foreground);text-decoration:none">Configure Liveness, Readiness and Startup Probes</a></td><td><span class="chip">engineering</span></td><td>docs</td><td class="mono small">—</td><td><span class="tag">MD</span></td><td>admin</td><td><span class="chip group">everyone</span></td><td class="num">31</td><td><span class="badge ok">Indexed</span></td></tr><tr><td><input type="checkbox" class="check" aria-label="Select Pod Lifecycle"></td><td><a href="04-library-drawer.html" style="font-weight:500;color:var(--foreground);text-decoration:none">Pod Lifecycle</a></td><td><span class="chip">engineering</span></td><td>docs</td><td class="mono small">—</td><td><span class="tag">MD</span></td><td>admin</td><td><span class="chip group">everyone</span></td><td class="num">29</td><td><span class="badge ok">Indexed</span></td></tr><tr><td><input type="checkbox" class="check" aria-label="Select Frankenstein; or, The Modern Prometheus"></td><td><a href="04-library-drawer.html" style="font-weight:500;color:var(--foreground);text-decoration:none">Frankenstein; or, The Modern Prometheus</a></td><td><span class="chip">books</span></td><td>book</td><td class="mono small">1818</td><td><span class="tag">TXT</span></td><td>admin</td><td><span class="chip group">everyone</span></td><td class="num">402</td><td><span class="badge ok">Indexed</span></td></tr><tr><td><input type="checkbox" class="check" aria-label="Select Apple Inc. · Form 10-K"></td><td><a href="04-library-drawer.html" style="font-weight:500;color:var(--foreground);text-decoration:none">Apple Inc. · Form 10-K</a></td><td><span class="chip">sec-10k</span></td><td>10-K</td><td class="mono small">FY2025</td><td><span class="tag">HTML</span></td><td>admin</td><td><span class="chip group">everyone</span></td><td class="num">384</td><td><span class="badge ok">Indexed</span></td></tr><tr class="sel"><td><input type="checkbox" class="check" aria-label="Select onboarding-notes.md" checked></td><td><a href="04-library-drawer.html" style="font-weight:500;color:var(--foreground);text-decoration:none">onboarding-notes.md</a></td><td><span class="chip">uploads</span></td><td>notes</td><td class="mono small">2026-11-12</td><td><span class="tag">MD</span></td><td>hana</td><td><span class="chip private">private:hana</span></td><td class="num">—</td><td><span class="badge info">Embedding 62%</span></td></tr><tr><td><input type="checkbox" class="check" aria-label="Select signed-contract-scan.pdf"></td><td><a href="04-library-drawer.html" style="font-weight:500;color:var(--foreground);text-decoration:none">signed-contract-scan.pdf</a></td><td><span class="chip">uploads</span></td><td>contract</td><td class="mono small">2026-11-10</td><td><span class="tag">PDF</span></td><td>hana</td><td><span class="chip private">private:hana</span></td><td class="num">—</td><td><span class="badge err">Failed</span></td></tr></tbody></table></div>
+<div class="row" style="justify-content:space-between"><span class="small muted">1–10 of 412</span><div class="row"><button class="btn sm" disabled>Previous</button><button class="btn sm">Next</button></div></div>
+
+<p class="footer-note">Mockup · illustrative data, not measured results · <a href="00-index.html">all screens</a></p>
+</main>
+</div>
+</div>
+<div class="overlay"></div>
+<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="upt" style="width:min(640px,calc(100% - 32px))">
+<div class="d-head"><h2 id="upt" style="font-size:18px">Upload documents</h2></div>
+<div class="d-body">
+<div class="dropzone"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg><b>Drop files here or <a href="#">browse</a></b><span class="small muted">TXT, Markdown, HTML, PDF with a text layer · up to 20 MB each</span></div>
+<div class="row"><label class="field grow"><span>Collection</span><select class="select"><option>uploads</option><option>northwind</option></select></label>
+<label class="field grow"><span>Type</span><input class="input" placeholder="e.g. policy, notes, runbook"></label>
+<label class="field" style="flex:0 0 150px"><span>Date</span><input class="input" placeholder="YYYY-MM-DD"></label></div>
+<fieldset class="field" style="border:0;padding:0;margin:0"><span>Who can see them</span>
+<div class="row"><label class="row" style="gap:6px"><input type="checkbox" class="check" checked>Only me <span class="chip private">private:hana</span></label><label class="row" style="gap:6px"><input type="checkbox" class="check">everyone</label><label class="row" style="gap:6px"><input type="checkbox" class="check">hr</label></div></fieldset>
+<div class="card" style="padding:4px 0"><table class="t"><tbody>
+<tr><td>team-rota.md</td><td class="small muted">4 KB</td><td><span class="badge ok">Ready</span></td><td style="text-align:right"><button class="btn ghost sm" aria-label="Remove team-rota.md"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>
+<tr><td>q4-plan.pdf</td><td class="small muted">1.2 MB</td><td><span class="badge ok">Ready</span></td><td style="text-align:right"><button class="btn ghost sm" aria-label="Remove q4-plan.pdf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>
+<tr><td>diagram.png</td><td class="small muted">340 KB</td><td><span class="badge err">Unsupported type</span></td><td style="text-align:right"><button class="btn ghost sm" aria-label="Remove diagram.png"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>
+</tbody></table></div>
+</div>
+<div class="d-foot"><span class="small muted" style="margin-right:auto">2 files will be uploaded · progress continues in Jobs</span><button class="btn">Cancel</button><button class="btn primary">Upload 2 files</button></div>
+</div>
+</body>
+</html>
