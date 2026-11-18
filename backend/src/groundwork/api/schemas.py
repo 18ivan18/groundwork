@@ -226,3 +226,9 @@ class JobResponse(BaseModel):
     progress: int = Field(ge=0, le=100, description="Percentage done.")
     error: str | None = Field(description="What went wrong, when status is `failed`.")
     chunks: int | None = Field(description="Passages indexed, when status is `indexed`.")
+
+
+class UserResponse(BaseModel):
+    user_id: str = Field(description="The value to send in the `X-User` header.")
+    display_name: str = Field(description="The name to show for the user.")
+    groups: list[str] = Field(description="The access groups whose documents this user can read.")

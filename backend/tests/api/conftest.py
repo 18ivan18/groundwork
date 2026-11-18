@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pytest
-from api_helpers import ClientFactory, StubRetriever, make_passage
+from api_helpers import ClientFactory, StubRetriever, as_user, make_passage
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -41,6 +41,6 @@ def make_client(app: FastAPI, retriever: StubRetriever) -> ClientFactory:
         )
         app.dependency_overrides[get_qa_service] = lambda: service
         # False, so a crash shows up as the 500 a real client would get.
-        return TestClient(app, raise_server_exceptions=False)
+        return as_user(app, raise_server_exceptions=False)
 
     return factory

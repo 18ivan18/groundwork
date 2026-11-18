@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from api_helpers import as_user
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from httpx import Response
 from pdf_builder import make_pdf
 
@@ -45,7 +45,7 @@ class Harness:
             chunk_overlap=5,
         )
         app.dependency_overrides[get_upload_service] = lambda: self.service
-        self.client = TestClient(app)
+        self.client = as_user(app)
 
     def search(
         self,

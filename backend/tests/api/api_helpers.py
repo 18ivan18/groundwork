@@ -4,6 +4,7 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Any
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from groundwork.domain.models import Chunk, Document, DocumentMeta, ScoredPassage, SearchFilters
@@ -70,3 +71,8 @@ async def add_document(store: ChunkStore, title: str, chunks: int, **meta: Any) 
     items = [Chunk("x", "x", "anvils", (), None, 0, 6) for _ in range(chunks)]
     vectors = FakeEmbedder().embed_documents(["anvils"] * chunks)
     return await store.add(DocumentMeta(**fields), f"hash-{title}", items, vectors)
+
+
+def as_user(app: FastAPI, user: str = "alice", **kwargs: Any) -> TestClient:
+    """A client whose every request sends `X-User: user`."""
+    return TestClient(app, headers={"X-User": user}, **kwargs)

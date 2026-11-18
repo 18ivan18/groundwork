@@ -1,8 +1,7 @@
 import asyncio
 
-from api_helpers import add_document
+from api_helpers import add_document, as_user
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from groundwork.retrieval.memory_store import MemoryStore
 
@@ -12,14 +11,14 @@ def add(store: MemoryStore, title: str, chunks: int) -> str:
 
 
 def test_empty_library(app: FastAPI) -> None:
-    assert TestClient(app).get("/api/documents").json() == []
+    assert as_user(app).get("/api/documents").json() == []
 
 
 def test_documents_are_listed_with_chunk_counts_by_title(app: FastAPI, store: MemoryStore) -> None:
     add(store, "Beta report", 2)
     alpha = add(store, "Alpha report", 3)
 
-    body = TestClient(app).get("/api/documents").json()
+    body = as_user(app).get("/api/documents").json()
 
     assert [(d["title"], d["chunks"]) for d in body] == [("Alpha report", 3), ("Beta report", 2)]
     assert body[0].pop("ingested_at")

@@ -72,3 +72,9 @@ export const JobSchema = z.object({
   error: z.string().nullable(),
   chunks: z.number().nullable(),
 });
+
+export const UserSchema = z.object({
+  user_id: z.string(),
+  display_name: z.string(),
+  groups: z.array(z.string()),
+});

@@ -42,6 +42,8 @@ def test_openapi_lists_the_routes_and_the_502(app: FastAPI) -> None:
         "/api/ask",
         "/api/documents",
         "/api/jobs/{job_id}",
+        "/api/users",
+        "/api/me",
     }
     assert "502" in schema["paths"]["/api/ask"]["post"]["responses"]
 

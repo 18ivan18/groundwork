@@ -54,6 +54,28 @@ describe("api client", () => {
     expect(path).toBe("/api/config");
   });
 
+  it("sends the current user on every request, alongside the caller's headers", async () => {
+    const mock = stubFetch(json(makeResponse()));
+    localStorage.setItem("groundwork.user", "hana");
+
+    await askQuestion({ question: "Who sells anvils?" });
+
+    const [, init] = mock.mock.calls[0] as unknown as [string, RequestInit];
+    const headers = new Headers(init.headers);
+    expect(headers.get("X-User")).toBe("hana");
+    expect(headers.get("Content-Type")).toBe("application/json");
+    localStorage.clear();
+  });
+
+  it("acts as alice until a user is chosen", async () => {
+    const mock = stubFetch(json([]));
+
+    await getDocuments();
+
+    const [, init] = mock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(new Headers(init.headers).get("X-User")).toBe("alice");
+  });
+
   it("does not warn about a response that matches its schema", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     stubFetch(json(makeResponse()));

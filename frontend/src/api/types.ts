@@ -12,6 +12,7 @@ import type {
   PassageSchema,
   SourceSchema,
   UploadResponseSchema,
+  UserSchema,
 } from "./schemas";
 
 export type JobStatus = z.infer<typeof JobStatusSchema>;
@@ -24,6 +25,7 @@ export type Source = z.infer<typeof SourceSchema>;
 export type AskResponse = z.infer<typeof AskResponseSchema>;
 export type UploadResponse = z.infer<typeof UploadResponseSchema>;
 export type Job = z.infer<typeof JobSchema>;
+export type User = z.infer<typeof UserSchema>;
 
 export interface AskFilters {
   collections?: string[];

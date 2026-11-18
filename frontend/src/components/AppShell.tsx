@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { UserPicker } from "@/components/UserPicker";
+
 interface AppShellProps {
   llmProvider?: string;
   onHome: () => void;
@@ -31,6 +33,7 @@ export function AppShell({ llmProvider, onHome, sidebar, children }: AppShellPro
           </span>
         </button>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <UserPicker />
           {llmProvider && <span className={`${PILL} font-mono`}>LLM · {llmProvider}</span>}
           <span className={PILL}>Internal prototype</span>
         </div>
