@@ -1,0 +1,45 @@
+# Application configuration. Loaded by api/config.py into typed Pydantic models.
+# Secrets never live here: API keys come from environment variables only.
+
+chunking:
+  chunk_size_tokens: 400     # target size of a chunk
+  chunk_overlap_tokens: 60   # overlap between consecutive chunks of the same section
+
+embeddings:
+  provider: local            # local | openai
+  model: BAAI/bge-small-en-v1.5
+  dimensions: 384            # must match the vector(384) column in the migration
+
+retrieval:
+  vector_top_k: 20
+  keyword_top_k: 20
+  rrf_k: 60                  # reciprocal rank fusion: score = sum over retrievers of 1 / (k + rank)
+  fused_top_k: 30            # candidates handed to the reranker
+  final_top_k: 6             # chunks placed in the prompt
+  min_relevance: 0.3         # below this, answer "I couldn't find this in the documentation"
+
+rerank:
+  enabled: true
+  model: BAAI/bge-reranker-base
+
+llm:
+  primary_provider: anthropic
+  fallback_provider: openai
+  # Model per task: a small model for cheap steps, a larger one for the final answer.
+  models:
+    anthropic:
+      small: claude-haiku-5-5
+      large: claude-sonnet-5-5
+    openai:                  # verified against the provider's model list in M1
+      small: gpt-5-mini
+      large: gpt-5
+  timeout_seconds: 30
+  max_retries: 3
+  request_token_budget: 12000   # input + output tokens per user request
+
+agent:
+  max_steps: 8
+
+tracing:
+  exporter: jsonl            # jsonl | langfuse | langsmith
+  jsonl_path: traces/traces.jsonl

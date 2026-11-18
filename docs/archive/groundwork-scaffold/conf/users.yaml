@@ -1,0 +1,9 @@
+# Demo users. Authentication is a plain `X-User` header: real auth is out of scope.
+# Every user implicitly belongs to `everyone`; it is listed explicitly for clarity.
+users:
+  alice:
+    groups: [everyone]
+  hana:
+    groups: [everyone, hr]
+  filip:
+    groups: [everyone, finance]

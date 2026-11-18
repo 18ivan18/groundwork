@@ -34,7 +34,7 @@ A working, measured RAG system over six SEC 10-K filings:
 
 ### What groundwork adds
 
-Everything the `groundwork` brief planned (`docs/archive/groundwork-scaffold/README.md`) that NovaBridge lacks, plus
+Everything the `groundwork` brief planned (`docs/archive/groundwork-scaffold/BRIEF.md`) that NovaBridge lacks, plus
 the pending NovaBridge improvements, plus a chunking lab:
 
 | Area | Added |
@@ -274,7 +274,7 @@ matters: each one gives the next a measured baseline.
 - Commit the untracked files: `books/` (a corpus in M1; check the Project Gutenberg licence header is
   kept), `docs/design/` (the M3b–M12 mockups and `groundwork.css`) and this file.
 - **Absorb and delete the scaffold.** `~/repos/groundwork` has one commit and no remote, so deleting it
-  is permanent. First copy what this handoff still references into `docs/archive/groundwork-scaffold/`: `README.md` (the brief),
+  is permanent. First copy what this handoff still references into `docs/archive/groundwork-scaffold/`: `README.md` (the brief, as `BRIEF.md`),
   `DECISIONS.md`, `CLAUDE.md`, `docker-compose.yml`, `conf/users.yaml`, `conf/app.yaml` and
   `api/migrations/versions/0001_initial.py`, with a short `README` saying they are a frozen reference.
   Ivan confirms the list, then the scaffold folder is deleted. Its code (`api/`, `web/`, tests) is not
