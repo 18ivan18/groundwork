@@ -6,11 +6,10 @@ from groundwork.retrieval.sparse import SparseIndex
 
 DOCUMENT = Document(
     title="Report",
-    company="ACME Corp",
-    ticker="ACME",
+    collection_id="uploads",
     doc_type="10-K",
-    period_end=None,
-    source="upload",
+    doc_date=None,
+    metadata={"company": "ACME Corp", "ticker": "ACME"},
     filename="acme.txt",
     doc_id="doc",
     ingested_at=datetime(2025, 1, 1, tzinfo=UTC),
@@ -19,7 +18,7 @@ DOCUMENT = Document(
 
 def make_passages(*texts: str) -> list[tuple[Chunk, Document]]:
     return [
-        (Chunk(f"doc:{i}", "doc", text, None, None, 0, 1), DOCUMENT) for i, text in enumerate(texts)
+        (Chunk(f"doc:{i}", "doc", text, (), None, 0, 1), DOCUMENT) for i, text in enumerate(texts)
     ]
 
 
@@ -65,7 +64,7 @@ def test_allowed_restricts_results_before_n_applies() -> None:
 
 
 def test_document_title_and_section_are_searchable() -> None:
-    chunk = Chunk("doc:0", "doc", "Headcount grew.", "Item 1 — Business", None, 0, 1)
+    chunk = Chunk("doc:0", "doc", "Headcount grew.", ("Item 1 — Business",), None, 0, 1)
     index = SparseIndex.build([(chunk, DOCUMENT)])
 
     assert ids(index.search("report", 5)) == ["doc:0"]

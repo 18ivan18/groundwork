@@ -1,5 +1,6 @@
 """Chroma wrapper. Chroma is the single source of truth for chunks and their metadata."""
 
+import json
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -11,20 +12,20 @@ import chromadb
 from chromadb.api.types import GetResult
 from chromadb.config import Settings as ChromaSettings
 
-from groundwork.domain.models import (
-    Chunk,
-    DocSource,
-    DocType,
-    Document,
-    SearchFilters,
-    make_chunk_id,
-)
+from groundwork.domain.models import Chunk, Document, SearchFilters, make_chunk_id
 
 COLLECTION = "chunks"
+# Bumped when the metadata stored with each chunk changes shape. 2: generic documents (M1).
+# 3: heading paths instead of one section title (M1).
+LAYOUT = 3
 
 
 class EmbeddingModelMismatchError(ValueError):
     """The index was built with another model. Mixing models gives meaningless similarities."""
+
+
+class IndexLayoutError(ValueError):
+    """The index was written by an older version, so its chunks can't be read back."""
 
 
 @dataclass(frozen=True)
@@ -34,33 +35,43 @@ class DenseHit:
     similarity: float
 
 
+# Prefix for a document's own metadata keys, so they can't collide with the fields above.
+_META_PREFIX = "meta."
+
+
 def _to_metadata(document: Document, chunk: Chunk) -> dict[str, str | int]:
     values: dict[str, str | int | None] = {
         "doc_id": document.doc_id,
         "title": document.title,
-        "company": document.company,
-        "ticker": document.ticker,
+        "collection_id": document.collection_id,
         "doc_type": document.doc_type,
-        "period_end": document.period_end.isoformat() if document.period_end else None,
-        "source": document.source,
+        "doc_date": document.doc_date.isoformat() if document.doc_date else None,
+        # Chroma compares only numbers with $gte and $lte, so date ranges filter on the ordinal.
+        "doc_date_ordinal": document.doc_date.toordinal() if document.doc_date else None,
         "filename": document.filename,
+        # Chroma metadata holds scalars only. Nothing filters on the groups until M3, which moves
+        # the index to Postgres, so JSON is enough here.
+        "access_groups": json.dumps(document.access_groups),
+        "owner_id": document.owner_id,
         "ingested_at": document.ingested_at.isoformat(),
-        "section": chunk.section,
+        # JSON keeps a heading that contains the separator apart from the next one.
+        "section_path": json.dumps(chunk.section_path),
         "page": chunk.page,
         "char_start": chunk.char_start,
         "char_end": chunk.char_end,
     }
+    values.update({_META_PREFIX + key: value for key, value in document.metadata.items()})
     # Chroma rejects None, so optional fields are left out and read back with .get().
     return {key: value for key, value in values.items() if value is not None}
 
 
 def _from_metadata(chunk_id: str, text: str, metadata: Mapping[str, Any]) -> tuple[Chunk, Document]:
-    period_end = metadata.get("period_end")
+    doc_date = metadata.get("doc_date")
     chunk = Chunk(
         chunk_id=chunk_id,
         doc_id=metadata["doc_id"],
         text=text,
-        section=metadata.get("section"),
+        section_path=tuple(json.loads(metadata["section_path"])),
         page=metadata.get("page"),
         char_start=metadata["char_start"],
         char_end=metadata["char_end"],
@@ -68,12 +79,17 @@ def _from_metadata(chunk_id: str, text: str, metadata: Mapping[str, Any]) -> tup
     document = Document(
         doc_id=metadata["doc_id"],
         title=metadata["title"],
-        company=metadata["company"],
-        ticker=metadata.get("ticker"),
-        doc_type=cast(DocType, metadata["doc_type"]),
-        period_end=date.fromisoformat(period_end) if period_end else None,
-        source=cast(DocSource, metadata["source"]),
+        collection_id=metadata["collection_id"],
+        doc_type=metadata["doc_type"],
+        doc_date=date.fromisoformat(doc_date) if doc_date else None,
         filename=metadata["filename"],
+        metadata={
+            key.removeprefix(_META_PREFIX): value
+            for key, value in metadata.items()
+            if key.startswith(_META_PREFIX)
+        },
+        access_groups=tuple(json.loads(metadata["access_groups"])),
+        owner_id=metadata.get("owner_id"),
         ingested_at=datetime.fromisoformat(metadata["ingested_at"]),
     )
     return chunk, document
@@ -83,12 +99,15 @@ def _where(filters: SearchFilters | None) -> dict[str, Any] | None:
     if filters is None:
         return None
     clauses: list[dict[str, Any]] = []
-    if filters.tickers:
-        clauses.append({"ticker": {"$in": list(filters.tickers)}})
+    if filters.collections:
+        clauses.append({"collection_id": {"$in": list(filters.collections)}})
     if filters.doc_types:
         clauses.append({"doc_type": {"$in": list(filters.doc_types)}})
-    if filters.sources:
-        clauses.append({"source": {"$in": list(filters.sources)}})
+    if filters.date_from:
+        clauses.append({"doc_date_ordinal": {"$gte": filters.date_from.toordinal()}})
+    if filters.date_to:
+        clauses.append({"doc_date_ordinal": {"$lte": filters.date_to.toordinal()}})
+    clauses.extend({_META_PREFIX + key: value} for key, value in filters.metadata.items())
     if not clauses:
         return None
     # Chroma rejects "$and" with a single clause.
@@ -103,11 +122,18 @@ class DenseIndex:
         self._collection = client.get_or_create_collection(
             COLLECTION,
             configuration={"hnsw": {"space": "cosine"}},
-            metadata={"embedding_model": embedding_model},
+            metadata={"embedding_model": embedding_model, "layout": LAYOUT},
             # We always pass vectors in, so Chroma must never embed anything itself.
             embedding_function=None,
         )
-        stored_model = (self._collection.metadata or {}).get("embedding_model")
+        stored = self._collection.metadata or {}
+        # An index from before layouts were recorded has none, which also counts as old.
+        if stored.get("layout") != LAYOUT:
+            raise IndexLayoutError(
+                f"Index at {path} was written by an older version of groundwork. "
+                "Delete it and run scripts/ingest.py again."
+            )
+        stored_model = stored.get("embedding_model")
         if stored_model != embedding_model:
             raise EmbeddingModelMismatchError(
                 f"Index at {path} was built with {stored_model}, not {embedding_model}. "

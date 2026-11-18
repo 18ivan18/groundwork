@@ -1,43 +1,42 @@
-import type { ClientConfig, DocType, LibraryDocument, Passage } from "@/api/types";
+import type { ClientConfig, LibraryDocument, Passage } from "@/api/types";
 
-const DOC_TYPE_LABELS: Record<DocType, string> = {
-  "10-K": "Form 10-K",
-  "10-Q": "Form 10-Q",
-  "8-K": "Form 8-K",
-  earnings_call: "Earnings call",
-  news: "News article",
-  other: "Other",
-};
-
-export const DOC_TYPES = Object.keys(DOC_TYPE_LABELS) as DocType[];
-
-export function docTypeLabel(docType: DocType): string {
-  return DOC_TYPE_LABELS[docType];
+/** SEC forms read as "Form 10-K"; any other document type is shown as it was entered. */
+export function docTypeLabel(docType: string): string {
+  return /^\d+-[A-Z]$/.test(docType) ? `Form ${docType}` : docType;
 }
 
-/** Reads the year from the text: parsing the date could shift it across a time zone. */
-function fiscalYear(periodEnd: string | null): string | null {
-  return periodEnd ? `FY${periodEnd.slice(0, 4)}` : null;
+/** Filings are dated by the end of their fiscal year, so they show it as "FY2000". Reads the year
+ * from the text: parsing the date could shift it across a time zone. */
+function dateLabel(docDate: string | null, ticker: string | undefined): string | null {
+  if (!docDate) return null;
+  return ticker ? `FY${docDate.slice(0, 4)}` : docDate;
 }
 
 function join(parts: (string | null)[], separator = " · "): string {
   return parts.filter(Boolean).join(separator);
 }
 
-/** The bold line of a source card, such as "AAPL · Form 10-K · FY2000". */
+/** The bold line of a source card, such as "AAPL · Form 10-K · FY2000" for a filing. */
 export function sourceTitle(passage: Passage): string {
-  if (!passage.ticker) return passage.title;
-  return join([passage.ticker, docTypeLabel(passage.doc_type), fiscalYear(passage.period_end)]);
+  const ticker = passage.metadata.ticker;
+  if (!ticker) return join([passage.title, passage.doc_date]);
+  return join([ticker, docTypeLabel(passage.doc_type), dateLabel(passage.doc_date, ticker)]);
+}
+
+/** The heading path on one line, such as "Install › Linux". */
+export function sectionLabel(passage: Passage): string | null {
+  return passage.section_path.join(" › ") || null;
 }
 
 export function sourceLocation(passage: Passage): string {
-  return join([passage.section, passage.page === null ? null : `Page ${passage.page}`]);
+  return join([sectionLabel(passage), passage.page === null ? null : `Page ${passage.page}`]);
 }
 
 /** One line for lists of passages, such as "AAPL 10-K · Item 7". */
 export function passageLabel(passage: Passage): string {
-  const name = passage.ticker ? `${passage.ticker} ${passage.doc_type}` : passage.title;
-  return join([name, passage.section]);
+  const ticker = passage.metadata.ticker;
+  const name = ticker ? `${ticker} ${passage.doc_type}` : passage.title;
+  return join([name, sectionLabel(passage)]);
 }
 
 const isTableRow = (line: string) => /\S {2,}\S/.test(line);
@@ -62,9 +61,9 @@ export function retrievalLine(passage: Passage): string {
   return rerank_rank === null ? fused : `rerank #${rerank_rank} · ${fused}`;
 }
 
-/** The badge in the library: the ticker, or the file type for uploads. */
+/** The badge in the library: a filing's ticker, or the file type. */
 export function documentBadge(document: LibraryDocument): string {
-  if (document.ticker) return document.ticker;
+  if (document.metadata.ticker) return document.metadata.ticker;
   return document.filename.split(".").pop()?.toUpperCase() ?? "DOC";
 }
 
@@ -77,9 +76,8 @@ function uploadedLabel(ingestedAt: string, now: Date): string {
 
 export function documentDetails(document: LibraryDocument, now = new Date()): string {
   const when =
-    document.source === "upload"
-      ? uploadedLabel(document.ingested_at, now)
-      : fiscalYear(document.period_end);
+    dateLabel(document.doc_date, document.metadata.ticker) ??
+    uploadedLabel(document.ingested_at, now);
   return join([when, plural(document.chunks, "chunk")]);
 }
 

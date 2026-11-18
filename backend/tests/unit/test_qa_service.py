@@ -16,11 +16,10 @@ from groundwork.retrieval.sparse import SparseIndex
 
 DOCUMENT = Document(
     title="ACME Corp · Form 10-K",
-    company="ACME Corp",
-    ticker="ACME",
+    collection_id="uploads",
     doc_type="10-K",
-    period_end=None,
-    source="upload",
+    doc_date=None,
+    metadata={"company": "ACME Corp", "ticker": "ACME"},
     filename="acme.txt",
     doc_id="doc",
     ingested_at=datetime(2025, 1, 1, tzinfo=UTC),
@@ -28,7 +27,7 @@ DOCUMENT = Document(
 
 
 def passage(number: int, similarity: float | None = 0.7) -> ScoredPassage:
-    chunk = Chunk(f"doc:{number}", "doc", f"Passage {number}.", None, None, 0, 1)
+    chunk = Chunk(f"doc:{number}", "doc", f"Passage {number}.", (), None, 0, 1)
     return ScoredPassage(chunk, DOCUMENT, number, number, 0.03, similarity)
 
 
@@ -200,7 +199,7 @@ def test_the_llm_receives_the_prompt_and_token_limit() -> None:
 def test_filters_and_top_k_reach_the_retriever() -> None:
     retriever = StubRetriever([passage(1)])
     service = QAService(retriever, FakeLLM(["A [1]."]), top_k=6, min_relevance=0.5, max_tokens=100)
-    filters = SearchFilters(tickers=("ACME",))
+    filters = SearchFilters(collections=("sec-10k",), metadata={"ticker": "ACME"})
 
     service.ask("?", filters, top_k=3)
 
@@ -219,7 +218,7 @@ def test_top_k_defaults_to_the_setting() -> None:
 def test_end_to_end_with_a_real_index(tmp_path: Path) -> None:
     dense = DenseIndex(tmp_path, "fake-model")
     texts = ["ACME sells anvils to coyotes.", "The warehouse roof leaks."]
-    chunks = [Chunk(f"doc:{i}", "doc", t, None, None, 0, 1) for i, t in enumerate(texts)]
+    chunks = [Chunk(f"doc:{i}", "doc", t, (), None, 0, 1) for i, t in enumerate(texts)]
     embedder = FakeEmbedder()
     dense.add(DOCUMENT, chunks, embedder.embed_documents(texts))
     sparse = SparseIndex.build(dense.all_passages())

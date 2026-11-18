@@ -1,0 +1,16 @@
+# Demo users. Authentication is a plain `X-User` header (D23): real authentication is out of scope.
+# Groups decide which documents a user can retrieve (enforced from M3). Every user belongs to
+# `everyone`; it is listed anyway, so a user's access reads off this file.
+users:
+  alice:
+    display_name: Alice
+    groups: [everyone]
+  hana:
+    display_name: Hana (HR)
+    groups: [everyone, hr]
+  filip:
+    display_name: Filip (Finance)
+    groups: [everyone, finance]
+  admin:
+    display_name: Admin
+    groups: [everyone, hr, finance, admin]

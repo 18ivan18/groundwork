@@ -4,19 +4,25 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+import chromadb
 import pytest
+from chromadb.config import Settings as ChromaSettings
 
 from groundwork.domain.models import Chunk, Document
-from groundwork.retrieval.dense import DenseIndex, EmbeddingModelMismatchError
+from groundwork.retrieval.dense import (
+    COLLECTION,
+    DenseIndex,
+    EmbeddingModelMismatchError,
+    IndexLayoutError,
+)
 from groundwork.retrieval.embedder import FakeEmbedder
 
 DOCUMENT = Document(
     title="ACME Corp · Form 10-K",
-    company="ACME Corp",
-    ticker="ACME",
+    collection_id="sec-10k",
     doc_type="10-K",
-    period_end=date(2025, 9, 27),
-    source="edgar",
+    doc_date=date(2025, 9, 27),
+    metadata={"company": "ACME Corp", "ticker": "ACME"},
     filename="acme.txt",
     doc_id="doc",
     ingested_at=datetime(2025, 11, 1, tzinfo=UTC),
@@ -25,7 +31,7 @@ DOCUMENT = Document(
 
 def make_chunks(*texts: str) -> list[Chunk]:
     return [
-        Chunk(f"doc:{i}", "doc", text, "Item 1 — Business", None, i * 10, i * 10 + 9)
+        Chunk(f"doc:{i}", "doc", text, ("Item 1 — Business",), None, i * 10, i * 10 + 9)
         for i, text in enumerate(texts)
     ]
 
@@ -70,8 +76,8 @@ def test_chunk_and_document_survive_a_round_trip(index: DenseIndex) -> None:
 
 
 def test_optional_fields_survive_a_round_trip(index: DenseIndex) -> None:
-    document = replace(DOCUMENT, ticker=None, period_end=None)
-    chunks = [replace(make_chunks("anvils")[0], section=None, page=3)]
+    document = replace(DOCUMENT, doc_date=None, metadata={}, owner_id=None)
+    chunks = [replace(make_chunks("anvils")[0], section_path=(), page=3)]
     add(index, chunks, document)
 
     hit = index.search(FakeEmbedder().embed_query("anvils"), 1)[0]
@@ -80,9 +86,23 @@ def test_optional_fields_survive_a_round_trip(index: DenseIndex) -> None:
     assert hit.document == document
 
 
+def test_every_field_survives_a_round_trip(index: DenseIndex) -> None:
+    document = replace(
+        DOCUMENT,
+        metadata={"ticker": "ACME", "form": "10-K405"},
+        access_groups=("everyone", "finance"),
+        owner_id="alice",
+    )
+    add(index, make_chunks("anvils"), document)
+
+    hit = index.search(FakeEmbedder().embed_query("anvils"), 1)[0]
+
+    assert hit.document == document
+
+
 def test_counts(index: DenseIndex) -> None:
     add(index, make_chunks("one", "two"))
-    other = Chunk("other:0", "other", "three", None, None, 0, 5)
+    other = Chunk("other:0", "other", "three", (), None, 0, 5)
     add(index, [other], replace(DOCUMENT, doc_id="other"))
 
     assert index.count_documents() == 2
@@ -107,6 +127,17 @@ def test_opening_an_index_with_another_model_fails(tmp_path: Path) -> None:
 
     with pytest.raises(EmbeddingModelMismatchError, match="fake-model"):
         DenseIndex(tmp_path, "other-model")
+
+
+def test_opening_an_index_from_an_older_layout_fails(tmp_path: Path) -> None:
+    # The layout before M1 recorded only the embedding model.
+    client = chromadb.PersistentClient(
+        path=str(tmp_path), settings=ChromaSettings(anonymized_telemetry=False)
+    )
+    client.create_collection(COLLECTION, metadata={"embedding_model": "fake-model"})
+
+    with pytest.raises(IndexLayoutError, match="older version"):
+        DenseIndex(tmp_path, "fake-model")
 
 
 def test_a_partly_written_document_is_not_reported_as_indexed(

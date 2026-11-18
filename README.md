@@ -201,7 +201,7 @@ from a text passage instead, but the loader bug is still open. Each is a single 
 - **Two generations of filings:** the index holds each company's fiscal 2000–2001 10-K (plain text)
   and its 2026 10-K (HTML). A question without a year can get both, with the period of each figure
   stated. There is no period filter yet.
-- **Formats:** TXT, Markdown and HTML (inline XBRL included). PDF comes next, then OCR.
+- **Formats:** TXT, Markdown, HTML (inline XBRL included) and PDF with a text layer. Scanned PDFs need OCR, which is not supported.
 - **Updating an existing Docker install:** the filings are copied into the `data` volume only when
   it is empty, so an older volume keeps its old manifest. Run `docker compose down -v` once.
 - **Embedders:** a comparison of `bge-small` with Qwen3-0.6B and harrier-0.6b is planned.

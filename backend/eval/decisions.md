@@ -230,6 +230,33 @@ comparison):
 So HTML does not make the header problem worse, and mostly avoids it. A table longer than one chunk
 still loses its header in the later chunks.
 
+### Cells stay in their columns (M1)
+
+The loader used to drop every empty cell. That removed inline XBRL's spacer cells, but a row with a
+blank in the middle then slid its later values one column left. In Apple's share repurchase table
+the authorisation still available, $114,004 million, landed under "Average Price Paid Per Share",
+and the first answer run read it as the cost of the buybacks (`a25`).
+
+Now each cell is placed in its real column, counting `colspan` and `rowspan`:
+
+- `$` joins the next cell with text, and `)` or `%` the previous one, inside the row, so the
+  symbols' own columns end up empty.
+- A column is dropped only when no single-column cell in any row has text in it: those are the
+  spacers. A blank in one row stays an empty cell: `Total | 81,767 | | | | $114,004`.
+- A header that spans several columns (`2026` over `$`, the value and `)`) is written in the first
+  kept column of its span, which is the value column.
+- A row's trailing blanks are trimmed. A leading blank stays, so `| 2026 | 2025` sits over
+  `Revenue | $100 | $90`.
+
+On the three HTML filings 206 of 1,927 table rows changed (AAPL 47, MSFT 93, NVDA 66), and 112
+rows that had lost every separator now show their empty label column. Layout tables on cover pages
+and in tables of contents gain a leading empty cell too: correct, and a little noise.
+
+Retrieval at 400 tokens with re-ranking is unchanged (HTM MRR 0.715, TXT 0.676; 1,030 chunks
+instead of 1,028). Without re-ranking, hybrid on HTM rises from 0.684 to 0.705 MRR. `a25` asked
+again (`answer_runs/2026-11-18-m1-tables.jsonl`) is still correct, citing its evidence: it is
+answered from the text passage, as before, so the eval could not show the old error.
+
 ## Answer evaluation
 
 `run_answer_eval.py` asks each question through `QAService` and saves the raw answers, then scores
@@ -276,3 +303,72 @@ code was committed as `b1dd9ac` (same content).
 - **Latency:** the median answer went from 0.8 s to 1.5 s. Retrieval went from 26 ms to 585 ms
   (the re-ranker); generation stayed at about 0.8 s. All 8 unanswerable questions were still refused,
   3 by the gate and 5 by the model.
+
+## Short sections are kept (M1)
+
+Chunks under 30 tokens used to be dropped. In 10-K filings those are the ends of long sections and
+"Item 1B. None." pages, but runbooks and policies have whole sections of one or two sentences: the
+Northwind corpus lost 2.3% of its text, including the 2024 expense policy's rule on flights. Now
+only a tail fragment of a longer section is dropped below 30 tokens; a section that fits in one
+chunk is kept down to 8 tokens.
+
+The filings get 19 more chunks at 400 tokens (1,049). Re-ranked retrieval is unchanged (HTM MRR
+0.715, TXT 0.676). Without re-ranking, hybrid on HTM goes from 0.705 to 0.684 MRR: one question
+moves from rank 1 to rank 2, as it was before the table fix.
+
+## A domain-neutral prompt (M1)
+
+Prompt `answer-2` drops "financial analysts" and the investment-advice rule, says what each rule
+applies to, and replaces the period rule with a date rule: "When passages carry different dates,
+say which date each fact comes from. If they disagree, give the most recent first." The source line
+of each passage now gives its title, date and section. Runs record `prompt_version`.
+
+Run `2026-11-18-answer-2`, the 53 sec-10k questions, each filtered to its collection, on the M1
+index (four collections, 4,800 chunks), compared with `2026-11-08` (`answer-1`, before M1):
+
+| Questions | Correct, 2026-11-08 → answer-2 | Evidence cited | Cited only the other filing |
+|---|---|---|---|
+| sec-10k · HTM (24) | 23 → 21 | 22 → 20 | 0 → 0 |
+| sec-10k · TXT (21) | 17 → 18 | 16 → 19 | 1 → 0 |
+
+All 8 unanswerable questions are still refused (3 by the gate, 5 by the model).
+
+The two runs differ in more than the prompt: the retrieved passages are identical for only 15 of
+the 53 questions, because M1 changed the tables, kept short sections and indexed four collections.
+To separate the two, the five questions whose outcome changed (`m21`, `n24` worse; `m01` correct
+now; `a07`, `m02` now cite their evidence) were asked again with `answer-1` on the M1 index
+(`2026-11-18-answer-1-ab`). Every outcome matched `answer-2`'s. **The prompt is neutral on the
+filings; the changes come from retrieval.** `m21` (Microsoft's 2026 headcount) lost its evidence
+passage from the top 6 and the model refused; `n24` no longer retrieves the 2026 customer
+percentages.
+
+The date rule is not always followed: `n24`'s answer still opens with the 2001 figures. The
+contradiction questions on the Northwind expense policies test it directly; their first answer run
+is the baseline for M5's date-aware handling (#68).
+
+Median latency with an LLM call was 1.8 s (1.5 s on 2026-11-08). The rate-limit pauses inflate it:
+Groq's tokens-per-minute limit held the run to about two questions a minute.
+
+## First four-collection baseline (M1)
+
+`results.md` now scores 111 answerable questions over 205 documents in four collections, with every
+search unfiltered across all of them (18 minutes on this machine for three chunk sizes). At 400
+tokens, re-ranked:
+
+| Collection | S@1 | S@6 | Recall@6 | MRR |
+|---|---|---|---|---|
+| sec-10k (45) | 0.62 | 0.87 | 0.87 | 0.724 |
+| engineering (27) | 0.70 | 0.96 | 0.91 | 0.820 |
+| northwind (26) | 0.88 | 1.00 | 0.98 | 0.933 |
+| books (13) | 0.38 | 0.54 | 0.46 | 0.484 |
+
+- **Filings:** HTM S@6 0.92 → 0.83, TXT 0.81 → 0.90 against the filings-only run. `m21` (rank 10)
+  and `n24` (rank 7) left the top 6; `m01` and `m02` entered it. The answer eval, filtered to
+  sec-10k, loses `m21` too, so this is reordering among the filings' own chunks rather than the
+  other collections crowding them out.
+- **Books are the weak collection**, as expected of long, weakly structured prose: the chunking
+  lab (M6) starts from here.
+- **Northwind's restricted questions** count as found because nothing enforces groups yet; from M3
+  they must be misses for `alice`.
+- **The relevance gate** still separates at 0.58, narrowly: the lowest answerable question scores
+  0.589 and the highest off-topic one 0.574.

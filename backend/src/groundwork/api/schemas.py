@@ -4,20 +4,24 @@ The examples use an invented company, because they appear in the public API docs
 """
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints
 
-from groundwork.domain.models import DocSource, DocType
 from groundwork.ingestion.jobs import JobStatus
+
+# Lowercase words joined by hyphens, such as `sec-10k`: collection ids appear in URLs and filters.
+CollectionId = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=40)]
+DocTypeText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 
 _EXAMPLE_PASSAGE: dict[str, JsonValue] = {
     "doc_id": "9f2c1e7a",
     "title": "ACME Corp · Form 10-K",
-    "ticker": "ACME",
+    "collection_id": "sec-10k",
     "doc_type": "10-K",
-    "period_end": "2025-09-27",
-    "section": "Item 1 — Business",
+    "doc_date": "2025-09-27",
+    "metadata": {"company": "ACME Corp", "ticker": "ACME", "form": "10-K"},
+    "section_path": ["Item 1 — Business"],
     "page": None,
     "excerpt": "ACME Corp sells anvils to blacksmiths.",
     "chunk_id": "9f2c1e7a:4",
@@ -71,9 +75,19 @@ class ErrorResponse(BaseModel):
 class AskFilters(BaseModel):
     """Limits the search. An empty list places no limit on that field."""
 
-    tickers: list[str] = Field(default=[], description="Keep these tickers. Uploads have none.")
-    doc_types: list[DocType] = Field(default=[], description="Keep these document types.")
-    sources: list[DocSource] = Field(default=[], description="Keep filings, uploads or both.")
+    collections: list[CollectionId] = Field(default=[], description="Keep these collections.")
+    doc_types: list[DocTypeText] = Field(default=[], description="Keep these document types.")
+    date_from: date | None = Field(
+        default=None,
+        description="Keep documents dated on or after this day. Undated ones never match.",
+    )
+    date_to: date | None = Field(
+        default=None,
+        description="Keep documents dated on or before this day. Undated ones never match.",
+    )
+    metadata: dict[str, str] = Field(
+        default={}, description="Keep documents whose metadata has every one of these values."
+    )
 
 
 class AskRequest(BaseModel):
@@ -84,7 +98,7 @@ class AskRequest(BaseModel):
             "examples": [
                 {
                     "question": "Who buys ACME's anvils?",
-                    "filters": {"tickers": ["ACME"], "doc_types": ["10-K"]},
+                    "filters": {"collections": ["sec-10k"], "metadata": {"ticker": "ACME"}},
                     "top_k": 6,
                 }
             ]
@@ -112,10 +126,14 @@ class RetrievalInfo(BaseModel):
 class PassageResponse(BaseModel):
     doc_id: str = Field(description="The sha256 of the document's bytes.")
     title: str = Field(description="The document's title.")
-    ticker: str | None = Field(description="Null for uploads.")
-    doc_type: DocType = Field(description="The kind of document.")
-    period_end: date | None = Field(description="The last day of the period it covers.")
-    section: str | None = Field(description="The section, such as an Item of a 10-K, if detected.")
+    collection_id: str = Field(description="The collection the document belongs to.")
+    doc_type: str = Field(description="The kind of document, such as `10-K` or `runbook`.")
+    doc_date: date | None = Field(description="The date the document is about, if known.")
+    metadata: dict[str, str] = Field(description="Fields only some collections have.")
+    section_path: list[str] = Field(
+        description="The headings the passage sits under, outermost first, such as an Item of "
+        "a 10-K or a chapter. Empty when it is under none."
+    )
     page: int | None = Field(description="The page number, for formats that have pages.")
     excerpt: str = Field(description="The full passage text, exactly as indexed.")
     chunk_id: str = Field(description="The passage's ID: the doc_id and its position.")
@@ -162,11 +180,10 @@ class DocumentResponse(BaseModel):
                 {
                     "doc_id": "9f2c1e7a",
                     "title": "ACME Corp · Form 10-K",
-                    "company": "ACME Corp",
-                    "ticker": "ACME",
+                    "collection_id": "sec-10k",
                     "doc_type": "10-K",
-                    "period_end": "2025-09-27",
-                    "source": "edgar",
+                    "doc_date": "2025-09-27",
+                    "metadata": {"company": "ACME Corp", "ticker": "ACME", "form": "10-K"},
                     "filename": "ACME-10-K-2025-09-27.txt",
                     "ingested_at": "2025-11-01T09:30:00Z",
                     "chunks": 193,
@@ -177,11 +194,10 @@ class DocumentResponse(BaseModel):
 
     doc_id: str = Field(description="The sha256 of the document's bytes.")
     title: str = Field(description="The document's title.")
-    company: str = Field(description="The company the document is about.")
-    ticker: str | None = Field(description="Null for uploads.")
-    doc_type: DocType = Field(description="The kind of document.")
-    period_end: date | None = Field(description="The last day of the period it covers.")
-    source: DocSource = Field(description="`edgar` for the corpus, `upload` for user files.")
+    collection_id: str = Field(description="The collection the document belongs to.")
+    doc_type: str = Field(description="The kind of document, such as `10-K` or `runbook`.")
+    doc_date: date | None = Field(description="The date the document is about, if known.")
+    metadata: dict[str, str] = Field(description="Fields only some collections have.")
     filename: str = Field(description="The original file name.")
     ingested_at: datetime = Field(description="When it was indexed.")
     chunks: int = Field(description="Passages indexed from this document.")

@@ -14,7 +14,7 @@ from groundwork.domain.models import (
 )
 from groundwork.ingestion.chunking import TokenCounter, chunk_document
 from groundwork.ingestion.loaders import LoadedDocument, load_file, loader_for
-from groundwork.ingestion.sections import detect_sections
+from groundwork.ingestion.structure import StructureDetector, detector_for
 from groundwork.retrieval.dense import DenseIndex
 from groundwork.retrieval.embedder import Embedder
 
@@ -47,6 +47,7 @@ def chunk_loaded(
     loaded: LoadedDocument,
     doc_id: str,
     counter: TokenCounter,
+    detector: StructureDetector,
     *,
     chunk_tokens: int,
     chunk_overlap: int,
@@ -54,15 +55,17 @@ def chunk_loaded(
     return chunk_document(
         doc_id,
         loaded.text,
-        detect_sections(loaded.text),
+        detector(loaded),
         counter,
         chunk_tokens=chunk_tokens,
         chunk_overlap=chunk_overlap,
+        page_spans=loaded.page_spans,
     )
 
 
 def chunk_file(
     path: Path,
+    meta: DocumentMeta,
     doc_id: str,
     counter: TokenCounter,
     *,
@@ -70,7 +73,12 @@ def chunk_file(
     chunk_overlap: int,
 ) -> list[Chunk]:
     return chunk_loaded(
-        load_file(path), doc_id, counter, chunk_tokens=chunk_tokens, chunk_overlap=chunk_overlap
+        load_file(path),
+        doc_id,
+        counter,
+        detector_for(meta.doc_type, meta.filename),
+        chunk_tokens=chunk_tokens,
+        chunk_overlap=chunk_overlap,
     )
 
 
@@ -89,7 +97,12 @@ def prepare_document(
     `on_progress` is called with 0.0 once chunking is done, then after each embedding batch.
     """
     chunks = chunk_loaded(
-        loaded, doc_id, embedder, chunk_tokens=chunk_tokens, chunk_overlap=chunk_overlap
+        loaded,
+        doc_id,
+        embedder,
+        detector_for(meta.doc_type, meta.filename),
+        chunk_tokens=chunk_tokens,
+        chunk_overlap=chunk_overlap,
     )
     document = Document(**asdict(meta), doc_id=doc_id, ingested_at=datetime.now(UTC))
     if not chunks:

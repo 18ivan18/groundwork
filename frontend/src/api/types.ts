@@ -5,8 +5,6 @@ import type { z } from "zod";
 import type {
   AskResponseSchema,
   ClientConfigSchema,
-  DocSourceSchema,
-  DocTypeSchema,
   HealthSchema,
   JobSchema,
   JobStatusSchema,
@@ -16,8 +14,6 @@ import type {
   UploadResponseSchema,
 } from "./schemas";
 
-export type DocType = z.infer<typeof DocTypeSchema>;
-export type DocSource = z.infer<typeof DocSourceSchema>;
 export type JobStatus = z.infer<typeof JobStatusSchema>;
 
 export type Health = z.infer<typeof HealthSchema>;
@@ -30,9 +26,13 @@ export type UploadResponse = z.infer<typeof UploadResponseSchema>;
 export type Job = z.infer<typeof JobSchema>;
 
 export interface AskFilters {
-  tickers?: string[];
-  doc_types?: DocType[];
-  sources?: DocSource[];
+  collections?: string[];
+  doc_types?: string[];
+  /** Inclusive ISO dates. Undated documents never match a range. */
+  date_from?: string;
+  date_to?: string;
+  /** Every key must have exactly this value in the document's metadata. */
+  metadata?: Record<string, string>;
 }
 
 export interface AskRequest {
@@ -42,7 +42,8 @@ export interface AskRequest {
 }
 
 export interface UploadTags {
-  company: string;
-  doc_type: DocType;
-  period_end: string;
+  collection: string;
+  doc_type: string;
+  /** An ISO date, or "" for none. */
+  doc_date: string;
 }

@@ -10,11 +10,10 @@ from groundwork.retrieval.hybrid import SearchResult
 
 DOCUMENT = Document(
     title="ACME Corp · Form 10-K",
-    company="ACME Corp",
-    ticker="ACME",
+    collection_id="sec-10k",
     doc_type="10-K",
-    period_end=date(2025, 9, 27),
-    source="edgar",
+    doc_date=date(2025, 9, 27),
+    metadata={"company": "ACME Corp", "ticker": "ACME"},
     filename="acme.txt",
     doc_id="doc",
     ingested_at=datetime(2025, 11, 1, tzinfo=UTC),
@@ -22,7 +21,9 @@ DOCUMENT = Document(
 
 
 def make_passage(number: int, similarity: float = 0.9) -> ScoredPassage:
-    chunk = Chunk(f"doc:{number}", "doc", f"Anvil fact {number}.", "Item 1 — Business", None, 0, 1)
+    chunk = Chunk(
+        f"doc:{number}", "doc", f"Anvil fact {number}.", ("Item 1 — Business",), None, 0, 1
+    )
     return ScoredPassage(
         chunk,
         DOCUMENT,

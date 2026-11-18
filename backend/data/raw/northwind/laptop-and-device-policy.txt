@@ -1,0 +1,25 @@
+LAPTOP AND DEVICE POLICY
+Northwind Labs IT
+Effective 12 May 2025
+
+1. Company laptops
+Every employee gets a company laptop. Laptops are replaced every three years, or sooner if they are
+broken beyond repair.
+
+2. Security settings
+Full-disk encryption must be on. The screen must lock after five minutes without use. Operating
+system updates must be installed within seven days of release. IT checks these settings every day
+and blocks access to company systems from laptops that fail them.
+
+3. Personal use
+Reasonable personal use is allowed. Do not install software from unknown sources, and do not let
+anyone else use the laptop, including family members.
+
+4. Lost or stolen devices
+Report a lost or stolen laptop or phone to IT within 24 hours, and post in #security-reports within
+one hour if it held customer data. IT wipes the device remotely.
+
+5. Leaving Northwind Labs
+Return the laptop on your last working day. IT wipes it before it is given to someone else.
+
+Questions: #it-help

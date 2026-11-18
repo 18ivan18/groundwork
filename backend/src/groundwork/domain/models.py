@@ -1,28 +1,35 @@
 """Core domain types, independent of the API and storage layers."""
 
 import hashlib
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Literal
 
-DocType = Literal["10-K", "10-Q", "8-K", "earnings_call", "news", "other"]
-DocSource = Literal["edgar", "upload"]
+# Everyone can read a document in this group. Real access control arrives in M3.
+EVERYONE = "everyone"
 
 
-@dataclass(frozen=True)
+# Keyword-only, so Document can add required fields after the defaults here.
+@dataclass(frozen=True, kw_only=True)
 class DocumentMeta:
-    """What is known about a file before ingestion."""
+    """What is known about a file before ingestion.
+
+    `doc_type` is free text ("10-K", "runbook", "novel"), set by the collection's manifest or the
+    uploader. `metadata` holds what only some collections have, such as a filing's ticker, as
+    strings so a search can filter on them by equality.
+    """
 
     title: str
-    company: str
-    ticker: str | None
-    doc_type: DocType
-    period_end: date | None
-    source: DocSource
+    collection_id: str
+    doc_type: str
+    doc_date: date | None
     filename: str
+    metadata: Mapping[str, str] = field(default_factory=dict)
+    access_groups: tuple[str, ...] = (EVERYONE,)
+    owner_id: str | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Document(DocumentMeta):
     """An ingested file. `doc_id` is the sha256 of its bytes, which also deduplicates uploads."""
 
@@ -44,9 +51,13 @@ def make_chunk_id(doc_id: str, position: int) -> str:
 class SearchFilters:
     """Restricts a search. An empty tuple means no restriction on that field."""
 
-    tickers: tuple[str, ...] = ()
+    collections: tuple[str, ...] = ()
     doc_types: tuple[str, ...] = ()
-    sources: tuple[str, ...] = ()
+    # Inclusive. A document without a date never matches a date range.
+    date_from: date | None = None
+    date_to: date | None = None
+    # Every key must have exactly this value in the document's metadata.
+    metadata: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -56,7 +67,8 @@ class Chunk:
     chunk_id: str
     doc_id: str
     text: str
-    section: str | None
+    # The headings the chunk sits under, outermost first. Empty when it is under none.
+    section_path: tuple[str, ...]
     page: int | None
     char_start: int
     char_end: int
@@ -66,10 +78,16 @@ def indexed_text(chunk: Chunk, document: Document) -> str:
     """The text to embed and to index for BM25, which is not the text shown to users.
 
     Filings say "the Company", so without this header a chunk has no link to the company that a
-    question names, and the same passage from three filings looks alike to both retrievers.
+    question names, and the same passage from three filings looks alike to both retrievers. The
+    title does the same for any document whose text doesn't name its subject.
     """
-    header = " · ".join(part for part in (document.title, chunk.section) if part)
+    header = " · ".join((document.title, *chunk.section_path))
     return f"{header}\n{chunk.text}"
+
+
+def section_label(chunk: Chunk) -> str | None:
+    """The heading path as one line, such as "Install > Linux", or None under no heading."""
+    return " > ".join(chunk.section_path) or None
 
 
 @dataclass(frozen=True)

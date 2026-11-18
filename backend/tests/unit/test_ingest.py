@@ -1,13 +1,10 @@
-import json
 from collections.abc import Sequence
-from datetime import date
 from pathlib import Path
 
 import pytest
 
 from groundwork.domain.models import DocumentMeta, make_chunk_id, make_doc_id
 from groundwork.ingestion import pipeline
-from groundwork.ingestion.corpus import document_meta, load_corpus
 from groundwork.ingestion.loaders import LoadedDocument
 from groundwork.ingestion.pipeline import ingest_file, prepare_document
 from groundwork.retrieval.dense import DenseIndex
@@ -15,11 +12,10 @@ from groundwork.retrieval.embedder import FakeEmbedder
 
 META = DocumentMeta(
     title="ACME Corp · Form 10-K",
-    company="ACME Corp",
-    ticker="ACME",
+    collection_id="sec-10k",
     doc_type="10-K",
-    period_end=None,
-    source="edgar",
+    doc_date=None,
+    metadata={"company": "ACME Corp", "ticker": "ACME"},
     filename="acme.txt",
 )
 TEXT = "Item 1. Business\n\n" + "ACME Corp sells anvils to coyotes in the desert. " * 40
@@ -97,31 +93,6 @@ def test_header_is_embedded_but_stored_text_stays_verbatim(filing: Path, tmp_pat
     assert embedder.texts[0].startswith("ACME Corp · Form 10-K · Item 1 — Business\n")
     chunk, _ = index.all_passages()[0]
     assert "Form 10-K" not in chunk.text
-
-
-def test_load_corpus_lists_only_formats_with_a_loader(tmp_path: Path) -> None:
-    common = {"company": "ACME Corp", "ticker": "ACME", "form": "10-K", "period_end": "2025-01-31"}
-    names = ["a.txt", "a.HTM", "a.pdf"]
-    entries = [{**common, "filename": name} for name in names]
-    (tmp_path / "manifest.json").write_text(json.dumps(entries))
-
-    assert [path.name for path, _ in load_corpus(tmp_path)] == ["a.txt", "a.HTM"]
-
-
-def test_document_meta_maps_10k405_to_10k() -> None:
-    meta = document_meta(
-        {
-            "company": "ACME Corp",
-            "ticker": "ACME",
-            "form": "10-K405",
-            "period_end": "2001-01-28",
-            "filename": "acme.txt",
-        }
-    )
-
-    assert meta.doc_type == "10-K"
-    assert meta.title == "ACME Corp · Form 10-K"
-    assert meta.period_end == date(2001, 1, 28)
 
 
 def test_doc_id_is_the_sha256_of_the_bytes_and_chunk_0_marks_a_document() -> None:

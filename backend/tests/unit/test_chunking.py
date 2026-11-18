@@ -3,8 +3,8 @@ from itertools import pairwise
 import pytest
 
 from groundwork.domain.models import Chunk
-from groundwork.ingestion.chunking import MIN_CHUNK_TOKENS, chunk_document
-from groundwork.ingestion.sections import Section
+from groundwork.ingestion.chunking import MIN_CHUNK_TOKENS, MIN_SECTION_TOKENS, chunk_document
+from groundwork.ingestion.structure import Section
 
 
 class WordCounter:
@@ -23,7 +23,7 @@ def chunk(text: str, chunk_tokens: int = 50, overlap: int = 10) -> list[Chunk]:
     return chunk_document(
         "doc",
         text,
-        [Section("Item 1 — Business", 0, len(text))],
+        [Section(("Item 1 — Business",), 0, len(text))],
         WordCounter(),
         chunk_tokens=chunk_tokens,
         chunk_overlap=overlap,
@@ -101,8 +101,24 @@ def test_a_long_line_splits_on_words() -> None:
     assert all(WordCounter().count(c.text) <= 50 for c in chunks)
 
 
-def test_tiny_chunks_are_dropped() -> None:
-    assert chunk(" ".join(["anvil"] * (MIN_CHUNK_TOKENS - 1))) == []
+def test_a_short_section_is_kept_whole() -> None:
+    [only] = chunk(" ".join(["anvil"] * (MIN_CHUNK_TOKENS - 1)))
+
+    assert only.text.count("anvil") == MIN_CHUNK_TOKENS - 1
+
+
+def test_a_section_of_a_few_words_is_dropped() -> None:
+    assert chunk(" ".join(["anvil"] * (MIN_SECTION_TOKENS - 1))) == []
+
+
+def test_a_tiny_tail_of_a_long_section_is_dropped() -> None:
+    sentences = [f"Sentence {i} has a few words about anvils." for i in range(12)]
+    text = " ".join(sentences) + " Tail."
+
+    chunks = chunk(text)
+
+    assert len(chunks) > 1
+    assert all(WordCounter().count(c.text) >= MIN_CHUNK_TOKENS for c in chunks)
 
 
 def test_chunks_never_cross_sections_and_ids_are_sequential() -> None:
@@ -113,12 +129,12 @@ def test_chunks_never_cross_sections_and_ids_are_sequential() -> None:
     chunks = chunk_document(
         "doc",
         text,
-        [Section("Item 1 — A", 0, boundary), Section("Item 2 — B", boundary, len(text))],
+        [Section(("Item 1 — A",), 0, boundary), Section(("Item 2 — B",), boundary, len(text))],
         WordCounter(),
         chunk_tokens=200,
         chunk_overlap=10,
     )
 
-    assert [c.section for c in chunks] == ["Item 1 — A", "Item 2 — B"]
+    assert [c.section_path for c in chunks] == [("Item 1 — A",), ("Item 2 — B",)]
     assert [c.chunk_id for c in chunks] == ["doc:0", "doc:1"]
     assert chunks[1].char_start >= boundary
