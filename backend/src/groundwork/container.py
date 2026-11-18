@@ -1,8 +1,10 @@
 """Wires settings to the application's long-lived objects."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from groundwork.config import Settings
+from groundwork.domain.users import User, load_users
 from groundwork.ingestion.uploads import UploadService
 from groundwork.llm.factory import build_llm
 from groundwork.qa.service import QAService
@@ -21,6 +23,8 @@ from groundwork.retrieval.sparse import SparseIndex
 class Container:
     settings: Settings
     dense_index: DenseIndex
+    # Loaded at startup so a broken file stops the server at once. Enforced from M3.
+    users: Mapping[str, User]
 
 
 @dataclass(frozen=True)
@@ -118,4 +122,8 @@ def build_services(settings: Settings, dense: DenseIndex) -> Services:
 
 
 def build_container(settings: Settings) -> Container:
-    return Container(settings=settings, dense_index=build_dense_index(settings))
+    return Container(
+        settings=settings,
+        dense_index=build_dense_index(settings),
+        users=load_users(settings.users_file),
+    )

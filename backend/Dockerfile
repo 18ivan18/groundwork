@@ -38,6 +38,7 @@ ENV PATH=/app/.venv/bin:$PATH \
 COPY --from=build --chown=app:app /opt/models /opt/models
 COPY --from=build --chown=app:app /app/.venv /app/.venv
 COPY --chown=app:app scripts ./scripts
+COPY --chown=app:app conf ./conf
 # Docker copies this into the empty `data` volume on first use, along with its ownership.
 COPY --chown=app:app data/raw ./data/raw
 
