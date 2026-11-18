@@ -15,12 +15,19 @@ Scores are reported per document format, which separates the TXT filings from th
 Each retriever hands its top `retrieval_candidates` passages to fusion, so recall at that depth
 is the most hybrid search can find. The candidate table compares it with what survives fusion
 and the cut to `top_k`.
+
+`--ci` is the regression gate: Success@6 of the full pipeline on the sec-10k and northwind
+collections at the configured chunk size, with exact vector search so the result does not depend
+on the HNSW graph. It fails when a collection falls more than 3 points below eval/baseline.json.
+`--ci --update-baseline` rewrites that file: a deliberate, reviewed commit.
 """
 
+import argparse
 import asyncio
 import json
 import re
 import statistics
+import sys
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
@@ -28,6 +35,7 @@ from pathlib import Path
 from typing import Literal, get_args
 
 from pydantic import BaseModel, ConfigDict
+from tsrank import ts_rank_search
 
 from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
@@ -44,6 +52,10 @@ from groundwork.retrieval.reranker import Reranker
 from groundwork.retrieval.sparse import FixedSparse, build_sparse
 
 EVAL_DIR = Path(__file__).parent
+BASELINE = EVAL_DIR / "baseline.json"
+CI_COLLECTIONS = ("sec-10k", "northwind")
+# Success@6 may fall this far below the baseline, in points, before CI fails.
+CI_TOLERANCE = 0.03
 CHUNK_SIZES = (200, 300, 400)
 K_VALUES = (1, 3, 6, 8, 10, 20)
 # Recall@k is reported at the answer's depth (top_k) and at the candidates' depth.
@@ -270,13 +282,15 @@ async def eval_store(
     chunk_tokens: int,
     *,
     exact: bool = False,
+    prefix: str = "eval",
 ) -> PgVectorStore:
     """The eval index for this chunk size, holding exactly `entries`. Documents already in it
-    are skipped; an index holding others (a file changed since) is rebuilt."""
+    are skipped; an index holding others (a file changed since) is rebuilt. The CI gate indexes
+    fewer collections, so it uses its own `prefix` rather than rebuilding the full eval's index."""
     spec = window_spec(
         chunk_tokens, settings.chunk_overlap, settings.embedding_model, embedder.dimension
     )
-    spec = replace(spec, name=f"eval-{spec.name}")
+    spec = replace(spec, name=f"{prefix}-{spec.name}")
     store = PgVectorStore(pool, await ensure_index(pool, spec), exact=exact)
     for entry in entries:
         await ingest_file(
@@ -290,7 +304,9 @@ async def eval_store(
     if await store.count_documents() > len(entries):
         print(f"{spec.name} holds documents no longer in the corpus: rebuilding it.")
         await drop_index(pool, store.index.id)
-        return await eval_store(pool, settings, entries, embedder, chunk_tokens, exact=exact)
+        return await eval_store(
+            pool, settings, entries, embedder, chunk_tokens, exact=exact, prefix=prefix
+        )
     return store
 
 
@@ -408,6 +424,64 @@ def gate_table(answerable: list[float], off_topic: list[float], in_domain: list[
     return "\n".join(lines)
 
 
+def baseline_check(
+    found: dict[str, float], baseline: dict[str, float], tolerance: float = CI_TOLERANCE
+) -> list[str]:
+    """One line per collection that fell more than `tolerance` below its baseline, or has none."""
+    failures = []
+    for collection, value in sorted(found.items()):
+        if collection not in baseline:
+            failures.append(f"{collection}: no baseline. Run --ci --update-baseline.")
+        elif value < baseline[collection] - tolerance - 1e-9:
+            failures.append(
+                f"{collection}: Success@6 {value:.3f}, baseline {baseline[collection]:.3f}"
+            )
+    return failures
+
+
+async def ci(update_baseline: bool) -> int:
+    settings = Settings()
+    questions = [
+        q for q in load_questions(EVAL_DIR / "questions.jsonl") if q.collection in CI_COLLECTIONS
+    ]
+    entries = corpus_entries(settings.data_dir / "raw", frozenset(CI_COLLECTIONS))
+    keys = DocumentKeys(entries)
+    validate(
+        questions,
+        {(e.meta.collection_id, e.key): normalize(load_file(e.path).text) for e in entries},
+    )
+    # Restricted questions are asked by a user who must not find the document: from M3 the ACL
+    # makes them misses, which would read as a regression here.
+    answerable = [q for q in questions if q.answerable and q.type != "restricted"]
+    embedder = build_embedder(settings)
+    pool = await open_pool(settings.database_url)
+    try:
+        store = await eval_store(
+            pool, settings, entries, embedder, settings.chunk_tokens, exact=True, prefix="ci"
+        )
+        retriever = await build_retriever(settings, store, embedder, build_reranker(settings))
+        found: dict[str, list[EvidenceRanks]] = {}
+        for q in answerable:
+            passages = await retriever.search(q.question, settings.top_k)
+            found.setdefault(q.collection, []).append(evidence_ranks(passages, q, keys))
+    finally:
+        await pool.close()
+    success = {
+        c: score(ranks, [settings.top_k]).success[settings.top_k] for c, ranks in found.items()
+    }
+    for collection, value in sorted(success.items()):
+        count = len(found[collection])
+        print(f"{collection}: Success@{settings.top_k} {value:.3f} ({count} questions)")
+    if update_baseline:
+        BASELINE.write_text(json.dumps(success, indent=2, sort_keys=True) + "\n")
+        print(f"Wrote {BASELINE.name}")
+        return 0
+    failures = baseline_check(success, json.loads(BASELINE.read_text()))
+    for failure in failures:
+        print(f"FAIL {failure}")
+    return 1 if failures else 0
+
+
 async def main() -> None:
     settings = Settings()
     questions = load_questions(EVAL_DIR / "questions.jsonl")
@@ -425,6 +499,7 @@ async def main() -> None:
     misses: list[str] = []
     gate_sections: list[str] = []
     latencies: list[str] = []
+    ts_rows: list[Row] = []
     pool = await open_pool(settings.database_url)
     for chunk_tokens in CHUNK_SIZES:
         dense = await eval_store(pool, settings, entries, embedder, chunk_tokens)
@@ -459,6 +534,14 @@ async def main() -> None:
                 settings.top_k,
             )
             candidate_rows.append((chunk_tokens, name, candidates))
+
+        ts_found = [
+            evidence_ranks(await ts_rank_search(dense, q.question, max(K_VALUES)), q, keys)
+            for q in answerable
+        ]
+        for name, positions in sets.items():
+            scores = score([ts_found[p] for p in positions], K_VALUES)
+            ts_rows.append(Row(chunk_tokens, chunk_count, "ts_rank", name, scores))
 
         top: dict[str, float] = {}
         for q in questions:
@@ -503,6 +586,11 @@ async def main() -> None:
             "A rank of None means the passage was not in the top "
             f"{max(K_VALUES)}.\n\n| Chunk tokens | Mode | Question | Rank |\n|---|---|---|---|\n"
             + "\n".join(misses),
+            "## BM25 and Postgres ts_rank",
+            "The same sparse search with Postgres full-text search in place of bm25s, for "
+            "comparison only (D17): `ts_rank` has no inverse document frequency. Compare with "
+            "the *sparse* rows above.\n\n"
+            + retrieval_table([row for row in rows if row.mode == "sparse"] + ts_rows),
             "## Search latency",
             "Wall time of one search on this machine, embedding the question included. One run, "
             "so only differences of tens of milliseconds mean anything.\n\n"
@@ -517,4 +605,14 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--ci", action="store_true", help="Run the regression gate.")
+    parser.add_argument(
+        "--update-baseline", action="store_true", help="With --ci: rewrite eval/baseline.json."
+    )
+    args = parser.parse_args()
+    if args.ci:
+        sys.exit(asyncio.run(ci(args.update_baseline)))
+    if args.update_baseline:
+        parser.error("--update-baseline needs --ci")
     asyncio.run(main())

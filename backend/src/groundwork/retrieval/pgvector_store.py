@@ -103,6 +103,10 @@ class PgVectorStore:
     def index(self) -> IndexInfo:
         return self._index
 
+    @property
+    def pool(self) -> Pool:
+        return self._pool
+
     async def find_document(self, content_hash: str, meta: DocumentMeta) -> str | None:
         async with self._pool.connection() as connection:
             cursor = await connection.execute(
