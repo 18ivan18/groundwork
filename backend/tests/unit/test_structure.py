@@ -226,3 +226,15 @@ def test_item_headings_are_not_split_out_of_other_documents() -> None:
     loaded = LoadedDocument("Item 1. Business\n\nNot a filing.\n\nItem 2. Properties\n\nStill not.")
 
     assert detector_for("notes", "notes.txt")(loaded) == [Section((), 0, len(loaded.text))]
+
+
+def test_an_opening_title_heading_is_left_out_of_the_paths() -> None:
+    loaded = load_markdown(b"# Runbook: failover\n\nWhen to act.\n\n## Steps\n\nDo it.\n")
+
+    assert paths(detect_from_headings(loaded)) == [(), ("Steps",)]
+
+
+def test_several_top_headings_stay_in_the_paths() -> None:
+    loaded = load_markdown(b"# Install\n\nA.\n\n# Upgrade\n\n## Linux\n\nB.\n")
+
+    assert paths(detect_from_headings(loaded)) == [("Install",), ("Upgrade",), ("Upgrade", "Linux")]
