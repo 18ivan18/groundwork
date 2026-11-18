@@ -74,6 +74,11 @@ testpaths = ["tests"]
 pythonpath = ["scripts", "eval", "tests", "tests/api"]
 # importlib mode lets tests/unit and tests/api hold same-named files without __init__.py packages.
 addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "db: needs Postgres at TEST_DATABASE_URL. Skipped when there is none, unless REQUIRE_DB=1 (CI).",
+]
 
 # PyPI's Linux torch wheels bundle CUDA (gigabytes). This project embeds on CPU, so use the CPU index.
 [tool.uv.sources]

@@ -9,8 +9,8 @@ from groundwork.domain.models import (
     Chunk,
     Document,
     DocumentMeta,
+    content_hash,
     indexed_text,
-    make_doc_id,
 )
 from groundwork.ingestion.chunking import TokenCounter, chunk_document
 from groundwork.ingestion.loaders import LoadedDocument, load_file, loader_for
@@ -130,7 +130,7 @@ def ingest_file(
 ) -> IngestResult:
     """Chunk, embed and store a file, unless identical bytes are already indexed."""
     raw = path.read_bytes()
-    doc_id = make_doc_id(raw)
+    doc_id = content_hash(raw)
     if index.has_document(doc_id):
         return IngestResult(doc_id=doc_id, chunks=0, skipped=True)
 

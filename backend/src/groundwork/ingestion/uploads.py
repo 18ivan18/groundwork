@@ -7,7 +7,7 @@ from datetime import date
 from functools import partial
 from pathlib import Path, PureWindowsPath
 
-from groundwork.domain.models import DocumentMeta, make_doc_id
+from groundwork.domain.models import DocumentMeta, content_hash
 from groundwork.ingestion.jobs import Job, JobRegistry
 from groundwork.ingestion.loaders import LoadedDocument, NoTextError, loader_for
 from groundwork.ingestion.pipeline import prepare_document
@@ -77,7 +77,7 @@ class UploadService:
             limit_mb = self._max_bytes // (1024 * 1024)
             raise FileTooLargeError(f"The file is larger than the {limit_mb} MB limit.")
 
-        doc_id = make_doc_id(raw)
+        doc_id = content_hash(raw)
         if self._dense.has_document(doc_id):
             job = self._jobs.create(doc_id)
             chunks = self._dense.count_document_chunks(doc_id)

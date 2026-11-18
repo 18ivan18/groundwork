@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from groundwork.domain.models import DocumentMeta, make_chunk_id, make_doc_id
+from groundwork.domain.models import DocumentMeta, content_hash, make_chunk_id
 from groundwork.ingestion import pipeline
 from groundwork.ingestion.loaders import LoadedDocument
 from groundwork.ingestion.pipeline import ingest_file, prepare_document
@@ -96,7 +96,7 @@ def test_header_is_embedded_but_stored_text_stays_verbatim(filing: Path, tmp_pat
 
 
 def test_doc_id_is_the_sha256_of_the_bytes_and_chunk_0_marks_a_document() -> None:
-    doc_id = make_doc_id(b"content")
+    doc_id = content_hash(b"content")
 
     assert doc_id == "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73"
     assert make_chunk_id(doc_id, 0) == f"{doc_id}:0"
