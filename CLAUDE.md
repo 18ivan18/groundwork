@@ -37,7 +37,7 @@ Frontend (from `frontend/`):
 
 ### Issue tracker
 
-Issues are tracked in GitHub Issues (18ivan18/novabridge-qa) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues are tracked in GitHub Issues (18ivan18/groundwork) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
