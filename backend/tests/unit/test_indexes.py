@@ -102,9 +102,15 @@ async def test_a_generic_plan_still_uses_the_partial_hnsw_index(
     store = PgVectorStore(pool, index)
     sql, params = store.search_sql([1.0, 0.0, 0.0], 5, filters)
 
+    # Written in, so a generic plan knows them (docs/RETRIEVAL.md).
+    assert f"index_id = {index.id}" in sql and "LIMIT 5" in sql
+
     async with pool.connection() as connection, connection.transaction():
-        # The table is tiny; without this the planner would rightly prefer a sequential scan.
+        # The table is tiny, so the planner would rightly prefer a sequential scan, or the btree
+        # on index_id and a sort by distance. The question here is whether a generic plan can
+        # use the HNSW index at all, so those are taken away.
         await connection.execute("SET LOCAL enable_seqscan = off")
+        await connection.execute("SET LOCAL enable_sort = off")
         await connection.execute("SET LOCAL plan_cache_mode = force_generic_plan")
         for _ in range(6):
             cursor = await connection.execute("EXPLAIN (FORMAT JSON) " + sql, params, prepare=True)

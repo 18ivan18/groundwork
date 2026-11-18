@@ -211,7 +211,14 @@ class PgVectorStore:
         self, query_embedding: Sequence[float], n: int, filters: SearchFilters | None = None
     ) -> tuple[str, list[Any]]:
         """The vector query and its parameters. Public so tests and docs/RETRIEVAL.md can EXPLAIN
-        exactly what `search` runs."""
+        exactly what `search` runs.
+
+        The index id and the limit are written into the SQL, not passed as parameters. psycopg
+        prepares a statement on its fifth run, and Postgres may then plan it generically: with
+        the index id unknown, the partial HNSW index cannot be used (D19). With the limit
+        unknown, Postgres keeps re-planning every search rather than use a generic plan; with it
+        written in, the generic plan uses the index and planning is skipped (docs/RETRIEVAL.md).
+        Both are ints from this code, never user input."""
         where, params = _filter_sql(filters)
         cast = vector_cast(self._index, "c")
         query = np.asarray(query_embedding, dtype=np.float32)
@@ -219,10 +226,10 @@ class PgVectorStore:
             f"SELECT {_DOCUMENT_COLUMNS}, {_CHUNK_COLUMNS}, c.distance FROM ("
             f"SELECT c.*, {cast} <=> %s::vector({self._index.dimension}) AS distance "
             f"FROM chunks c WHERE c.index_id = {self._id}{where} "
-            f"ORDER BY distance LIMIT %s"
+            f"ORDER BY distance LIMIT {int(n)}"
             f") c JOIN documents d ON d.id = c.document_id ORDER BY c.distance"
         )
-        return sql, [query, *params, n]
+        return sql, [query, *params]
 
     async def search(
         self, query_embedding: Sequence[float], n: int, filters: SearchFilters | None = None
