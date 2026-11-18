@@ -14,6 +14,7 @@ dependencies = [
     "openai>=3.46.0",
     "pydantic>=2",
     "pydantic-settings>=2.16.2",
+    "pypdf>=7.1.0",
     "pystemmer>=3.1.0",
     "python-multipart>=0.0.33",
     "uvicorn[standard]>=0.54.0",
@@ -64,7 +65,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # These are not packages, so make them importable for tests.
-pythonpath = ["scripts", "eval", "tests/api"]
+pythonpath = ["scripts", "eval", "tests", "tests/api"]
 # importlib mode lets tests/unit and tests/api hold same-named files without __init__.py packages.
 addopts = "--import-mode=importlib"
 

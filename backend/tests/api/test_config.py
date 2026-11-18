@@ -13,6 +13,6 @@ def test_config_reports_the_upload_limits(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.json() == {
-        "upload_types": [".htm", ".html", ".md", ".txt"],
+        "upload_types": [".htm", ".html", ".md", ".pdf", ".txt"],
         "max_upload_mb": 7,
     }

@@ -93,7 +93,7 @@ def test_load_file_matches_suffix_case_insensitively(tmp_path: Path) -> None:
     assert load_file(path).text == "ACME"
 
 
-@pytest.mark.parametrize("name", ["report.pdf", "report.htm.zip", "report"])
+@pytest.mark.parametrize("name", ["report.docx", "report.htm.zip", "report"])
 def test_load_file_rejects_unsupported_types(tmp_path: Path, name: str) -> None:
     with pytest.raises(UnsupportedFormatError):
         load_file(tmp_path / name)
@@ -115,7 +115,7 @@ def test_each_suffix_has_its_loader(suffix: str, loader: object) -> None:
 def test_supported_suffixes_come_from_the_loaders() -> None:
     assert frozenset(LOADERS) == SUPPORTED_SUFFIXES
     assert is_supported("Report.HTML")
-    assert not is_supported("report.pdf")
+    assert not is_supported("report.docx")
 
 
 def test_load_file_dispatches_html_by_suffix(tmp_path: Path) -> None:
@@ -126,6 +126,7 @@ def test_load_file_dispatches_html_by_suffix(tmp_path: Path) -> None:
 
 
 def test_loader_for_names_the_accepted_types_when_it_rejects() -> None:
-    with pytest.raises(UnsupportedFormatError, match=r"Accepted types: \.htm, \.html, \.md, \.txt"):
-        loader_for("report.pdf")
+    accepted = r"Accepted types: \.htm, \.html, \.md, \.pdf, \.txt"
+    with pytest.raises(UnsupportedFormatError, match=accepted):
+        loader_for("report.docx")
     assert loader_for("REPORT.HTM") is load_html

@@ -59,6 +59,7 @@ def chunk_loaded(
         counter,
         chunk_tokens=chunk_tokens,
         chunk_overlap=chunk_overlap,
+        page_spans=loaded.page_spans,
     )
 
 

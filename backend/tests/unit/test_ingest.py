@@ -100,7 +100,7 @@ def test_header_is_embedded_but_stored_text_stays_verbatim(filing: Path, tmp_pat
 
 def test_load_corpus_lists_only_formats_with_a_loader(tmp_path: Path) -> None:
     common = {"company": "ACME Corp", "ticker": "ACME", "form": "10-K", "period_end": "2025-01-31"}
-    names = ["a.txt", "a.HTM", "a.pdf"]
+    names = ["a.txt", "a.HTM", "a.docx"]
     entries = [{**common, "filename": name} for name in names]
     (tmp_path / "manifest.json").write_text(json.dumps(entries))
 

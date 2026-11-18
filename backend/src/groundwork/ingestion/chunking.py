@@ -1,10 +1,13 @@
 """Split sections into overlapping windows that end on sentence or paragraph boundaries."""
 
 import re
+from bisect import bisect_right
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
 from groundwork.domain.models import Chunk, make_chunk_id
+from groundwork.ingestion.loaders.base import PageSpan
 from groundwork.ingestion.structure import Section
 
 MIN_CHUNK_TOKENS = 30
@@ -93,6 +96,13 @@ def _pack(units: list[_Unit], chunk_tokens: int, overlap: int) -> list[list[_Uni
     return windows
 
 
+def page_at(page_spans: Sequence[PageSpan], position: int) -> int | None:
+    """The page a character is on, or None for formats without pages. A position in the break
+    between two pages counts as the earlier page."""
+    index = bisect_right([span.char_start for span in page_spans], position) - 1
+    return page_spans[index].page if index >= 0 else None
+
+
 def chunk_document(
     doc_id: str,
     text: str,
@@ -101,8 +111,10 @@ def chunk_document(
     *,
     chunk_tokens: int,
     chunk_overlap: int,
+    page_spans: Sequence[PageSpan] = (),
 ) -> list[Chunk]:
-    """Chunk each section separately, so that no chunk mixes two sections."""
+    """Chunk each section separately, so that no chunk mixes two sections. A chunk's page is the
+    one it starts on."""
     chunks: list[Chunk] = []
     for section in sections:
         units = _units(text, section, counter, chunk_tokens)
@@ -116,7 +128,7 @@ def chunk_document(
                     doc_id=doc_id,
                     text=text[start:end],
                     section_path=section.path,
-                    page=None,
+                    page=page_at(page_spans, start),
                     char_start=start,
                     char_end=end,
                 )

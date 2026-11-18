@@ -7,6 +7,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import Response
+from pdf_builder import make_pdf
 
 from groundwork.api.deps import get_upload_service
 from groundwork.container import Container, rebuild_sparse_index
@@ -188,12 +189,33 @@ def test_file_at_the_limit_is_accepted(harness: Harness) -> None:
     assert harness.upload((TEXT * 10)[:MAX_BYTES]).status_code == 202
 
 
-@pytest.mark.parametrize("name", ["report.pdf", "archive.txt.zip", "noextension"])
+def test_pdf_upload_is_searchable_with_page_numbers(harness: Harness) -> None:
+    sentence = "Blacksmiths buy ACME anvils every spring for the season."
+    pdf = make_pdf([["Cover page."], [sentence] * 8])
+
+    response = harness.upload(pdf, "catalogue.pdf")
+
+    assert harness.job(response.json()["job_id"])["status"] == "indexed", response.json()
+    [passage] = harness.retriever.search("blacksmiths spring", 1, mode="sparse")
+    # The cover is too short to be a chunk of its own, so the passage starts on page 2.
+    assert passage.chunk.page == 2
+    assert passage.document.filename == "catalogue.pdf"
+
+
+def test_pdf_without_a_text_layer_is_rejected_at_once(harness: Harness) -> None:
+    response = harness.upload(make_pdf([None]), "scan.pdf")
+
+    assert response.status_code == 422
+    assert "no text layer" in response.json()["detail"]
+    assert harness.client.get("/api/documents").json() == []
+
+
+@pytest.mark.parametrize("name", ["report.docx", "archive.txt.zip", "noextension"])
 def test_unsupported_type_is_rejected(harness: Harness, name: str) -> None:
     response = harness.upload(name=name)
 
     assert response.status_code == 415
-    assert ".htm, .html, .md, .txt" in response.json()["detail"]
+    assert ".htm, .html, .md, .pdf, .txt" in response.json()["detail"]
 
 
 def test_file_with_no_text_is_rejected_at_once(harness: Harness) -> None:
