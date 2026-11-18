@@ -44,4 +44,4 @@ COPY --chown=app:app data/raw ./data/raw
 USER app
 EXPOSE 8000
 # One worker on purpose: the job registry and the index lock live in this process's memory.
-CMD ["uvicorn", "novabridge_qa.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "groundwork.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]

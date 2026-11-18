@@ -1,4 +1,8 @@
-# NovaBridge Analyst Q&A
+# groundwork
+
+> Formerly **NovaBridge Analyst Q&A**, the EPAM take-home (tag `v1-submission`). It is becoming groundwork, a
+> generic knowledge assistant: see `docs/HANDOFF.md`. Until M12 rewrites it, this README describes the
+> NovaBridge system.
 
 An internal prototype for a fictional advisory firm. Analysts ask questions about financial filings
 and get a short answer with numbered citations they can open and check. When the documents do not
@@ -31,7 +35,7 @@ and Node 22.
 cd backend
 uv sync
 uv run python scripts/ingest.py
-uv run uvicorn novabridge_qa.main:create_app --factory
+uv run uvicorn groundwork.main:create_app --factory
 
 cd frontend          # in a second terminal
 npm install
@@ -75,7 +79,7 @@ flowchart TD
     end
 ```
 
-- `backend/src/novabridge_qa/`: `ingestion/`, `retrieval/`, `llm/`, `qa/`, `api/`, with `domain/` for
+- `backend/src/groundwork/`: `ingestion/`, `retrieval/`, `llm/`, `qa/`, `api/`, with `domain/` for
   shared types. `container.py` does the wiring.
 - `frontend/src/`: React, with TanStack Query for server state.
 - Compose runs `ingest` once, then `api` (uvicorn), then `web` (nginx serving the build and
@@ -230,13 +234,14 @@ cd frontend && npm run lint && npm run typecheck && npm test
 - **Answer quality:** `eval/run_answer_eval.py ask` runs every question through the real LLM, paced
   under the rate limit and resumable, and saves raw answers in `eval/answer_runs/`.
   `eval/run_answer_eval.py score` checks them offline and writes `eval/answer_results.md`.
-- CI runs the backend and frontend checks on every push. It does not build the Docker images.
+- CI runs the backend and frontend checks and builds both Docker images on every push.
 
 ## AI assistance
 
-Everything was built with AI assistance, and the full logs are in [ai-logs/](ai-logs/).
+Everything was built with AI assistance. The full logs of the NovaBridge build are in `ai-logs/` at tag
+`v1-submission`; they were removed from the working tree in M0.
 
-- **Claude app:** planning, which produced [the handoff](docs/HANDOFF.md) and [the designs](docs/design/).
+- **Claude app:** planning, which produced [the handoff](docs/archive/HANDOFF-novabridge.md) and the designs (at tag `v1-submission`).
 - **Claude Code:** the implementation, milestone by milestone, with a review before each next one.
 
 Direction that changed the plan: starting with TXT files and adding other formats gradually, using

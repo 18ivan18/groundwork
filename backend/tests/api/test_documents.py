@@ -4,9 +4,9 @@ from api_helpers import DOCUMENT
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from novabridge_qa.container import Container
-from novabridge_qa.domain.models import Chunk
-from novabridge_qa.retrieval.embedder import FakeEmbedder
+from groundwork.container import Container
+from groundwork.domain.models import Chunk
+from groundwork.retrieval.embedder import FakeEmbedder
 
 
 def add(app: FastAPI, doc_id: str, title: str, chunks: int) -> None:

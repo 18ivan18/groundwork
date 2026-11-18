@@ -2,9 +2,9 @@ from itertools import pairwise
 
 import pytest
 
-from novabridge_qa.domain.models import Chunk
-from novabridge_qa.ingestion.chunking import MIN_CHUNK_TOKENS, chunk_document
-from novabridge_qa.ingestion.sections import Section
+from groundwork.domain.models import Chunk
+from groundwork.ingestion.chunking import MIN_CHUNK_TOKENS, chunk_document
+from groundwork.ingestion.sections import Section
 
 
 class WordCounter:

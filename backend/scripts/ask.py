@@ -6,10 +6,10 @@ Run from backend/: uv run python scripts/ask.py "your question"
 import argparse
 import sys
 
-from novabridge_qa.config import Settings
-from novabridge_qa.container import build_dense_index, build_services
-from novabridge_qa.llm.base import LLMError
-from novabridge_qa.qa.prompt import passage_source
+from groundwork.config import Settings
+from groundwork.container import build_dense_index, build_services
+from groundwork.llm.base import LLMError
+from groundwork.qa.prompt import passage_source
 
 
 def main() -> None:

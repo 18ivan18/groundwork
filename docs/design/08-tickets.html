@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>groundwork — Tickets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="groundwork.css">
+</head>
+<body>
+<div class="app">
+<header class="top">
+<a class="brand" href="00-index.html"><svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="6" fill="#1E3A8A"></rect><path d="M7 19h14M9 15h10M11 11h6M13 7h2" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"></path></svg>groundwork <span class="sub">knowledge assistant</span></a>
+<div class="top-right">
+<span class="small muted mono" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px">index · window-400-header</span>
+<button class="user-switch" type="button" aria-haspopup="listbox" aria-label="Switch user: hana"><span class="avatar">H</span><span style="font-weight:600">hana</span><span class="chip group">everyone</span> <span class="chip group">hr</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+</div>
+</header>
+<div class="body">
+<nav class="nav" aria-label="Main">
+<a href="01-chat.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
+<a href="03-library.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.5 1-3 14-3.5-1z"/></svg>Library</a>
+<a href="07-jobs.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Jobs<span class="count">1</span></a>
+<a href="08-tickets.html" class="on" aria-current="page"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z"/></svg>Tickets<span class="count">1</span></a>
+<div style="margin-top:auto"></div>
+<a href="17-settings.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Settings</a>
+</nav>
+<main class="main">
+<div class="page-head"><div><h1>Tickets</h1><p>Tickets drafted by the agent. Nothing is created without approval.</p></div></div>
+<div class="card pad col" style="border-color:var(--warning-fg)">
+<div class="row" style="justify-content:space-between"><div class="row"><span class="badge warn">Awaiting your approval</span><b>Update hotel limits in the expense tool</b></div><a class="small" href="02-chat-agent.html">Open conversation</a></div>
+<p class="passage" style="margin:0">The expense policy dated 2026-03-01 raises the nightly hotel limit from €120 to €150 (+25%), and adds €220 for cities on the high-cost list. Please update the limits and the high-cost city list in the expense tool.</p>
+<div class="row"><span class="small muted">Drafted by the agent for hana · 14:06 · priority Normal</span><div class="grow"></div><button class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>Edit</button><button class="btn danger-outline">Reject</button><button class="btn primary">Approve and create</button></div>
+</div>
+<div class="row"><select class="select" aria-label="Status"><option>All statuses</option><option>Awaiting approval</option><option>Created</option><option>Rejected</option></select><select class="select" aria-label="Priority"><option>Any priority</option></select></div>
+<div class="card table-wrap"><table class="t">
+<thead><tr><th>#</th><th>Title</th><th>Priority</th><th>Status</th><th>Drafted for</th><th>Decided by</th><th>When</th></tr></thead>
+<tbody>
+<tr><td class="mono">—</td><td>Update hotel limits in the expense tool</td><td>Normal</td><td><span class="badge warn">Awaiting approval</span></td><td>hana</td><td class="muted">—</td><td class="small muted">14:06</td></tr>
+<tr><td class="mono">42</td><td>Probe timeouts too short on the payments service</td><td>High</td><td><span class="badge ok">Created</span></td><td>hana</td><td>hana</td><td class="small muted">Tue</td></tr>
+<tr><td class="mono">—</td><td>Share the HR leave policy with all staff</td><td>Normal</td><td><span class="badge err">Rejected</span></td><td>hana</td><td>hana · “Not my call”</td><td class="small muted">Mon</td></tr>
+</tbody></table></div>
+<aside class="notes"><h3>Design notes</h3><ul><li>Rejected drafts are kept for the audit trail, with the reason.</li><li>A ticket number exists only once created: drafts have none.</li><li>The red-team test (M11) checks that the planted injection document never produces a draft here.</li></ul></aside>
+<p class="footer-note">Mockup · illustrative data, not measured results · <a href="00-index.html">all screens</a></p>
+</main>
+</div>
+</div>
+
+</body>
+</html>

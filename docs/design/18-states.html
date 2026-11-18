@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>groundwork — States</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="groundwork.css">
+</head>
+<body>
+<div class="app">
+<header class="top">
+<a class="brand" href="00-index.html"><svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="6" fill="#1E3A8A"></rect><path d="M7 19h14M9 15h10M11 11h6M13 7h2" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"></path></svg>groundwork <span class="sub">knowledge assistant</span></a>
+<div class="top-right">
+<span class="small muted mono" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px">index · window-400-header</span>
+<button class="user-switch" type="button" aria-haspopup="listbox" aria-label="Switch user: alice"><span class="avatar">A</span><span style="font-weight:600">alice</span><span class="chip group">everyone</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+</div>
+</header>
+<div class="body">
+<nav class="nav" aria-label="Main">
+<a href="01-chat.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
+<a href="03-library.html" class="on" aria-current="page"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.5 1-3 14-3.5-1z"/></svg>Library</a>
+<a href="07-jobs.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Jobs<span class="count">1</span></a>
+<a href="08-tickets.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z"/></svg>Tickets<span class="count">1</span></a>
+<div style="margin-top:auto"></div>
+<a href="17-settings.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Settings</a>
+</nav>
+<main class="main">
+<div class="page-head"><div><h1>States</h1><p>Empty, loading, error and permission states shared by every screen.</p></div></div>
+<div class="split">
+<div class="card pad col" style="align-items:center;text-align:center;padding:40px 20px"><span class="label">Library · empty</span><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.5 1-3 14-3.5-1z"/></svg><b style="font-size:16px">No documents yet</b><p class="muted" style="margin:0;max-width:340px">Upload TXT, Markdown, HTML or PDF files. Only you can see them unless you share them with a group.</p><a class="btn primary" href="06-upload.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>Upload documents</a></div>
+<div class="card col" style="padding:8px 0"><span class="label" style="padding:8px 12px">Library · loading</span><table class="t"><tbody><tr><td style="width:28px"><div class="skel" style="width:16px"></div></td><td style="width:55%"><div class="skel" style="width:70%"></div></td><td><div class="skel" style="width:70px"></div></td><td><div class="skel" style="width:50px"></div></td><td><div class="skel" style="width:60px"></div></td></tr><tr><td style="width:28px"><div class="skel" style="width:16px"></div></td><td style="width:55%"><div class="skel" style="width:55%"></div></td><td><div class="skel" style="width:70px"></div></td><td><div class="skel" style="width:50px"></div></td><td><div class="skel" style="width:60px"></div></td></tr><tr><td style="width:28px"><div class="skel" style="width:16px"></div></td><td style="width:55%"><div class="skel" style="width:80%"></div></td><td><div class="skel" style="width:70px"></div></td><td><div class="skel" style="width:50px"></div></td><td><div class="skel" style="width:60px"></div></td></tr><tr><td style="width:28px"><div class="skel" style="width:16px"></div></td><td style="width:55%"><div class="skel" style="width:45%"></div></td><td><div class="skel" style="width:70px"></div></td><td><div class="skel" style="width:50px"></div></td><td><div class="skel" style="width:60px"></div></td></tr></tbody></table></div>
+<div class="card pad col"><span class="label">Library · filters match nothing</span><p style="margin:0">No documents match these filters.</p><button class="btn" style="align-self:flex-start">Clear filters</button></div>
+<div class="card pad col"><span class="label">Any screen · API unreachable</span><div class="banner err"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg><div><b>Can't reach the server.</b> Your work is safe; retrying in 10 s. <a href="#">Retry now</a></div></div></div>
+<div class="card pad col"><span class="label">Document link · not visible to this user</span><b style="font-size:16px">Document not found</b><p class="muted" style="margin:0">It may have been deleted, or the link may be wrong.</p><a class="btn" href="03-library.html" style="align-self:flex-start">Back to Library</a><p class="small muted" style="margin:0">Same text whether the document doesn't exist or alice can't see it.</p></div>
+<div class="card pad col"><span class="label">Chat · relevance gate refused</span><article class="a" style="border-color:var(--warning-bg)"><div class="row"><span class="badge warn">No answer</span><b>The documents you can see don't cover this.</b></div><p class="small" style="font-size:14px">Closest passages are listed below so you can check. Try naming the document or the topic.</p><div class="small muted">Closest: On-call handbook · Tools · similarity 0.49 (needs 0.58)</div></article></div>
+<div class="card pad col"><span class="label">Chat · old answer, source deleted</span><p style="margin:0">The limit was €120 per night <span class="cite gone">1</span>.</p><div class="src" style="opacity:.8"><div class="row"><span class="cite gone">1</span><b class="grow">Source deleted</b></div><p class="passage">…hotel costs are reimbursed up to €120 per night…</p><span class="small muted">Kept from when the answer was written. The document was deleted on Nov 13.</span></div></div>
+<div class="card pad col"><span class="label">Chat · provider failed mid-answer</span><div class="banner err"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg><div><b>The answer was interrupted.</b> The model provider is having problems. <a href="#">Try again</a></div></div><p class="small muted" style="margin:0">The partial preview is removed; the message never shows provider text.</p></div>
+</div>
+
+<p class="footer-note">Mockup · illustrative data, not measured results · <a href="00-index.html">all screens</a></p>
+</main>
+</div>
+</div>
+
+</body>
+</html>

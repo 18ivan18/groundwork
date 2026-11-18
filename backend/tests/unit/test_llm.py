@@ -8,12 +8,12 @@ import openai
 import pytest
 from pydantic import SecretStr
 
-from novabridge_qa.config import Settings
-from novabridge_qa.llm.anthropic_client import AnthropicClient
-from novabridge_qa.llm.base import MAX_RETRIES, ChatMessage, Completion, LLMError, RateLimitError
-from novabridge_qa.llm.factory import build_llm
-from novabridge_qa.llm.fake import FakeLLM
-from novabridge_qa.llm.openai_compatible import OpenAICompatibleClient
+from groundwork.config import Settings
+from groundwork.llm.anthropic_client import AnthropicClient
+from groundwork.llm.base import MAX_RETRIES, ChatMessage, Completion, LLMError, RateLimitError
+from groundwork.llm.factory import build_llm
+from groundwork.llm.fake import FakeLLM
+from groundwork.llm.openai_compatible import OpenAICompatibleClient
 
 SECRET = "sk-super-secret-value"
 MESSAGES = [ChatMessage("user", "Hello"), ChatMessage("assistant", "Hi"), ChatMessage("user", "?")]

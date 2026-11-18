@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from novabridge_qa.config import Settings
+from groundwork.config import Settings
 
 ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
 

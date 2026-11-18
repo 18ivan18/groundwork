@@ -8,14 +8,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import Response
 
-from novabridge_qa.api.deps import get_upload_service
-from novabridge_qa.container import Container, rebuild_sparse_index
-from novabridge_qa.domain.models import SearchFilters
-from novabridge_qa.ingestion import pipeline
-from novabridge_qa.ingestion.uploads import UploadService
-from novabridge_qa.retrieval.embedder import Embedder, FakeEmbedder
-from novabridge_qa.retrieval.hybrid import HybridRetriever
-from novabridge_qa.retrieval.sparse import SparseIndex
+from groundwork.api.deps import get_upload_service
+from groundwork.container import Container, rebuild_sparse_index
+from groundwork.domain.models import SearchFilters
+from groundwork.ingestion import pipeline
+from groundwork.ingestion.uploads import UploadService
+from groundwork.retrieval.embedder import Embedder, FakeEmbedder
+from groundwork.retrieval.hybrid import HybridRetriever
+from groundwork.retrieval.sparse import SparseIndex
 
 MAX_BYTES = 5000
 TEXT = (

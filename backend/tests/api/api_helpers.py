@@ -5,8 +5,8 @@ from datetime import UTC, date, datetime
 
 from fastapi.testclient import TestClient
 
-from novabridge_qa.domain.models import Chunk, Document, ScoredPassage, SearchFilters
-from novabridge_qa.retrieval.hybrid import SearchResult
+from groundwork.domain.models import Chunk, Document, ScoredPassage, SearchFilters
+from groundwork.retrieval.hybrid import SearchResult
 
 DOCUMENT = Document(
     title="ACME Corp · Form 10-K",

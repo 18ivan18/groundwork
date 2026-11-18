@@ -1,6 +1,6 @@
 import pytest
 
-from novabridge_qa.retrieval.fusion import rrf
+from groundwork.retrieval.fusion import rrf
 
 
 def test_scores_follow_the_formula() -> None:

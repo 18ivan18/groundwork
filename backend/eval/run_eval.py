@@ -25,17 +25,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import get_args
 
-from novabridge_qa.config import Settings
-from novabridge_qa.container import build_embedder, build_reranker, make_retriever
-from novabridge_qa.domain.models import DocumentMeta, ScoredPassage
-from novabridge_qa.ingestion.corpus import load_corpus
-from novabridge_qa.ingestion.loaders import load_file
-from novabridge_qa.ingestion.pipeline import ingest_file
-from novabridge_qa.retrieval.dense import DenseIndex
-from novabridge_qa.retrieval.embedder import Embedder
-from novabridge_qa.retrieval.hybrid import HybridRetriever, SearchMode
-from novabridge_qa.retrieval.reranker import Reranker
-from novabridge_qa.retrieval.sparse import SparseIndex
+from groundwork.config import Settings
+from groundwork.container import build_embedder, build_reranker, make_retriever
+from groundwork.domain.models import DocumentMeta, ScoredPassage
+from groundwork.ingestion.corpus import load_corpus
+from groundwork.ingestion.loaders import load_file
+from groundwork.ingestion.pipeline import ingest_file
+from groundwork.retrieval.dense import DenseIndex
+from groundwork.retrieval.embedder import Embedder
+from groundwork.retrieval.hybrid import HybridRetriever, SearchMode
+from groundwork.retrieval.reranker import Reranker
+from groundwork.retrieval.sparse import SparseIndex
 
 EVAL_DIR = Path(__file__).parent
 CHUNK_SIZES = (200, 300, 400)

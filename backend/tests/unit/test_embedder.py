@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from novabridge_qa.retrieval.embedder import FakeEmbedder, SentenceTransformerEmbedder
+from groundwork.retrieval.embedder import FakeEmbedder, SentenceTransformerEmbedder
 
 
 def cosine(a: list[float], b: list[float]) -> float:

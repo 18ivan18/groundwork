@@ -1,5 +1,5 @@
-from novabridge_qa.ingestion.loaders import CELL_SEPARATOR, load_html
-from novabridge_qa.ingestion.sections import FRONT_MATTER, detect_sections
+from groundwork.ingestion.loaders import CELL_SEPARATOR, load_html
+from groundwork.ingestion.sections import FRONT_MATTER, detect_sections
 
 # Synthetic, but shaped like the real inline XBRL 10-Ks: hidden facts in ix:header, a table of
 # contents laid out as a table, headings split across spans or joined by &nbsp;, and financial

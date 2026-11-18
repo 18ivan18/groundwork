@@ -6,9 +6,9 @@ Run from backend/: uv run python scripts/search.py "your question" [--k 6] [--mo
 import argparse
 from typing import get_args
 
-from novabridge_qa.config import Settings
-from novabridge_qa.container import build_dense_index, build_embedder, build_retriever
-from novabridge_qa.retrieval.hybrid import SearchMode
+from groundwork.config import Settings
+from groundwork.container import build_dense_index, build_embedder, build_retriever
+from groundwork.retrieval.hybrid import SearchMode
 
 
 def main() -> None:

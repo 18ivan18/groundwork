@@ -1,4 +1,4 @@
-// Runtime schemas for the API's responses. They mirror backend/src/novabridge_qa/api/schemas.py,
+// Runtime schemas for the API's responses. They mirror backend/src/groundwork/api/schemas.py,
 // and the response types in types.ts are inferred from them, so the two cannot disagree.
 import { z } from "zod";
 

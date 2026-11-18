@@ -1,0 +1,39 @@
+# docker compose up  ->  db (Postgres 16 + pgvector) and api.  `web` is added in M9.
+# Host ports are configurable because 5432/8000 are often already taken.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: groundwork
+      POSTGRES_PASSWORD: groundwork   # local dev only
+      POSTGRES_DB: groundwork
+    ports:
+      - "${DB_PORT:-5434}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U groundwork -d groundwork"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://groundwork:groundwork@db:5432/groundwork
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "${API_PORT:-8010}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:

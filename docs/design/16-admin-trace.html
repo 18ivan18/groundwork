@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>groundwork — Admin, trace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="groundwork.css">
+</head>
+<body>
+<div class="app">
+<header class="top">
+<a class="brand" href="00-index.html"><svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="6" fill="#1E3A8A"></rect><path d="M7 19h14M9 15h10M11 11h6M13 7h2" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"></path></svg>groundwork <span class="sub">knowledge assistant</span></a>
+<div class="top-right">
+<span class="small muted mono" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px">index · window-400-header</span>
+<button class="user-switch" type="button" aria-haspopup="listbox" aria-label="Switch user: admin"><span class="avatar">A</span><span style="font-weight:600">admin</span><span class="chip group">everyone</span> <span class="chip group">hr</span> <span class="chip group">finance</span> <span class="chip group">admin</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+</div>
+</header>
+<div class="body">
+<nav class="nav" aria-label="Main">
+<a href="01-chat.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
+<a href="03-library.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.5 1-3 14-3.5-1z"/></svg>Library</a>
+<a href="07-jobs.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Jobs<span class="count">1</span></a>
+<a href="08-tickets.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z"/></svg>Tickets<span class="count">1</span></a>
+<h4>Lab</h4>
+<a href="09-lab-indexes.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4"/></svg>Indexes</a>
+<a href="10-lab-compare.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h5v16H5zM14 4h5v16h-5z"/></svg>Compare</a>
+<a href="11-lab-chunks.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16M4 10h10M4 15h16M4 20h8"/></svg>Chunk viewer</a>
+<a href="12-lab-evals.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19V9M10 19V5M15 19v-7M20 19v-4"/></svg>Evaluations</a>
+<a href="13-lab-labelling.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h8l8 8-8 8-8-8z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg>Labelling<span class="count">18</span></a>
+<a href="14-lab-prompts.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7"/></svg>Prompts</a>
+<h4>Admin</h4>
+<a href="15-admin-metrics.html" class="on" aria-current="page"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16M7 16l4-5 3 3 5-7"/></svg>Metrics</a>
+<div style="margin-top:auto"></div>
+<a href="17-settings.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Settings</a>
+</nav>
+<main class="main">
+<div class="page-head"><div><h1>Why this answer</h1><p>Trace <span class="mono">4be1…a07</span> · hana · “And in London?” · 2026-11-13 14:03</p></div><a class="btn" href="#">Open in Langfuse</a></div>
+<div class="row" style="align-items:flex-start">
+<div class="card pad col grow">
+<div class="wf"><div class="wf-row"><span style="padding-left:0px">ask</span><div class="wf-track"><div class="wf-bar" style="left:0.0%;width:100.0%"></div></div><span class="ms">1840 ms</span></div><div class="wf-row"><span style="padding-left:14px">rewrite · small model</span><div class="wf-track"><div class="wf-bar llm" style="left:0.5%;width:11.4%"></div></div><span class="ms">210 ms</span></div><div class="wf-row"><span style="padding-left:14px">answer cache · miss</span><div class="wf-track"><div class="wf-bar" style="left:12.1%;width:0.6%"></div></div><span class="ms">2 ms</span></div><div class="wf-row"><span style="padding-left:14px">embed query</span><div class="wf-track"><div class="wf-bar" style="left:12.3%;width:0.7%"></div></div><span class="ms">12 ms</span></div><div class="wf-row"><span style="padding-left:14px">dense search</span><div class="wf-track"><div class="wf-bar" style="left:13.0%;width:0.6%"></div></div><span class="ms">9 ms</span></div><div class="wf-row"><span style="padding-left:14px">bm25</span><div class="wf-track"><div class="wf-bar" style="left:13.0%;width:0.6%"></div></div><span class="ms">4 ms</span></div><div class="wf-row"><span style="padding-left:14px">fusion</span><div class="wf-track"><div class="wf-bar" style="left:13.6%;width:0.6%"></div></div><span class="ms">1 ms</span></div><div class="wf-row"><span style="padding-left:14px">re-rank · 20 candidates</span><div class="wf-track"><div class="wf-bar" style="left:13.7%;width:29.3%"></div></div><span class="ms">540 ms</span></div><div class="wf-row"><span style="padding-left:14px">gate · 0.74 ≥ 0.58</span><div class="wf-track"><div class="wf-bar" style="left:43.1%;width:0.6%"></div></div><span class="ms">1 ms</span></div><div class="wf-row on"><span style="padding-left:14px">generation · large model</span><div class="wf-track"><div class="wf-bar llm" style="left:43.3%;width:54.9%"></div></div><span class="ms">1010 ms</span></div><div class="wf-row"><span style="padding-left:14px">citation check</span><div class="wf-track"><div class="wf-bar" style="left:98.3%;width:0.6%"></div></div><span class="ms">1 ms</span></div></div>
+<div class="row small muted"><span>■ code</span><span style="color:#4A63B4">■ LLM call</span></div>
+</div>
+<div class="card pad col" style="flex:0 0 300px">
+<span class="label">generation · large model</span>
+<table class="t"><tbody>
+<tr><td class="muted">Prompt</td><td class="mono">answer v3</td></tr>
+<tr><td class="muted">Index</td><td class="mono">window-400-header · gen 14</td></tr>
+<tr><td class="muted">Input</td><td class="num">2,412</td></tr>
+<tr><td class="muted">Cached input</td><td class="num">1,180</td></tr>
+<tr><td class="muted">Output</td><td class="num">96</td></tr>
+<tr><td class="muted">Cost</td><td class="num">$0.0036</td></tr>
+<tr><td class="muted">Provider</td><td>anthropic · 1 attempt</td></tr>
+<tr><td class="muted">Passages</td><td>6 · 1 cited</td></tr>
+</tbody></table>
+</div></div>
+<aside class="notes"><h3>Design notes</h3><ul><li>Rows are spans; clicking one shows its attributes on the right. Parallel spans (dense, BM25) start together.</li><li>LLM spans are a second shade and always show tokens, cached tokens and cost; a fallback shows both providers.</li><li>Admin only; linked from each message (“Why this answer”) and from Metrics.</li></ul></aside>
+<p class="footer-note">Mockup · illustrative data, not measured results · <a href="00-index.html">all screens</a></p>
+</main>
+</div>
+</div>
+
+</body>
+</html>

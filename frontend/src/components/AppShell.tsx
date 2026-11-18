@@ -26,7 +26,7 @@ export function AppShell({ llmProvider, onHome, sidebar, children }: AppShellPro
             />
           </svg>
           <span className="flex items-baseline gap-2">
-            <span className="text-base font-bold">NovaBridge</span>
+            <span className="text-base font-bold">groundwork</span>
             <span className="text-sm text-muted-foreground">Analyst Q&amp;A</span>
           </span>
         </button>

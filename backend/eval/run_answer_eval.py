@@ -39,13 +39,13 @@ from run_eval import (
     validate,
 )
 
-from novabridge_qa.config import Settings
-from novabridge_qa.container import build_dense_index, build_services
-from novabridge_qa.domain.models import ScoredPassage
-from novabridge_qa.ingestion.corpus import load_corpus
-from novabridge_qa.ingestion.loaders import load_file
-from novabridge_qa.llm.base import LLMError, RateLimitError
-from novabridge_qa.qa.service import Answer, QAService
+from groundwork.config import Settings
+from groundwork.container import build_dense_index, build_services
+from groundwork.domain.models import ScoredPassage
+from groundwork.ingestion.corpus import load_corpus
+from groundwork.ingestion.loaders import load_file
+from groundwork.llm.base import LLMError, RateLimitError
+from groundwork.qa.service import Answer, QAService
 
 EVAL_DIR = Path(__file__).parent
 RUNS_DIR = EVAL_DIR / "answer_runs"

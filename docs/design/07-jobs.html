@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>groundwork — Jobs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="groundwork.css">
+</head>
+<body>
+<div class="app">
+<header class="top">
+<a class="brand" href="00-index.html"><svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="6" fill="#1E3A8A"></rect><path d="M7 19h14M9 15h10M11 11h6M13 7h2" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"></path></svg>groundwork <span class="sub">knowledge assistant</span></a>
+<div class="top-right">
+<span class="small muted mono" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px">index · window-400-header</span>
+<button class="user-switch" type="button" aria-haspopup="listbox" aria-label="Switch user: hana"><span class="avatar">H</span><span style="font-weight:600">hana</span><span class="chip group">everyone</span> <span class="chip group">hr</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+</div>
+</header>
+<div class="body">
+<nav class="nav" aria-label="Main">
+<a href="01-chat.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
+<a href="03-library.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.5 1-3 14-3.5-1z"/></svg>Library</a>
+<a href="07-jobs.html" class="on" aria-current="page"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Jobs<span class="count">1</span></a>
+<a href="08-tickets.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z"/></svg>Tickets<span class="count">1</span></a>
+<div style="margin-top:auto"></div>
+<a href="17-settings.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Settings</a>
+</nav>
+<main class="main">
+<div class="page-head"><div><h1>Jobs</h1><p>Your indexing work. Refreshes every 2 seconds while a job is active.</p></div><span class="badge info"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>Live</span></div>
+<div class="tabs"><a class="on" href="#">All</a><a href="#">Active · 1</a><a href="#">Failed · 1</a><a href="#">Dead · 1</a></div>
+<div class="card table-wrap"><table class="t">
+<thead><tr><th>Job</th><th>Kind</th><th>Document</th><th>Status</th><th>Progress</th><th class="num">Attempts</th><th>Started</th><th></th></tr></thead>
+<tbody>
+<tr><td class="mono small">a3f9…</td><td>ingest_document</td><td>onboarding-notes.md</td><td><span class="badge info">Embedding</span></td><td><div class="row" style="gap:8px"><div class="progress" style="width:120px"><i style="width:62%"></i></div><span class="small mono">62%</span></div></td><td class="num">1 / 3</td><td class="small muted">14:21</td><td style="text-align:right"><button class="btn sm">Cancel</button></td></tr>
+<tr><td class="mono small">7c10…</td><td>ingest_document</td><td>signed-contract-scan.pdf</td><td><span class="badge err"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>Dead</span></td><td class="small" style="color:var(--error-fg)">No text layer found. Scanned PDFs need OCR, which isn't supported.</td><td class="num">1 / 1</td><td class="small muted">Nov 10</td><td style="text-align:right"><button class="btn sm" disabled title="Retrying won't help: the file has no text">Retry</button></td></tr>
+<tr><td class="mono small">5b2e…</td><td>ingest_document</td><td>team-rota.md</td><td><span class="badge warn">Retrying</span></td><td class="small muted">Embedding service timed out · next attempt in 30 s</td><td class="num">2 / 3</td><td class="small muted">14:18</td><td style="text-align:right"><button class="btn sm">Retry now</button></td></tr>
+<tr><td class="mono small">11d4…</td><td>ingest_document</td><td>q4-plan.pdf</td><td><span class="badge ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Indexed</span></td><td class="small muted">22 chunks · 4.8 s</td><td class="num">1 / 3</td><td class="small muted">14:17</td><td></td></tr>
+</tbody></table></div>
+<aside class="notes"><h3>Design notes</h3><ul><li>Users see their own jobs; admins see all, with a “Started by” column and the <code>build_index</code> and <code>contextualize</code> kinds.</li><li>Retry is offered only when it can help; a deterministic failure (no text layer) explains why it's disabled.</li><li>Polling stops when no job is active. The nav count shows active jobs.</li><li>A job for a document the user can't see is a 404 everywhere, including this list.</li></ul></aside>
+<p class="footer-note">Mockup · illustrative data, not measured results · <a href="00-index.html">all screens</a></p>
+</main>
+</div>
+</div>
+
+</body>
+</html>

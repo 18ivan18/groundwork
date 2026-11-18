@@ -1,8 +1,8 @@
 from dataclasses import replace
 from datetime import UTC, date, datetime
 
-from novabridge_qa.domain.models import Chunk, Document, ScoredPassage
-from novabridge_qa.qa.prompt import (
+from groundwork.domain.models import Chunk, Document, ScoredPassage
+from groundwork.qa.prompt import (
     INSUFFICIENT_EVIDENCE,
     SYSTEM_PROMPT,
     build_user_message,

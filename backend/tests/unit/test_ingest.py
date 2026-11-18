@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from novabridge_qa.domain.models import DocumentMeta, make_chunk_id, make_doc_id
-from novabridge_qa.ingestion import pipeline
-from novabridge_qa.ingestion.corpus import document_meta, load_corpus
-from novabridge_qa.ingestion.loaders import LoadedDocument
-from novabridge_qa.ingestion.pipeline import ingest_file, prepare_document
-from novabridge_qa.retrieval.dense import DenseIndex
-from novabridge_qa.retrieval.embedder import FakeEmbedder
+from groundwork.domain.models import DocumentMeta, make_chunk_id, make_doc_id
+from groundwork.ingestion import pipeline
+from groundwork.ingestion.corpus import document_meta, load_corpus
+from groundwork.ingestion.loaders import LoadedDocument
+from groundwork.ingestion.pipeline import ingest_file, prepare_document
+from groundwork.retrieval.dense import DenseIndex
+from groundwork.retrieval.embedder import FakeEmbedder
 
 META = DocumentMeta(
     title="ACME Corp · Form 10-K",

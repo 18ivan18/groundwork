@@ -7,9 +7,9 @@ import argparse
 import sys
 import time
 
-from novabridge_qa.config import Settings
-from novabridge_qa.llm.base import ChatMessage, LLMError
-from novabridge_qa.llm.factory import build_llm
+from groundwork.config import Settings
+from groundwork.llm.base import ChatMessage, LLMError
+from groundwork.llm.factory import build_llm
 
 
 def main() -> None:
