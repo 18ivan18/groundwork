@@ -18,7 +18,7 @@ If your cluster runs control plane components as Pods, they are likely
 static Pods. You can recognize their mirror Pods in the `kube-system` namespace
 by the `kubernetes.io/config.mirror` annotation.
 
-## Mirror Pods {#mirror-pods}
+## Mirror Pods
 
 The kubelet automatically tries to create a
 mirror Pod
@@ -35,7 +35,7 @@ If you try to use `kubectl` to delete the mirror Pod from the API server,
 the kubelet _does not_ remove the static Pod. The kubelet will recreate
 the mirror Pod.
 
-## Limitations {#limitations}
+## Limitations
 
 The spec of a static Pod cannot refer to other API objects,
 such as ServiceAccount,
@@ -44,7 +44,7 @@ Secret.
 
 Static Pods do not support [ephemeral containers](/docs/concepts/workloads/pods/ephemeral-containers/).
 
-## Static Pods vs DaemonSets {#static-pods-vs-daemonsets}
+## Static Pods vs DaemonSets
 
 If you are running clustered Kubernetes and are using static Pods to run a Pod
 on every node, you should probably be using a

@@ -266,7 +266,7 @@ to updating its predecessor. If you have set `.spec.minReadySeconds` (see
 [Minimum Ready Seconds](#minimum-ready-seconds)), the control plane additionally waits that
 amount of time after the Pod turns ready, before moving on.
 
-### Partitioned rolling updates {#partitions}
+### Partitioned rolling updates
 
 The `RollingUpdate` update strategy can be partitioned, by specifying a
 `.spec.updateStrategy.rollingUpdate.partition`. If a partition is specified, all Pods with an

@@ -28,7 +28,7 @@ This document uses the term *Windows containers* to mean Windows containers with
 process isolation. Kubernetes does not support running Windows containers with
 [Hyper-V isolation](https://docs.microsoft.com/en-us/virtualization/windowscontainers/manage-containers/hyperv-container).
 
-## Compatibility and limitations {#limitations}
+## Compatibility and limitations
 
 Some node features are only available if you use a specific
 [container runtime](#container-runtime); others are not available on Windows nodes,
@@ -49,7 +49,7 @@ From an API and kubectl perspective, Windows containers behave in much the same
 way as Linux-based containers. However, there are some notable differences in key
 functionality which are outlined in this section.
 
-### Comparison with Linux {#compatibility-linux-similarities}
+### Comparison with Linux
 
 Key Kubernetes elements work the same way in Windows as they do in Linux. This
 section refers to several key workload abstractions and how they map to Windows.
@@ -125,7 +125,7 @@ environment.
 * Resource quotas
 * Scheduler preemption
 
-### Command line options for the kubelet {#kubelet-compatibility}
+### Command line options for the kubelet
 
 Some kubelet command line options behave differently on Windows, as described below:
 
@@ -142,7 +142,7 @@ Some kubelet command line options behave differently on Windows, as described be
 * The `PIDPressure` Condition is not implemented
 * The kubelet does not take OOM eviction actions
 
-### API compatibility {#api}
+### API compatibility
 
 There are subtle differences in the way the Kubernetes APIs work for Windows due to the OS
 and container runtime. Some workload properties were designed for Linux, and fail to run on Windows.
@@ -173,7 +173,7 @@ Container exit codes follow the same convention where 0 is success, and nonzero 
 The specific error codes may differ across Windows and Linux. However, exit codes
 passed from the Kubernetes components (kubelet, kube-proxy) are unchanged.
 
-#### Field compatibility for container specifications {#compatibility-v1-pod-spec-containers}
+#### Field compatibility for container specifications
 
 The following list documents differences between how Pod container specifications
 work between Windows and Linux:
@@ -213,7 +213,7 @@ work between Windows and Linux:
    default value is `/dev/termination-log`, which does work because it does not
    exist on Windows by default.
 
-#### Field compatibility for Pod specifications {#compatibility-v1-pod}
+#### Field compatibility for Pod specifications
 
 The following list documents differences between how Pod specifications work between Windows and Linux:
 
@@ -241,14 +241,14 @@ The following list documents differences between how Pod specifications work bet
 * You cannot enable `mountPropagation` for volume mounts as this is not
   supported on Windows.
 
-#### Host network access {#compatibility-v1-pod-sec-containers-hostnetwork}
+#### Host network access
 
 Kubernetes v1.26 to v1.32  included alpha support for running Windows Pods in the host's network namespace.
 
 Kubernetes v does **not** include the `WindowsHostNetwork` feature gate
 or support for running Windows Pods in the host's network namespace.
 
-#### Field compatibility for Pod security context {#compatibility-v1-pod-spec-containers-securitycontext}
+#### Field compatibility for Pod security context
 
 Only the `securityContext.runAsNonRoot` and `securityContext.windowsOptions` from the Pod
 [`securityContext`](/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context) fields work on Windows.
@@ -283,7 +283,7 @@ The Kubernetes project recommends using the Microsoft maintained image if you ar
 deploying to a production or production-like environment that requires signed
 binaries.
 
-## Container runtimes {#container-runtime}
+## Container runtimes
 
 You need to install a
 container runtime
@@ -304,14 +304,14 @@ There is a [known limitation](/docs/tasks/configure-pod-container/configure-gmsa
 when using GMSA with containerd to access Windows network shares, which requires a
 kernel patch.
 
-### Mirantis Container Runtime {#mcr}
+### Mirantis Container Runtime
 
 [Mirantis Container Runtime](https://docs.mirantis.com/mcr/25.0/overview.html) (MCR)
 is available as a container runtime for all Windows Server 2019 and later versions.
 
 See [Install MCR on Windows Servers](https://docs.mirantis.com/mcr/25.0/install/mcr-windows.html) for more information.
 
-## Windows OS version compatibility {#windows-os-version-support}
+## Windows OS version compatibility
 
 On Windows nodes, strict compatibility rules apply where the host OS version must
 match the container base image OS version.
@@ -325,7 +325,7 @@ Windows Server LTSC release
 
 The Kubernetes [version-skew policy](/docs/setup/release/version-skew-policy/) also applies.
 
-## Hardware recommendations and considerations {#windows-hardware-recommendations}
+## Hardware recommendations and considerations
 
 **Note:** 
 The following hardware specifications outlined here should be regarded as sensible default values. 
@@ -356,7 +356,7 @@ to occupy when using local storage on the host.
 See [Containers on Windows - Container Storage Documentation](https://learn.microsoft.com/en-us/virtualization/windowscontainers/manage-containers/container-storage#storage-limits)
 for more detail.
 
-## Getting help and troubleshooting {#troubleshooting}
+## Getting help and troubleshooting
 
 Your main source of help for troubleshooting your Kubernetes cluster should start
 with the [Troubleshooting](/docs/tasks/debug/)

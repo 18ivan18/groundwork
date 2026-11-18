@@ -67,7 +67,7 @@ follow this lifecycle:
 
 There are two ways snapshots may be provisioned: pre-provisioned or dynamically provisioned.
 
-#### Pre-provisioned {#static}
+#### Pre-provisioned
 
 A cluster administrator creates a number of `VolumeSnapshotContents`. They carry the details
 of the real volume snapshot on the storage system which is available for use by cluster users.
@@ -205,7 +205,7 @@ source volume's mode is unknown.
 when the `VolumeSnapshotContent` is being created as a pre-provisioned snapshot, the
 `VolumeSnapshot` referenced in `volumeSnapshotRef` might not exist yet.
 
-## Converting the volume mode of a Snapshot {#convert-volume-mode}
+## Converting the volume mode of a Snapshot
 
 If the `VolumeSnapshots` API installed on your cluster supports the `sourceVolumeMode`
 field, then the API has the capability to prevent unauthorized users from converting

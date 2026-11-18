@@ -226,7 +226,7 @@ metrics (enabled via the `PodLevelResourceManagers` feature gate):
     provides visibility into how many containers are running with exclusive
     resources (from the node or pod pool) versus the pod-level shared pool.
 
-### PodResources API {#podresources-api}
+### PodResources API
 
 In Kubernetes 1.37, the `kubelet`'s node-local `PodResources` gRPC API
 includes pod-level resource allocations when `PodLevelResourceManagers` is

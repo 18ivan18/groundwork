@@ -1,7 +1,7 @@
 This page describes how to observe the status and health of resources that are
 dynamically allocated with DRA.
 
-## Observability of dynamic resources {#observability-dynamic-resources}
+## Observability of dynamic resources
 
 You can check the status of dynamically allocated resources by using any of the
 following methods:
@@ -10,7 +10,7 @@ following methods:
 * [ResourceClaim status](#resourceclaim-device-status)
 * [Device health monitoring](#device-health-monitoring)
 
-### kubelet device metrics {#monitoring-resources}
+### kubelet device metrics
 
 The `PodResourcesLister` kubelet gRPC service lets you monitor in-use devices.
 The `DynamicResource` message provides information that's specific to dynamic
@@ -18,7 +18,7 @@ resource allocation, such as the device name and the claim name. For details,
 see
 [Monitoring device plugin resources](/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#monitoring-device-plugin-resources).
 
-### ResourceClaim device status {#resourceclaim-device-status}
+### ResourceClaim device status
 
 Feature gate: `DRAResourceClaimDeviceStatus`
 
@@ -92,7 +92,7 @@ deallocated (removed from `status.allocation.devices`), the corresponding entry 
 For details about the `status.devices` field, see the
  API reference.
 
-### Device Health Monitoring {#device-health-monitoring}
+### Device Health Monitoring
 
 Feature gate: `ResourceHealthStatus`
 
@@ -111,7 +111,7 @@ For a Pod that is failing, you can inspect this status to determine if the failu
 **Note:** 
 Device health status is not updated in the Pod status after a Pod has terminated (for example, in Failed state).
 
-## Resource pool status {#resource-pool-status}
+## Resource pool status
 
 Feature gate: `DRAResourcePoolStatus`
 
@@ -192,7 +192,7 @@ Resource pool status is controlled by the
 [`DRAResourcePoolStatus` feature gate](/docs/reference/command-line-tools-reference/feature-gates/#DRAResourcePoolStatus)
 in the `kube-apiserver` and `kube-controller-manager`.
 
-### Partition summary {#resource-pool-partition-summary}
+### Partition summary
 
 Feature gate: `DRAPartitionableDevicesType`
 
@@ -261,7 +261,7 @@ and
 [`DRAPartitionableDevices`](/docs/reference/command-line-tools-reference/feature-gates/#DRAPartitionableDevices)
 feature gates to be enabled.
 
-### Shareable summary {#resource-pool-shareable-summary}
+### Shareable summary
 
 For pools that contain [shareable devices](/docs/concepts/resource-management/dynamic-resource-allocation/dra-features/#consumable-capacity)
 (devices that set `allowMultipleAllocations` and can be consumed by multiple
@@ -282,7 +282,7 @@ devices it summarizes come from the
 [consumable capacity](/docs/concepts/resource-management/dynamic-resource-allocation/dra-features/#consumable-capacity)
 feature.
 
-## DRA device metadata in containers {#device-metadata}
+## DRA device metadata in containers
 
 FEATURE STATE: Kubernetes v1.37 [beta]
 
@@ -302,7 +302,7 @@ Device metadata follows the same rules as device access: it is available inside
 a container only when that container requests the device. For details, see
 [Request devices in workloads using DRA](/docs/tasks/configure-pod-container/assign-resources/allocate-devices-dra/#request-devices-workloads).
 
-### Device metadata protocol {#device-metadata-protocol}
+### Device metadata protocol
 
 The protocol consists of four rules:
 
@@ -338,7 +338,7 @@ The protocol consists of four rules:
    read-only. Other implementations can use a different mechanism as long as
    the file appears at the required path and is read-only.
 
-### Enable device metadata in a driver {#device-metadata-enable}
+### Enable device metadata in a driver
 
 Device metadata is a driver-side feature. It has no Kubernetes feature gate and
 is disabled by default in the DRA kubelet plugin library. A driver must enable
@@ -387,7 +387,7 @@ or
 [`ReadResourceClaimTemplateMetadata`](https://pkg.go.dev/k8s.io/dynamic-resource-allocation/devicemetadata#ReadResourceClaimTemplateMetadata)
 to read and merge all per-driver files for a request.
 
-### Metadata schema {#device-metadata-schema}
+### Metadata schema
 
 Each object in a metadata file conforms to the
 [`DeviceMetadata`](https://pkg.go.dev/k8s.io/dynamic-resource-allocation/api/metadata/v1beta1#DeviceMetadata)
@@ -462,7 +462,7 @@ and validation have separate results: a validation error does not prevent a
 successfully decoded object from being returned. For usage, see
 [Access DRA device metadata](/docs/tasks/configure-pod-container/assign-resources/access-dra-device-metadata/#read-metadata-application).
 
-### Immediate and deferred metadata {#device-metadata-lifecycle}
+### Immediate and deferred metadata
 
 For immediate metadata, the driver supplies attributes or network data while it
 prepares the claim. The DRA kubelet plugin writes the file with generation `1`
@@ -482,7 +482,7 @@ after the claim is unprepared.
 To learn how to use device metadata in your workloads, see
 [Access DRA device metadata](/docs/tasks/configure-pod-container/assign-resources/access-dra-device-metadata/).
 
-### Custom drivers {#device-metadata-custom-drivers}
+### Custom drivers
 
 Custom drivers that do not use the DRA kubelet plugin library must implement the
 [device metadata protocol](#device-metadata-protocol) themselves. This includes

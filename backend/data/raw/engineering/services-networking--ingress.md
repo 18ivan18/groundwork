@@ -110,7 +110,7 @@ Each HTTP rule contains the following information:
 A `defaultBackend` is often configured in an Ingress controller to service any requests that do not
 match a path in the spec.
 
-### DefaultBackend {#default-backend}
+### DefaultBackend
 
 An Ingress with no rules sends all traffic to a single default backend and `.spec.defaultBackend`
 is the backend that should handle requests in that case.
@@ -124,7 +124,7 @@ ingress controller (consult the documentation for your ingress controller to fin
 If none of the hosts or paths match the HTTP request in the Ingress objects, the traffic is
 routed to your default backend.
 
-### Resource backends {#resource-backend}
+### Resource backends
 
 A `Resource` backend is an ObjectRef to another Kubernetes resource within the
 same namespace as the Ingress object. A `Resource` is a mutually exclusive
@@ -334,7 +334,7 @@ used to reference the name of the Ingress controller that should implement the
 Ingress, the field is a reference to an IngressClass resource that contains
 additional Ingress configuration, including the name of the Ingress controller.
 
-### Default IngressClass {#default-ingress-class}
+### Default IngressClass
 
 You can mark a particular IngressClass as default for your cluster. Setting the
 `ingressclass.kubernetes.io/is-default-class` annotation to `true` on an
@@ -355,7 +355,7 @@ IngressClass:
 
 ## Types of Ingress
 
-### Ingress backed by a single Service {#single-service-ingress}
+### Ingress backed by a single Service
 
 There are existing Kubernetes concepts that allow you to expose a single Service
 (see [alternatives](#alternatives)). You can also do this with an Ingress by specifying a
@@ -487,7 +487,7 @@ There is a gap between TLS features supported by various ingress controllers.
 You should refer to the documentation for the ingress controller(s) you've chosen to
 understand how TLS works in your environment.
 
-### Load balancing {#load-balancing}
+### Load balancing
 
 An Ingress controller is bootstrapped with some load balancing policy settings
 that it applies to all Ingress, such as the load balancing algorithm, backend

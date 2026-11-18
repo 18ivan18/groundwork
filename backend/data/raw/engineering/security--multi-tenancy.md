@@ -318,7 +318,7 @@ Using API priority and fairness will not be very common in SaaS environments unl
 allowing customers to run applications that interface with the Kubernetes API, for example,
 a controller.
 
-### Quality-of-Service (QoS) {#qos}
+### Quality-of-Service (QoS)
 
 When you’re running a SaaS application, you may want the ability to offer different
 Quality-of-Service (QoS) tiers of service to different tenants. For example, you may have freemium

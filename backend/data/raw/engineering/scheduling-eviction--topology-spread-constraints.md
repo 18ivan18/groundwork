@@ -264,7 +264,7 @@ your cluster supports this.
 
 ## Topology spread constraint examples
 
-### Example: one topology spread constraint {#example-one-topologyspreadconstraint}
+### Example: one topology spread constraint
 
 Suppose you have a 4-node cluster where 3 Pods labeled `foo: bar` are located in
 node1, node2 and node3 respectively:
@@ -350,7 +350,7 @@ You can tweak the Pod spec to meet various kinds of requirements:
   has fewer matching Pods. (Be aware that this preference is jointly normalized
   with other internal scheduling priorities such as resource usage ratio).
 
-### Example: multiple topology spread constraints {#example-multiple-topologyspreadconstraints}
+### Example: multiple topology spread constraints
 
 This builds upon the previous example. Suppose you have a 4-node cluster where 3
 existing Pods labeled `foo: bar` are located on node1, node2 and node3 respectively:
@@ -382,7 +382,7 @@ nodes in zone `B`; while in terms of the second constraint, the incoming Pod can
 scheduled to the node `node4`. The scheduler only considers options that satisfy all
 defined constraints, so the only valid placement is onto node `node4`.
 
-### Example: conflicting topology spread constraints {#example-conflicting-topologyspreadconstraints}
+### Example: conflicting topology spread constraints
 
 Multiple constraints can lead to conflicts. Suppose you have a 3-node cluster across 2 zones:
 
@@ -422,7 +422,7 @@ if you are troubleshooting why a bug-fix rollout is not making progress.
 The scheduler will skip the non-matching nodes from the skew calculations if the
 incoming Pod has `spec.nodeSelector` or `spec.affinity.nodeAffinity` defined.
 
-### Example: topology spread constraints with node affinity {#example-topologyspreadconstraints-with-nodeaffinity}
+### Example: topology spread constraints with node affinity
 
 Suppose you have a 5-node cluster ranging across zones A to C:
 
@@ -518,7 +518,7 @@ profiles:
               whenUnsatisfiable: ScheduleAnyway
           defaultingType: List
 ```
-### Built-in default constraints {#internal-default-constraints}
+### Built-in default constraints
 
 FEATURE STATE: Kubernetes v1.24 [stable]
 
@@ -565,7 +565,7 @@ profiles:
           defaultingType: List
 ```
 
-## Comparison with podAffinity and podAntiAffinity {#comparison-with-podaffinity-podantiaffinity}
+## Comparison with podAffinity and podAntiAffinity
 
 In Kubernetes, [inter-Pod affinity and anti-affinity](/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity)
 control how Pods are scheduled in relation to one another - either more packed

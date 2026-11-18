@@ -71,7 +71,7 @@ If an attacker is able to create a user account with the same name as a deleted 
 they can automatically inherit all the rights of the deleted user, especially the
 rights assigned to that user.
 
-## Kubernetes RBAC - privilege escalation risks {#privilege-escalation-risks}
+## Kubernetes RBAC - privilege escalation risks
 
 Within Kubernetes RBAC there are a number of privileges which, if granted, can allow a user or a service account
 to escalate their privileges in the cluster or affect systems outside the cluster.
@@ -190,9 +190,9 @@ For clusters using Dynamic Resource Allocation, labeling a namespace with
 `resource.kubernetes.io/admin-access: "true"` allows any user who can create ResourceClaims in that namespace
 to request admin access to devices already allocated to any other claim in any namespace.
 
-## Kubernetes RBAC - denial of service risks {#denial-of-service-risks}
+## Kubernetes RBAC - denial of service risks
 
-### Object creation denial-of-service {#object-creation-dos}
+### Object creation denial-of-service
 
 Users who have rights to create objects in a cluster may be able to create sufficient large 
 objects to create a denial of service condition either based on the size or number of objects, as discussed in

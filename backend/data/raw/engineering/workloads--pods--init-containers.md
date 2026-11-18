@@ -305,7 +305,7 @@ The Pod which is already running correctly would be killed by `activeDeadlineSec
 The name of each app and init container in a Pod must be unique; a
 validation error is thrown for any container sharing a name with another.
 
-### Resource requests and limits {#resource-sharing-within-containers}
+### Resource requests and limits
 
 The scheduler places a Pod on a node based on how much of each resource the Pod
 requests as a whole, so the requests that you set on init containers can affect

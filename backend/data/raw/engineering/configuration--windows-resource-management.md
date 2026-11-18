@@ -17,7 +17,7 @@ host, and thus privileged containers are not available on Windows.
 Containers cannot assume an identity from the host because the Security Account Manager
 (SAM) is separate.
 
-## Memory management {#resource-management-memory}
+## Memory management
 
 Windows does not have an out-of-memory process killer as Linux does. Windows always
 treats all user-mode memory allocations as virtual, and pagefiles are mandatory.
@@ -28,7 +28,7 @@ does, and processes page to disk instead of being subject to out of memory (OOM)
 termination. If memory is over-provisioned and all physical memory is exhausted,
 then paging can slow down performance.
 
-## CPU management {#resource-management-cpu}
+## CPU management
 
 Windows can limit the amount of CPU time allocated for different processes but cannot
 guarantee a minimum amount of CPU time.
@@ -41,7 +41,7 @@ More information on the allowable values and their meaning is available at
 [Windows Priority Classes](https://docs.microsoft.com/en-us/windows/win32/procthread/scheduling-priorities#priority-class).
 To ensure that running Pods do not starve the kubelet of CPU cycles, set this flag to `ABOVE_NORMAL_PRIORITY_CLASS` or above.
 
-## Resource reservation {#resource-reservation}
+## Resource reservation
 
 To account for memory and CPU used by the operating system, the container runtime, and by
 Kubernetes host processes such as the kubelet, you can (and should) reserve

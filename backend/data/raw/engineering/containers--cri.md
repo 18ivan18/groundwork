@@ -7,7 +7,7 @@ each Node in your cluster, so that the
 kubelet can launch
 Pods and their containers.
 
-## The API {#api}
+## The API
 
 FEATURE STATE: Kubernetes v1.23 [stable]
 
@@ -30,7 +30,7 @@ runtime has been upgraded, the runtime must support the `v1` CRI API for the
 connection to succeed. This might require a restart of the kubelet after the
 container runtime is correctly configured.
 
-## List streaming {#list-streaming}
+## List streaming
 
 Feature gate: `CRIListStreaming`
 

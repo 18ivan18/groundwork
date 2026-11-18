@@ -86,7 +86,7 @@ labels or
 annotations.
 For information about writing a Job `.spec`, see [Writing a Job Spec](/docs/concepts/workloads/controllers/job/#writing-a-job-spec).
 
-### Deadline for delayed Job start {#starting-deadline}
+### Deadline for delayed Job start
 
 The `.spec.startingDeadlineSeconds` field is optional.
 This field defines a deadline (in whole seconds) for starting the Job, if that Job misses its scheduled time
@@ -169,7 +169,7 @@ the schedule relative to Coordinated Universal Time.
 
 A time zone database from the Go standard library is included in the binaries and used as a fallback in case an external database is not available on the system.
 
-## CronJob limitations {#cron-job-limitations}
+## CronJob limitations
 
 ### Unsupported TimeZone specification
 

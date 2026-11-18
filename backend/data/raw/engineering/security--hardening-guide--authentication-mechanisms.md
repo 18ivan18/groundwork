@@ -17,7 +17,7 @@ recommended to use external authentication sources such as OIDC. The internal au
 mechanisms, such as client certificates and service account tokens, described below, are not
 suitable for this use case.
 
-## X.509 client certificate authentication {#x509-client-certificate-authentication}
+## X.509 client certificate authentication
 
 Kubernetes leverages [X.509 client certificate](/docs/reference/access-authn-authz/authentication/#x509-client-certificates)
 authentication for system components, such as when the kubelet authenticates to the API Server.
@@ -38,7 +38,7 @@ production use due to several restrictions:
 - Group data is embedded in the `O` value of the client certificate, which means the user's group
   memberships cannot be changed for the lifetime of the certificate.
 
-## Static token file {#static-token-file}
+## Static token file
 
 Although Kubernetes allows you to load credentials from a
 [static token file](/docs/reference/access-authn-authz/authentication/#static-token-file) located
@@ -52,7 +52,7 @@ several reasons:
   credential, a cluster administrator must modify the token on disk and distribute it to the users.
 - There is no lockout mechanism available to prevent brute-force attacks.
 
-## Bootstrap tokens {#bootstrap-tokens}
+## Bootstrap tokens
 
 [Bootstrap tokens](/docs/reference/access-authn-authz/bootstrap-tokens/) are used for joining
 nodes to clusters and are not recommended for user authentication due to several reasons:
@@ -64,7 +64,7 @@ nodes to clusters and are not recommended for user authentication due to several
 - There is no lockout mechanism available to prevent brute-force attacks, making it easier for
   attackers to guess or crack the token.
 
-## ServiceAccount secret tokens {#serviceaccount-secret-tokens}
+## ServiceAccount secret tokens
 
 [Service account secrets](/docs/reference/access-authn-authz/service-accounts-admin/#manual-secret-management-for-serviceaccounts)
 are available as an option to allow workloads running in the cluster to authenticate to the
@@ -77,7 +77,7 @@ generally unsuitable for a number of reasons:
   that they are defined in.
 - Service accounts cannot be added to arbitrary groups complicating RBAC management where they are used.
 
-## TokenRequest API tokens {#tokenrequest-api-tokens}
+## TokenRequest API tokens
 
 The TokenRequest API is a useful tool for generating short-lived credentials for service
 authentication to the API server or third-party systems. However, it is not generally recommended
@@ -87,7 +87,7 @@ to users in a secure manner can be challenging.
 When using TokenRequest tokens for service authentication, it is recommended to implement a short
 lifespan to reduce the impact of compromised tokens.
 
-## OpenID Connect token authentication {#openid-connect-token-authentication}
+## OpenID Connect token authentication
 
 Kubernetes supports integrating external authentication services with the Kubernetes API using
 [OpenID Connect (OIDC)](/docs/reference/access-authn-authz/authentication/#openid-connect-tokens).
@@ -101,7 +101,7 @@ following hardening measures:
 - As with TokenRequest tokens, OIDC tokens should have a short lifespan to reduce the impact of
   compromised tokens.
 
-## Webhook token authentication {#webhook-token-authentication}
+## Webhook token authentication
 
 [Webhook token authentication](/docs/reference/access-authn-authz/authentication/#webhook-token-authentication)
 is another option for integrating external authentication providers into Kubernetes. This mechanism
@@ -115,7 +115,7 @@ means that it will not be possible with Managed Kubernetes unless the provider s
 available. Additionally, any software installed in the cluster to support this access should be
 isolated from general workloads, as it will run with high privileges.
 
-## Authenticating proxy {#authenticating-proxy}
+## Authenticating proxy
 
 Another option for integrating external authentication systems into Kubernetes is to use an
 [authenticating proxy](/docs/reference/access-authn-authz/authentication/#authenticating-proxy).

@@ -141,7 +141,7 @@ The `<unknown>` value indicates that the `.status.nodeInfo.swap.capacity` field 
 This probably means that the node does not have swap provisioned, or less likely,
 that the kubelet is not able to determine the swap capacity of the node.
 
-### Swap discovery using Node Feature Discovery (NFD) {#node-feature-discovery}
+### Swap discovery using Node Feature Discovery (NFD)
 
 [Node Feature Discovery](https://github.com/kubernetes-sigs/node-feature-discovery)
 is a Kubernetes addon for detecting hardware features and configuration.

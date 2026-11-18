@@ -33,7 +33,7 @@ could overload the subset of endpoints that have been allocated to that zone.
 This feature is not recommended when incoming traffic is expected to originate
 from a single zone.
 
-### 2. The Service has 3 or more endpoints per zone {#three-or-more-endpoints-per-zone}
+### 2. The Service has 3 or more endpoints per zone
 In a three zone cluster, this means 9 or more endpoints. If there are fewer than
 3 endpoints per zone, there is a high (≈50%) probability that the EndpointSlice
 controller will not be able to allocate endpoints evenly and instead will fall
@@ -45,7 +45,7 @@ The "Auto" heuristic attempts to proportionally allocate a number of endpoints
 to each zone. Note that this heuristic works best for Services that have a
 significant number of endpoints.
 
-### EndpointSlice controller {#implementation-control-plane}
+### EndpointSlice controller
 
 The EndpointSlice controller is responsible for setting hints on EndpointSlices
 when this heuristic is enabled. The controller allocates a proportional amount of
@@ -82,7 +82,7 @@ endpoints:
         - name: "zone-a"
 ```
 
-### kube-proxy {#implementation-kube-proxy}
+### kube-proxy
 
 The kube-proxy component filters the endpoints it routes to based on the hints set by
 the EndpointSlice controller. In most cases, this means that the kube-proxy is able

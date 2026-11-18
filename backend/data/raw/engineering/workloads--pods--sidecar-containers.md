@@ -10,7 +10,7 @@ Typically, you only have one app container in a Pod. For example, if you have a 
 application that requires a local webserver, the local webserver is a sidecar and the
 web application itself is the app container.
 
-## Sidecar containers in Kubernetes {#pod-sidecar-containers}
+## Sidecar containers in Kubernetes
 
 Kubernetes implements sidecar containers as a special case of
 [init containers](/docs/concepts/workloads/pods/init-containers/); sidecar containers remain
@@ -32,7 +32,7 @@ Pod to work overall, but you don't need to control which containers start or sto
 You could also do this if you need to support older versions of Kubernetes that don't
 support a container-level `restartPolicy` field.
 
-### Example application {#sidecar-example}
+### Example application
 
 Here's an example of a Deployment with two containers, one of which is a sidecar:
 
@@ -120,7 +120,7 @@ exchange messages with the app container in a Pod. Any data passing is one-way
 Changing the image of a sidecar container will not cause the Pod to restart, but will
 trigger a container restart.
 
-## Resource requests and limits {#resource-sharing-within-containers}
+## Resource requests and limits
 
 The scheduler places a Pod on a node based on how much of each resource the Pod
 requests as a whole, so the requests that you set on sidecar containers can affect

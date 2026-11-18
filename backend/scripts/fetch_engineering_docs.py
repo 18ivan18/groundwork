@@ -39,6 +39,8 @@ _ATTRIBUTE = re.compile(r'(\w+)="([^"]*)"')
 _SHORTCODE = re.compile(r"\{\{[<%]\s*(/?)\s*([\w-]+)([^}]*?)\s*[>%]\}\}")
 _CALLOUTS = {"note": "Note", "caution": "Caution", "warning": "Warning"}
 _EXTRA_BLANK_LINES = re.compile(r"\n{3,}")
+# Hugo's custom heading IDs: "## Functions {#functions-of-the-ccm}".
+_HEADING_ID = re.compile(r"^(#{1,6} .*?)\s*\{#[\w.-]+\}[ \t]*$", re.MULTILINE)
 
 
 def _shortcode(match: re.Match[str]) -> str:
@@ -75,6 +77,7 @@ def convert(raw: str) -> tuple[dict[str, Any], str]:
         text = text[match.end() :]
     text = _COMMENT.sub("", text)
     text = _SHORTCODE.sub(_shortcode, text)
+    text = _HEADING_ID.sub(r"\1", text)
     description = " ".join(str(front.get("description", "")).split())
     if description:
         text = f"{description}\n\n{text}"

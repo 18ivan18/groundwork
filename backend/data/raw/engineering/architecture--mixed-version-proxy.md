@@ -41,7 +41,7 @@ kube-apiserver \
 # …and other flags as usual
 ```
 
-### Proxy transport and authentication between API servers {#transport-and-authn}
+### Proxy transport and authentication between API servers
 
 * The source kube-apiserver reuses the
   [existing APIserver client authentication flags](/docs/tasks/extend-kubernetes/configure-aggregation-layer/#kubernetes-apiserver-client-authentication)

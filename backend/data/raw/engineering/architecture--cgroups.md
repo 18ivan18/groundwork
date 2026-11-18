@@ -9,7 +9,7 @@ includes cpu/memory requests and limits for containerized workloads.
 There are two versions of cgroups in Linux: cgroup v1 and cgroup v2. cgroup v2 is
 the new generation of the `cgroup` API.
 
-## What is cgroup v2? {#cgroup-v2}
+## What is cgroup v2?
 FEATURE STATE: Kubernetes v1.25 [stable]
 
 cgroup v2 is the next version of the Linux `cgroup` API. cgroup v2 provides a
@@ -30,7 +30,7 @@ management and isolation. For example, the
 [MemoryQoS](/docs/concepts/workloads/pods/pod-qos/#memory-qos-with-cgroup-v2) feature improves memory QoS
 and relies on cgroup v2 primitives.
 
-## Using cgroup v2 {#using-cgroupv2}
+## Using cgroup v2
 
 The recommended way to use cgroup v2 is to use a Linux distribution that
 enables and uses cgroup v2 by default.
@@ -69,7 +69,7 @@ under `/etc/default/grub`, followed by `sudo update-grub`.  However, the
 recommended approach is to use a distribution that already enables cgroup v2 by
 default.
 
-### Migrating to cgroup v2 {#migrating-cgroupv2}
+### Migrating to cgroup v2
 
 To migrate to cgroup v2, ensure that you meet the [requirements](#requirements), then upgrade
 to a kernel version that enables cgroup v2 by default.
@@ -103,7 +103,7 @@ updated to newer versions that support cgroup v2. For example:
   terminations. On affected versions, set the heap size explicitly, for example with the
   `--max-old-space-size` flag.
 
-## Identify the cgroup version on Linux Nodes  {#check-cgroup-version}
+## Identify the cgroup version on Linux Nodes
 
 The cgroup version depends on the Linux distribution being used and the
 default cgroup version configured on the OS. To check which cgroup version your

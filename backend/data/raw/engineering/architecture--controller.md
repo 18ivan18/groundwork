@@ -88,7 +88,7 @@ plane indirectly works with IP address management tools, storage services,
 cloud provider APIs, and other services by
 [extending Kubernetes](/docs/concepts/extend-kubernetes/) to implement that.
 
-## Desired versus current state {#desired-vs-current}
+## Desired versus current state
 
 Kubernetes takes a cloud-native view of systems, and is able to handle
 constant change.
@@ -124,7 +124,7 @@ The Job controller does not delete the Pods that your Deployment created,
 because there is information (labels)
 the controllers can use to tell those Pods apart.
 
-## Ways of running controllers {#running-controllers}
+## Ways of running controllers
 
 Kubernetes comes with a set of built-in controllers that run inside
 the kube controller manager. These

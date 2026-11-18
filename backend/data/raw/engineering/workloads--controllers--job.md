@@ -198,7 +198,7 @@ equal to `Never` or `OnFailure` is allowed.
 The `.spec.selector` field is optional. In almost all cases you should not specify it.
 See section [specifying your own pod selector](#specifying-your-own-pod-selector).
 
-### Parallel execution for Jobs {#parallel-jobs}
+### Parallel execution for Jobs
 
 There are three main types of task suitable to run as a Job:
 
@@ -423,7 +423,7 @@ controller creates a separate `Workload` and `PodGroup` for each Job instance,
 compiled from that Job's `.spec.scheduling` (defaulting to `Basic` when omitted).
 These objects are garbage collected when each Job completes or is deleted.
 
-### Limitations for Alpha release {#workload-integration-limitations}
+### Limitations for Alpha release
 
 - Each Job maps to exactly one `PodGroup`; all Pods in the Job share a single
   scheduling policy.
@@ -505,7 +505,7 @@ the Job's executable more difficult. We suggest setting
 `restartPolicy = "Never"` when debugging the Job or using a logging system to ensure output
 from failed Jobs is not lost inadvertently.
 
-### Backoff limit per index {#backoff-limit-per-index}
+### Backoff limit per index
 
 Feature gate: `JobBackoffLimitPerIndex`
 
@@ -575,7 +575,7 @@ Additionally, you may want to use the per-index backoff along with a
 per-index backoff, there is a new `FailIndex` action available which allows you to
 avoid unnecessary retries within an index.
 
-### Pod failure policy {#pod-failure-policy}
+### Pod failure policy
 
 Feature gate: `JobPodFailurePolicy`
 
@@ -670,7 +670,7 @@ matching the rule with the `FailJob` action, then the Job controller triggers
 the Job termination process by adding the `FailureTarget` condition.
 For more details, see [Job termination and cleanup](#job-termination-and-cleanup).
 
-## Success policy {#success-policy}
+## Success policy
 
 When creating an Indexed Job, you can define when a Job can be declared as succeeded using a `.spec.successPolicy`,
 based on the pods that succeeded.
@@ -1190,7 +1190,7 @@ the Job status, allowing the Pod to be removed by other controllers or users.
 See [My pod stays terminating](/docs/tasks/debug/debug-application/debug-pods/) if you
 observe that pods from a Job are stuck with the tracking finalizer.
 
-### Elastic Indexed Jobs {#elastic-indexed-jobs}
+### Elastic Indexed Jobs
 
 Feature gate: `ElasticIndexedJob`
 
@@ -1217,7 +1217,7 @@ apply only to Pods evaluated in future scheduling cycles and do not affect
 already-scheduled Pods. A `gang.minCount` greater than `.spec.parallelism` is
 rejected, since such a gang can never be satisfied.
 
-### Delayed creation of replacement pods {#pod-replacement-policy}
+### Delayed creation of replacement pods
 
 Feature gate: `JobPodReplacementPolicy`
 

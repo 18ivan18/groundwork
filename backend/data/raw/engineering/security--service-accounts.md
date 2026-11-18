@@ -4,7 +4,7 @@ This page introduces the ServiceAccount object in Kubernetes, providing
 information about how service accounts work, use cases, limitations,
 alternatives, and links to resources for additional guidance.
 
-## What are service accounts? {#what-are-service-accounts}
+## What are service accounts?
 
 A service account is a type of non-human account that, in Kubernetes, provides
 a distinct identity in a Kubernetes cluster. Application Pods, system
@@ -42,7 +42,7 @@ accounts in the API server.
 | Access control | Kubernetes RBAC or other [authorization mechanisms](/docs/reference/access-authn-authz/authorization/#authorization-modules) | Kubernetes RBAC or other identity and access management mechanisms |
 | Intended use | Workloads, automation | People |
 
-### Default service accounts {#default-service-accounts}
+### Default service accounts
 
 When you create a cluster, Kubernetes automatically creates a ServiceAccount
 object named `default` for every namespace in your cluster. The `default`
@@ -57,7 +57,7 @@ If you deploy a Pod in a namespace, and you don't
 [manually assign a ServiceAccount to the Pod](#assign-to-pod), Kubernetes
 assigns the `default` ServiceAccount for that namespace to the Pod.
 
-## Use cases for Kubernetes service accounts {#use-cases}
+## Use cases for Kubernetes service accounts
 
 As a general guideline, you can use service accounts to provide identities in
 the following scenarios:
@@ -78,7 +78,7 @@ the following scenarios:
   ServiceAccount identity of different Pods to group those Pods into different
   contexts.
 
-## How to use service accounts {#how-to-use}
+## How to use service accounts
 
 To use a Kubernetes service account, you do the following:
 
@@ -96,7 +96,7 @@ To use a Kubernetes service account, you do the following:
 For instructions, refer to
 [Configure Service Accounts for Pods](/docs/tasks/configure-pod-container/configure-service-account/).
 
-### Grant permissions to a ServiceAccount {#grant-permissions}
+### Grant permissions to a ServiceAccount
 
 You can use the built-in Kubernetes
 [role-based access control (RBAC)](/docs/reference/access-authn-authz/rbac/)
@@ -110,7 +110,7 @@ function correctly.
 For instructions, refer to
 [ServiceAccount permissions](/docs/reference/access-authn-authz/rbac/#service-account-permissions).
 
-#### Cross-namespace access using a ServiceAccount {#cross-namespace}
+#### Cross-namespace access using a ServiceAccount
 
 You can use RBAC to allow service accounts in one namespace to perform actions
 on resources in a different namespace in the cluster. For example, consider a
@@ -121,7 +121,7 @@ you'd create a RoleBinding object in the `maintenance` namespace to bind the
 Role to the ServiceAccount object. Now, Pods in the `dev` namespace can list
 Job objects in the `maintenance` namespace using that service account.
 
-### Assign a ServiceAccount to a Pod {#assign-to-pod}
+### Assign a ServiceAccount to a Pod
 
 To assign a ServiceAccount to a Pod, you set the `spec.serviceAccountName`
 field in the Pod specification. Kubernetes then automatically provides the
@@ -141,7 +141,7 @@ credentials for a specified ServiceAccount or the `default` ServiceAccount, set 
 In versions earlier than 1.22, Kubernetes provides a long-lived, static token
 to the Pod as a Secret.
 
-#### Manually retrieve ServiceAccount credentials {#get-a-token}
+#### Manually retrieve ServiceAccount credentials
 
 If you need the credentials for a ServiceAccount to mount in a non-standard
 location, or for an audience that isn't the API server, use one of the
@@ -167,7 +167,7 @@ following methods:
   (which was enabled by default from Kubernetes v1.24 to v1.26),  prevented Kubernetes from automatically creating these tokens for
   ServiceAccounts. The feature gate is removed in v1.27, because it was elevated to GA status; you can still create indefinite service account tokens manually, but should take into account the security implications.
 
-#### Node audience restriction for service account tokens {#node-audience-restriction}
+#### Node audience restriction for service account tokens
 
 Feature gate: `ServiceAccountNodeAudienceRestriction`
 
@@ -194,7 +194,7 @@ or using a custom mechanism such as an [authentication webhook](/docs/reference/
 
 You can also use TokenRequest to obtain short-lived tokens for your external application.
 
-### Restricting access to Secrets (deprecated) {#enforce-mountable-secrets}
+### Restricting access to Secrets (deprecated)
 
 FEATURE STATE: Kubernetes v1.32 [deprecated]
 
@@ -229,7 +229,7 @@ the Secrets from this ServiceAccount are subject to certain mounting restriction
 
 By understanding and enforcing these restrictions, cluster administrators can maintain a tighter security profile and ensure that secrets are accessed only by the appropriate resources.
 
-## Authenticating service account credentials {#authenticating-credentials}
+## Authenticating service account credentials
 
 ServiceAccounts use signed
 JSON Web Tokens  (JWTs)
@@ -262,7 +262,7 @@ checks the token against the Secret.
 For more information about the authentication process, refer to
 [Authentication](/docs/reference/access-authn-authz/authentication/#service-account-tokens).
 
-### Authenticating service account credentials in your own code {#authenticating-in-code}
+### Authenticating service account credentials in your own code
 
 If you have services of your own that need to validate Kubernetes service
 account credentials, you can use the following methods:

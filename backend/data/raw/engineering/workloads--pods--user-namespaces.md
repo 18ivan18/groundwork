@@ -93,7 +93,7 @@ Most applications that need to run as root but don't access other host
 namespaces or resources, should continue to run fine without any changes needed
 if user namespaces is activated.
 
-## Understanding user namespaces for pods {#pods-and-userns}
+## Understanding user namespaces for pods
 
 Several container runtimes with their default configuration (like Docker Engine,
 containerd, CRI-O) use Linux namespaces for isolation. Other technologies exist

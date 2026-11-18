@@ -16,7 +16,7 @@ The CNCF [white paper](https://github.com/cncf/tag-security/blob/main/community/
 on cloud native security defines security controls and practices that are
 appropriate to different _lifecycle phases_.
 
-## _Develop_ lifecycle phase {#lifecycle-phase-develop}
+## _Develop_ lifecycle phase
 
 - Ensure the integrity of development environments.
 - Design applications following good practices for information security,
@@ -35,7 +35,7 @@ To achieve this, you can:
    [security chaos engineering](https://glossary.cncf.io/security-chaos-engineering/),
    where it's justified.
 
-## _Distribute_ lifecycle phase {#lifecycle-phase-distribute}
+## _Distribute_ lifecycle phase
 
 - Ensure the security of the supply chain for container images you execute.
 - Ensure the security of the supply chain for the cluster and other components
@@ -57,7 +57,7 @@ To achieve this, you can:
    [private registry](/docs/concepts/containers/images/#using-a-private-registry)
    that only allows authorized clients to pull images.
 
-## _Deploy_ lifecycle phase {#lifecycle-phase-deploy}
+## _Deploy_ lifecycle phase
 
 Ensure appropriate restrictions on what can be deployed, who can deploy it,
 and where it can be deployed.
@@ -75,12 +75,12 @@ multiple clusters).
 That infrastructure must provide the security guarantees that higher
 layers expect.
 
-## _Runtime_ lifecycle phase {#lifecycle-phase-runtime}
+## _Runtime_ lifecycle phase
 
 The Runtime phase comprises three critical areas: [access](#protection-runtime-access),
 [compute](#protection-runtime-compute), and [storage](#protection-runtime-storage).
 
-### Runtime protection: access {#protection-runtime-access}
+### Runtime protection: access
 
 The Kubernetes API is what makes your cluster work. Protecting this API is key
 to providing effective cluster security.
@@ -101,7 +101,7 @@ encryption keys. If you use Kubernetes' own API for
 [CertificateSigningRequests](/docs/reference/access-authn-authz/certificate-signing-requests/#certificate-signing-requests),
 pay special attention to restricting misuse there.
 
-### Runtime protection: compute {#protection-runtime-compute}
+### Runtime protection: compute
 
 Containers provide two
 things: isolation between applications and a mechanism to combine
@@ -138,7 +138,7 @@ To protect your compute at runtime, you can:
 1. On Linux nodes, use a Linux security module such as [AppArmor](/docs/tutorials/security/apparmor/)
    or [seccomp](/docs/tutorials/security/seccomp/).
 
-### Runtime protection: storage {#protection-runtime-storage}
+### Runtime protection: storage
 
 To protect storage for your cluster and the applications that run there, you can:
 
@@ -194,7 +194,7 @@ logs are both tamper-proof and confidential.
 
 ## 
 
-### Cloud native security {#further-reading-cloud-native}
+### Cloud native security
 
 * CNCF [white paper](https://github.com/cncf/tag-security/blob/main/community/resources/security-whitepaper/v2/CNCF_cloud-native-security-whitepaper-May2022-v2.pdf)
   on cloud native security.
@@ -204,7 +204,7 @@ logs are both tamper-proof and confidential.
 * [Kubernetes Security Best Practices](https://www.youtube.com/watch?v=wqsUfvRyYpw) (Kubernetes Forum Seoul 2019)
 * [Towards Measured Boot Out of the Box](https://www.youtube.com/watch?v=EzSkU3Oecuw) (Linux Security Summit 2016)
 
-### Kubernetes and information security {#further-reading-k8s}
+### Kubernetes and information security
 
 * [Kubernetes security](/docs/concepts/security/)
 * [Securing your cluster](/docs/tasks/administer-cluster/securing-a-cluster/)

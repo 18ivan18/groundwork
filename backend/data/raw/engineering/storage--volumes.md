@@ -69,7 +69,7 @@ Volumes cannot mount within other volumes (but see [Using subPath](#using-subpat
 for a related mechanism). Also, a volume cannot contain a hard link to anything in
 a different volume.
 
-## Types of volumes {#volume-types}
+## Types of volumes
 
 <a id="types-of-volumes"></a>
 
@@ -96,7 +96,7 @@ volumes.
 See [Volume Types](/docs/reference/storage/volume-types/) for details of every
 volume type, including deprecated and removed types.
 
-### Volumes that share the Pod's lifecycle {#pod-lifetime-volume-types}
+### Volumes that share the Pod's lifecycle
 
 Kubernetes creates these volumes when the Pod starts on a node,
 then deletes them when the Pod is removed.
@@ -130,7 +130,7 @@ You can only use them in a Pod.
   a Secret in a read-only
   directory.
 
-### Volumes that reference storage by location {#location-volume-types}
+### Volumes that reference storage by location
 
 These volumes connect to storage that exists outside the Pod.
 Their data persist after the Pod is removed.
@@ -154,7 +154,7 @@ You can use `hostPath`, `nfs`, `iscsi`, and `fc` in a Pod or in a PersistentVolu
 **Note:** 
 You can only use `local` in a PersistentVolume.
 
-### Volumes that use a PersistentVolumeClaim {#persistentvolumeclaim-volume-types}
+### Volumes that use a PersistentVolumeClaim
 
 These volumes request storage from a PersistentVolumeClaim.
 
@@ -176,7 +176,7 @@ The PersistentVolumeClaim binds to a PersistentVolume, which provides the underl
 * [`local`](/docs/reference/storage/volume-types/#local): device mounted locally to node.
 * [`nfs`](/docs/reference/storage/volume-types/#nfs): NFS share.
 
-### Volumes from out-of-tree plugins {#out-of-tree-volume-types}
+### Volumes from out-of-tree plugins
 
 These types use out-of-tree
 volume plugins.
@@ -196,7 +196,7 @@ For details, see [Out-of-tree volume plugins](#out-of-tree-volume-plugins).
 **Note:** 
 In a Pod, `csi` only works for drivers that support ephemeral volumes.
 
-## Using subPath {#using-subpath}
+## Using subPath
 
 Sometimes, it is useful to share one volume for multiple uses in a single Pod.
 The `volumeMounts[*].subPath` property specifies a sub-path inside the referenced volume
@@ -237,7 +237,7 @@ spec:
         claimName: my-lamp-site-data
 ```
 
-### Using subPath with expanded environment variables {#using-subpath-expanded-environment}
+### Using subPath with expanded environment variables
 
 FEATURE STATE: Kubernetes v1.17 [stable]
 
@@ -469,7 +469,7 @@ provisioning/delete, attach/detach, mount/unmount, and resizing of volumes.
 In-tree plugins that support `CSIMigration` and have a corresponding CSI driver implemented
 are listed in [Removed volume types](/docs/reference/storage/volume-types/#removed-volume-types).
 
-### flexVolume (deprecated)   {#flexvolume}
+### flexVolume (deprecated)
 
 FEATURE STATE: Kubernetes v1.23 [deprecated]
 
@@ -664,7 +664,7 @@ spec:
             user: 1000
 ```
 
-#### Implementations {#implementations-rro}
+#### Implementations
 
 The following container runtimes are known to support recursive read-only mounts.
 

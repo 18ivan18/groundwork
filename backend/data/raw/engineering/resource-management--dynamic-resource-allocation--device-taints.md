@@ -1,7 +1,7 @@
 This page describes device taints and tolerations in DRA, which let drivers and
 admins keep Pods off specific devices, or evict Pods already using them.
 
-## Device taints and tolerations {#device-taints-and-tolerations}
+## Device taints and tolerations
 
 Feature gate: `DRADeviceTaints`
 

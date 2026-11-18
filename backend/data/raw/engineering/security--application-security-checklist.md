@@ -41,7 +41,7 @@ would apply to most applications deploying to Kubernetes.
 - [ ] `automountServiceAccountToken` should be set to `false` unless the pod
   specifically requires access to the Kubernetes API to operate.
 
-### Pod-level `securityContext` recommendations {#security-context-pod}
+### Pod-level `securityContext` recommendations
 
 - [ ] Set `runAsNonRoot: true`.
 - [ ] Configure the container to execute as a less privileged user
@@ -53,7 +53,7 @@ would apply to most applications deploying to Kubernetes.
   If you cannot control this enforcement for the cluster(s) where the application is
   deployed, take this into account either through documentation or additional defense in depth.
 
-### Container-level `securityContext` recommendations {#security-context-container}
+### Container-level `securityContext` recommendations
 
 - [ ] Disable privilege escalations using `allowPrivilegeEscalation: false`.
 - [ ] Configure the root filesystem to be read-only with `readOnlyRootFilesystem: true`.
@@ -61,7 +61,7 @@ would apply to most applications deploying to Kubernetes.
 - [ ] Drop all capabilities from the containers and add back only specific ones
   that are needed for operation of the container.
 
-### Role Based Access Control (RBAC) {#rbac}
+### Role Based Access Control (RBAC)
 
 - [ ] Permissions such as **create**, **patch**, **update** and **delete**
   should be only granted if necessary.
@@ -92,7 +92,7 @@ Make sure that your cluster provides and enforces NetworkPolicy.
 If you are writing an application that users will deploy to different clusters,
 consider whether you can assume that NetworkPolicy is available and enforced.
 
-## Advanced security hardening {#advanced}
+## Advanced security hardening
 
 This section of this guide covers some advanced security hardening points
 which might be valuable based on different Kubernetes environment setup.

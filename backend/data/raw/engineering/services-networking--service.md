@@ -107,7 +107,7 @@ A Service can map _any_ incoming `port` to a `targetPort`. By default and
 for convenience, the `targetPort` is set to the same value as the `port`
 field.
 
-### Port definitions {#field-spec-ports}
+### Port definitions
 
 Port definitions in Pods have names, and you can reference these names in the
 `targetPort` attribute of a Service. For example, we can bind the `targetPort`
@@ -247,7 +247,7 @@ _cluster-admins_. You should
 avoid using the reserved value _controller_, which identifies EndpointSlices
 managed by Kubernetes' own control plane.
 
-#### Accessing a Service without a selector {#service-no-selector-access}
+#### Accessing a Service without a selector
 
 Accessing a Service without a selector works the same as if it had a selector.
 In the [example](#services-without-selectors) for a Service without a selector,
@@ -282,7 +282,7 @@ until an extra endpoint needs to be added.
 See [EndpointSlices](/docs/concepts/services-networking/endpoint-slices/) for more
 information about this API.
 
-### Endpoints (deprecated) {#endpoints}
+### Endpoints (deprecated)
 
 FEATURE STATE: Kubernetes v1.33 [deprecated]
 
@@ -376,7 +376,7 @@ also start and end with an alphanumeric character.
 
 For example, the names `123-abc` and `web` are valid, but `123_abc` and `-web` are not.
 
-## Service type  {#publishing-services-service-types}
+## Service type
 
 For some parts of your application (for example, frontends) you may want to expose a
 Service onto an external IP address, one that's accessible from outside of your
@@ -415,7 +415,7 @@ adds to the previous. However there is an exception to this nested design. You c
 define a `LoadBalancer` Service by
 [disabling the load balancer `NodePort` allocation](/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation).
 
-### `type: ClusterIP` {#type-clusterip}
+### `type: ClusterIP`
 
 This default Service type assigns an IP address from a pool of IP addresses that
 your cluster has reserved for that purpose.
@@ -443,7 +443,7 @@ Read [avoiding collisions](/docs/reference/networking/virtual-ips/#avoiding-coll
 to learn how Kubernetes helps reduce the risk and impact of two different Services
 both trying to use the same IP address.
 
-### `type: NodePort` {#type-nodeport}
+### `type: NodePort`
 
 If you set the `type` field to `NodePort`, the Kubernetes control plane
 allocates a port from a range specified by `--service-node-port-range` flag (default: 30000-32767).
@@ -461,7 +461,7 @@ endpoints associated with that Service. You'll be able to contact the `type: Nod
 Service, from outside the cluster, by connecting to any node using the appropriate
 protocol (for example: TCP), and the appropriate port (as assigned to that Service).
 
-#### Choosing your own port {#nodeport-custom-port}
+#### Choosing your own port
 
 If you want a specific port number, you can specify a value in the `nodePort`
 field. The control plane will either allocate you that port or report that
@@ -493,7 +493,7 @@ spec:
       nodePort: 30007
 ```
 
-#### Reserve Nodeport ranges to avoid collisions  {#avoid-nodeport-collisions}
+#### Reserve Nodeport ranges to avoid collisions
 
 The policy for assigning ports to NodePort services applies to both the auto-assignment and
 the manual assignment scenarios. When a user wants to create a NodePort service that
@@ -511,7 +511,7 @@ When using the default NodePort range 30000-32767, the bands are partitioned as 
 See [Avoid Collisions Assigning Ports to NodePort Services](/blog/2023/05/11/nodeport-dynamic-and-static-allocation/)
 for more details on how the static and dynamic bands are calculated.
 
-#### IP address configuration for `type: NodePort` Services {#service-nodeport-custom-listen-address}
+#### IP address configuration for `type: NodePort` Services
 
 When using kube-proxy in [`iptables`
 mode](/docs/reference/networking/virtual-ips/#proxy-mode-iptables), NodePort Services are
@@ -534,7 +534,7 @@ For example, if you start kube-proxy with the flag `--nodeport-addresses=192.168
 then kube-proxy will try to find a local IP address on that subnet on each node, and serve
 NodePort Services only via that IP.
 
-#### `type: NodePort` Services via localhost {#localhost-nodeports}
+#### `type: NodePort` Services via localhost
 
 The mechanisms used by service proxies to implement NodePort Services do not always
 support providing NodePort Services on localhost. For kube-proxy:
@@ -561,7 +561,7 @@ Feature gate: `KubeProxyNFTablesLocalhostNodePorts`
 Third-party network plugins that have their own service proxy implementations may or may
 not support localhost NodePorts; consult the documentation for those plugins.
 
-### `type: LoadBalancer` {#loadbalancer}
+### `type: LoadBalancer`
 
 On cloud providers which support external load balancers, setting the `type`
 field to `LoadBalancer` provisions a load balancer for your Service.
@@ -646,7 +646,7 @@ different protocols for LoadBalancer type of Services, when there is more than o
 The set of protocols that can be used for load balanced Services is defined by your
 cloud provider; they may impose restrictions beyond what the Kubernetes API enforces.
 
-#### Disabling load balancer NodePort allocation {#load-balancer-nodeport-allocation}
+#### Disabling load balancer NodePort allocation
 
 FEATURE STATE: Kubernetes v1.24 [stable]
 
@@ -657,7 +657,7 @@ is `true` and type LoadBalancer Services will continue to allocate node ports. I
 is set to `false` on an existing Service with allocated node ports, those node ports will **not** be de-allocated automatically.
 You must explicitly remove the `nodePorts` entry in every Service port to de-allocate those node ports.
 
-#### Specifying class of load balancer implementation {#load-balancer-class}
+#### Specifying class of load balancer implementation
 
 FEATURE STATE: Kubernetes v1.24 [stable]
 
@@ -679,7 +679,7 @@ The value of `spec.loadBalancerClass` must be a label-style identifier,
 with an optional prefix such as "`internal-vip`" or "`example.com/internal-vip`".
 Unprefixed names are reserved for end-users.
 
-#### Load balancer IP address mode {#load-balancer-ip-mode}
+#### Load balancer IP address mode
 
 For a Service of `type: LoadBalancer`, a controller can set `.status.loadBalancer.ingress.ipMode`.
 The `.status.loadBalancer.ingress.ipMode` specifies how the load-balancer IP behaves.
@@ -770,7 +770,7 @@ metadata:
     service.beta.kubernetes.io/oci-load-balancer-internal: true
 ```
 
-### `type: ExternalName` {#externalname}
+### `type: ExternalName`
 
 Services of type ExternalName map a Service to a DNS name, not to a typical selector such as
 `my-service` or `cassandra`. You specify these Services with the `spec.externalName` parameter.
@@ -948,7 +948,7 @@ to control how Kubernetes routes traffic to healthy (“ready”) backends.
 
 See [Traffic Policies](/docs/reference/networking/virtual-ips/#traffic-policies) for more details.
 
-### Traffic distribution control {#traffic-distribution}
+### Traffic distribution control
 
 The `.spec.trafficDistribution` field provides another way to influence traffic
 routing within a Kubernetes Service. While traffic policies focus on strict

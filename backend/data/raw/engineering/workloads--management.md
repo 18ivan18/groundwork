@@ -30,12 +30,12 @@ For details on `kubectl` commands that support these approaches, see
 Several tools extend Kubernetes object management beyond what `kubectl`
 provides natively.
 
-#### Helm {#external-tool-helm}
+#### Helm
 
 [Helm](https://helm.sh/) is a tool for managing packages of pre-configured
 Kubernetes resources. These packages are known as _Helm charts_.
 
-#### Kustomize {#external-tool-kustomize}
+#### Kustomize
 
 [Kustomize](https://kustomize.io/) traverses a Kubernetes manifest to add,
 remove, or update configuration options. It is available both as a standalone

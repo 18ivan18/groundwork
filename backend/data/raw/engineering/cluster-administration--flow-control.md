@@ -703,7 +703,7 @@ metrics:
 - apiserver_flowcontrol_priority_level_seat_utilization: the seat utilization
   per PriorityLevelConfiguration.
 
-### Workload modifications {#good-practice-workload-modifications}
+### Workload modifications
 
 To prevent requests from queuing and adding latency or being dropped due to APF,
 you can optimize your requests by:
@@ -735,7 +735,7 @@ levels without a significant change in workload, it is possible there is an
 underlying issue with control plane performance rather than the workload or APF
 settings.
 
-### Priority and fairness settings {#good-practice-apf-settings}
+### Priority and fairness settings
 
 You can also modify the default FlowSchema and PriorityLevelConfiguration
 objects or create new objects of these types to better accommodate your

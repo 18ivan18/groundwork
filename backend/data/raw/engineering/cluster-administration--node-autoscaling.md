@@ -5,7 +5,7 @@ Nodes. Nodes in your cluster can be _autoscaled_ -
 dynamically [_provisioned_](#provisioning), or [_consolidated_](#consolidation) to provide needed
 capacity while optimizing cost. Autoscaling is performed by Node [_autoscalers_](#autoscalers).
 
-## Node provisioning {#provisioning}
+## Node provisioning
 
 If there are Pods in a cluster that can't be scheduled on existing Nodes, new Nodes can be
 automatically added to the cluster&mdash;_provisioned_&mdash;to accommodate the Pods. This is
@@ -32,7 +32,7 @@ of Nodes falling below a configured minimum limit).
 **Note:** 
 Provisioning was formerly known as _scale-up_ in Cluster Autoscaler.
 
-### Pod scheduling constraints {#provisioning-pod-constraints}
+### Pod scheduling constraints
 
 Pods can express [scheduling constraints](/docs/concepts/scheduling-eviction/assign-pod-node/) to
 impose limitations on the kind of Nodes they can be scheduled on. Node autoscalers take these
@@ -50,20 +50,20 @@ Other common Pod scheduling constraints include
 [inter-Pod affinity](/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity),
 or a requirement for a particular [storage volume](/docs/concepts/storage/volumes/).
 
-### Node constraints imposed by autoscaler configuration {#provisioning-node-constraints}
+### Node constraints imposed by autoscaler configuration
 
 The specifics of the provisioned Nodes (for example the amount of resources, the presence of a given
 label) depend on autoscaler configuration. Autoscalers can either choose them from a pre-defined set
 of Node configurations, or use [auto-provisioning](#autoprovisioning).
 
-### Auto-provisioning {#autoprovisioning}
+### Auto-provisioning
 
 Node auto-provisioning is a mode of provisioning in which a user doesn't have to fully configure the
 specifics of the Nodes that can be provisioned. Instead, the autoscaler dynamically chooses the Node
 configuration based on the pending Pods it's reacting to, as well as pre-configured constraints (for
 example, the minimum amount of resources or the need for a given label).
 
-## Node consolidation {#consolidation}
+## Node consolidation
 
 The main consideration when running a cluster is ensuring that all schedulable pods are running,
 whilst keeping the cost of the cluster as low as possible. To achieve this, the Pods' resource
@@ -109,7 +109,7 @@ The details of how consolidation is performed depend on the configuration of a g
 **Note:** 
 Consolidation was formerly known as _scale-down_ in Cluster Autoscaler.
 
-## Autoscalers {#autoscalers}
+## Autoscalers
 
 The functionalities described in previous sections are provided by Node _autoscalers_. In addition
 to the Kubernetes API, autoscalers also need to interact with cloud provider APIs to provision and
@@ -201,7 +201,7 @@ Main differences between Cluster Autoscaler and Karpenter:
 
 ## Combine workload and Node autoscaling
 
-### Horizontal workload autoscaling {#horizontal-workload-autoscaling}
+### Horizontal workload autoscaling
 
 Node autoscaling usually works in response to Pods&mdash;it provisions new Nodes to accommodate
 unschedulable Pods, and then consolidates the Nodes once they're no longer needed.
@@ -224,7 +224,7 @@ autoscaling should, in turn, consolidate the Nodes that are no longer needed.
 If configured correctly, this pattern ensures that your application always has the Node capacity to
 handle load spikes if needed, but you don't have to pay for the capacity when it's not needed.
 
-### Vertical workload autoscaling {#vertical-workload-autoscaling}
+### Vertical workload autoscaling
 
 When using Node autoscaling, it's important to set Pod resource requests correctly. If the requests
 of a given Pod are too low, provisioning a new Node for it might not help the Pod actually run.

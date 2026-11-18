@@ -978,7 +978,7 @@ applicable:
 * iSCSI
 * Local volume
 
-### PersistentVolume using a Raw Block Volume {#persistent-volume-using-a-raw-block-volume}
+### PersistentVolume using a Raw Block Volume
 
 ```yaml
 apiVersion: v1
@@ -998,7 +998,7 @@ spec:
     readOnly: false
 ```
 
-### PersistentVolumeClaim requesting a Raw Block Volume {#persistent-volume-claim-requesting-a-raw-block-volume}
+### PersistentVolumeClaim requesting a Raw Block Volume
 
 ```yaml
 apiVersion: v1
@@ -1075,7 +1075,7 @@ In-tree volume plugins are deprecated. You can read about the deprecated volume
 plugins in the
 [Volume Plugin FAQ](https://github.com/kubernetes/community/blob/main/sig-storage/volume-plugin-faq.md).
 
-### Create a PersistentVolumeClaim from a Volume Snapshot {#create-persistent-volume-claim-from-volume-snapshot}
+### Create a PersistentVolumeClaim from a Volume Snapshot
 
 ```yaml
 apiVersion: v1
@@ -1100,7 +1100,7 @@ spec:
 [Volume Cloning](/docs/concepts/storage/volume-pvc-datasource/)
 only available for CSI volume plugins.
 
-### Create PersistentVolumeClaim from an existing PVC {#create-persistent-volume-claim-from-an-existing-pvc}
+### Create PersistentVolumeClaim from an existing PVC
 
 ```yaml
 apiVersion: v1
@@ -1179,7 +1179,7 @@ and need persistent storage, it is recommended that you use the following patter
 * Learn more about [Creating a PersistentVolumeClaim](/docs/tutorials/configuration/configure-persistent-volume-storage/#create-a-persistentvolumeclaim).
 * Read the [Persistent Storage design document](https://git.k8s.io/design-proposals-archive/storage/persistent-storage.md).
 
-### API references {#reference}
+### API references
 
 Read about the APIs described in this page:
 

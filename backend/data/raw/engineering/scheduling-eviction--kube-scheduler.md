@@ -2,7 +2,7 @@ In Kubernetes, _scheduling_ refers to making sure that Pods
 are matched to Nodes so that
 kubelet can run them.
 
-## Scheduling overview {#scheduling}
+## Scheduling overview
 
 A scheduler watches for newly created Pods that have no Node assigned. For
 every Pod that the scheduler discovers, the scheduler becomes responsible
@@ -43,7 +43,7 @@ individual and collective resource requirements, hardware / software /
 policy constraints, affinity and anti-affinity specifications, data
 locality, inter-workload interference, and so on.
 
-### Node selection in kube-scheduler {#kube-scheduler-implementation}
+### Node selection in kube-scheduler
 
 kube-scheduler selects a node for the pod in a 2-step operation:
 

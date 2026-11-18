@@ -7,7 +7,7 @@ these features to your Pods and containers, refer to
 You should already be familiar with Linux and with the basics of Kubernetes
 workloads.
 
-## Run workloads without root privileges {#run-without-root}
+## Run workloads without root privileges
 
 When you deploy a workload in Kubernetes, use the Pod specification to restrict
 that workload from running as the root user on the node. You can use the Pod
@@ -29,7 +29,7 @@ these configurations can be challenging at scale. Running containers as
 non-root, or in user namespaces if you need root privileges, helps to reduce the
 chance that you'll need to enforce your configured kernel security capabilities.
 
-## Security features in the Linux kernel {#linux-security-features}
+## Security features in the Linux kernel
 
 Kubernetes lets you configure and use Linux kernel features to improve isolation
 and harden your containerized workloads. Common features include the following:
@@ -84,7 +84,7 @@ To learn more about seccomp, see
 [Seccomp BPF](https://www.kernel.org/doc/html/latest/userspace-api/seccomp_filter.html)
 in the Linux kernel documentation.
 
-#### Considerations for seccomp {#seccomp-considerations}
+#### Considerations for seccomp
 
 seccomp is a low-level security configuration that you should only configure
 yourself if you require fine-grained control over Linux syscalls. Using
@@ -100,7 +100,7 @@ sandbox, such as gVisor. Sandboxes solve the preceding risks with custom
 seccomp profiles, but require more compute resources on your nodes and might
 have compatibility issues with GPUs and other specialized hardware.
 
-### AppArmor and SELinux: policy-based mandatory access control {#policy-based-mac}
+### AppArmor and SELinux: policy-based mandatory access control
 
 You can use Linux policy-based mandatory access control (MAC) mechanisms, such
 as AppArmor and SELinux, to harden your Kubernetes workloads.
@@ -141,7 +141,7 @@ enforces these policies.
 To learn how to use SELinux in Kubernetes, refer to
 [Assign SELinux labels to a container](/docs/tasks/configure-pod-container/security-context/#assign-selinux-labels-to-a-container).
 
-#### Differences between AppArmor and SELinux {#apparmor-selinux-diff}
+#### Differences between AppArmor and SELinux
 
 The operating system on your Linux nodes usually includes one of either
 AppArmor or SELinux. Both mechanisms provide similar types of protection, but
@@ -152,7 +152,7 @@ have differences such as the following:
 * **Policy application**: In AppArmor, you define resources using file paths.
   SELinux uses the index node (inode) of a resource to identify the resource.
 
-### Summary of features {#summary}
+### Summary of features
 
 The following table describes the use cases and scope of each security control.
 You can use all of these controls together to build a more hardened system.
@@ -202,7 +202,7 @@ Mechanisms like AppArmor and SELinux can provide protection that extends beyond
 the container. For example, you can use SELinux to help mitigate
 [CVE-2019-5736](https://access.redhat.com/security/cve/cve-2019-5736).
 
-### Considerations for managing custom configurations {#considerations-custom-configurations}
+### Considerations for managing custom configurations
 
 seccomp, AppArmor, and SELinux usually have a default configuration that offers
 basic protections.  You can also create custom profiles and policies that meet
@@ -212,7 +212,7 @@ features together. To help you to manage these configurations at scale, use a
 tool like the
 [Kubernetes Security Profiles Operator](https://github.com/kubernetes-sigs/security-profiles-operator).
 
-## Kernel-level security features and privileged containers {#kernel-security-features-privileged-containers}
+## Kernel-level security features and privileged containers
 
 Kubernetes lets you specify that some trusted containers can run in
 *privileged* mode. Any container in a Pod can run in privileged mode to use
@@ -227,7 +227,7 @@ that you might use in your workloads, as follows:
 * **AppArmor**: Privileged containers ignore any applied AppArmor profiles.
 * **SELinux**: Privileged containers run as the `unconfined_t` domain.
 
-### Privileged containers {#privileged-containers}
+### Privileged containers
 
 Any container in a Pod can enable *Privileged mode* if you set the
 `privileged: true` field in the
@@ -251,7 +251,7 @@ similarly privileged mode by setting the `windowsOptions.hostProcess` flag on
 the security context of the Pod spec. For details and instructions, see
 [Create a Windows HostProcess Pod](/docs/tasks/configure-pod-container/create-hostprocess-pod/).
 
-## Recommendations and best practices {#recommendations-best-practices}
+## Recommendations and best practices
 
 * Before configuring kernel-level security capabilities, you should consider
   implementing network-level isolation. For more information, read the

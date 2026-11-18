@@ -115,7 +115,7 @@ is an endpoint of a Service named `barista`, and the domain name for your cluste
 172-17-0-3.barista.cafe.svc.cluster.local
 ```
 
-### Pod's hostname and subdomain fields {#pod-hostname-and-subdomain-field}
+### Pod's hostname and subdomain fields
 
 Currently when a Pod is created, its hostname (as observed from within the Pod)
 is the Pod's `metadata.name` value.
@@ -201,7 +201,7 @@ A or AAAA record for the headless Service (`busybox-subdomain.my-namespace.svc.c
 pointing to the Pods' IP addresses. Also, the Pod needs to be ready in order to have a
 record unless `publishNotReadyAddresses=True` is set on the Service.
 
-### Pod's setHostnameAsFQDN field {#pod-sethostnameasfqdn-field}
+### Pod's setHostnameAsFQDN field
 
 FEATURE STATE: Kubernetes v1.22 [stable]
 
@@ -282,7 +282,7 @@ spec:
   dnsPolicy: ClusterFirstWithHostNet
 ```
 
-### Pod's DNS Config {#pod-dns-config}
+### Pod's DNS Config
 
 FEATURE STATE: Kubernetes v1.14 [stable]
 
@@ -355,7 +355,7 @@ the pending state.
 It is known that containerd v1.5.5 or earlier and CRI-O v1.21 or earlier have
 this problem.
 
-## DNS resolution on Windows nodes {#dns-windows}
+## DNS resolution on Windows nodes
 
 - `ClusterFirstWithHostNet` is not supported for Pods that run on Windows nodes.
   Windows treats all names with a `.` as a FQDN and skips FQDN resolution.

@@ -115,7 +115,7 @@ StorageClass object is created, it will default to `Delete`.
 PersistentVolumes that are created manually and managed via a StorageClass will have
 whatever reclaim policy they were assigned at creation.
 
-## Volume expansion {#allow-volume-expansion}
+## Volume expansion
 
 PersistentVolumes can be configured to be expandable. This allows you to resize the
 volume by editing the corresponding PVC object, requesting a new larger amount of
@@ -265,7 +265,7 @@ For more information on the CSI provisioner, see
 [Kubernetes vSphere CSI Driver](https://vsphere-csi-driver.sigs.k8s.io/) and
 [migrating from in-tree plugins to CSI drivers](/docs/concepts/storage/volumes/#migrating-to-csi-drivers-from-in-tree-plugins).
 
-#### CSI Provisioner {#vsphere-provisioner-csi}
+#### CSI Provisioner
 
 The vSphere CSI StorageClass provisioner works with Tanzu Kubernetes clusters.
 For an example, refer to the [vSphere CSI repository](https://github.com/kubernetes-sigs/vsphere-csi-driver/blob/master/example/vanilla-k8s-RWM-filesystem-volumes/example-sc.yaml).
@@ -338,7 +338,7 @@ The following examples use the VMware Cloud Provider (vCP) StorageClass provisio
      for more details on how to use storage policies for persistent volumes
      management.
 
-### Ceph RBD (deprecated) {#ceph-rbd}
+### Ceph RBD (deprecated)
 
 **Note:** 
 FEATURE STATE: Kubernetes v1.28 [deprecated]
@@ -384,7 +384,7 @@ and then removed entirely in the v1.27 release.
 The Kubernetes project suggests that you use the [Azure Disk](https://github.com/kubernetes-sigs/azuredisk-csi-driver) third party
 storage driver instead.
 
-### Azure File (deprecated) {#azure-file}
+### Azure File (deprecated)
 
 (Example: `storage/storageclass/storageclass-azure-file.yaml`)
 
@@ -414,7 +414,7 @@ In a multi-tenancy context, it is strongly recommended to set the value for
 `secretNamespace` explicitly, otherwise the storage account credentials may
 be read by other users.
 
-### Portworx volume (deprecated) {#portworx-volume}
+### Portworx volume (deprecated)
 
 (Example: `storage/storageclass/storageclass-portworx-volume.yaml`)
 

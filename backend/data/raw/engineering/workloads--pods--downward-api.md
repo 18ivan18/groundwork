@@ -30,7 +30,7 @@ At the API level, the `spec` for a Pod always defines at least one
 You can pass information from available Container-level fields using
 `resourceFieldRef`.
 
-### Information available via `fieldRef` {#downwardapi-fieldRef}
+### Information available via `fieldRef`
 
 For some Pod-level fields, you can provide them to a container either as
 an environment variable or using a `downwardAPI` volume. The fields available
@@ -84,7 +84,7 @@ The following information is available through a `downwardAPI` volume
 Within the volume, you can find the exposed data as read-only files in the
 plain text format.
 
-### Information available via `resourceFieldRef` {#downwardapi-resourceFieldRef}
+### Information available via `resourceFieldRef`
 
 These container-level fields allow you to provide information about
 [requests and limits](/docs/concepts/configuration/manage-resources-containers/#requests-and-limits)

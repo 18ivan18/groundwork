@@ -27,7 +27,7 @@ itself by linking controllers to
 one or more custom resources. Operators are clients of the Kubernetes API that act as
 controllers for a [Custom Resource](/docs/concepts/extend-kubernetes/api-extension/custom-resources/).
 
-## An example operator {#example}
+## An example operator
 
 Some of the things that you can use an operator to automate include:
 
@@ -74,7 +74,7 @@ control plane,
 much as you would run any containerized application.
 For example, you can run the controller in your cluster as a Deployment.
 
-## Using an operator {#using-operators}
+## Using an operator
 
 Once you have an operator deployed, you'd use it by adding, modifying or
 deleting the kind of resource that the operator uses. Following the above
@@ -89,7 +89,7 @@ kubectl edit SampleDB/example-database # manually change some settings
 &hellip;and that's it! The operator will take care of applying the changes
 as well as keeping the existing service in good shape.
 
-## Writing your own operator {#writing-operator}
+## Writing your own operator
 
 If there isn't an operator in the ecosystem that implements the behavior you
 want, you can code your own. 

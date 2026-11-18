@@ -159,7 +159,7 @@ means that if this pod is running and a matching taint is added to the node, the
 the pod will stay bound to the node for 3600 seconds, and then be evicted. If the
 taint is removed before that time, the pod will not be evicted.
 
-## Numeric comparison operators {#numeric-comparison-operators}
+## Numeric comparison operators
 
 Feature gate: `TaintTolerationComparisonOperators`
 

@@ -299,7 +299,7 @@ Fields declared in a CustomResourceDefinition
 may also be used with field selectors when included in the `spec.versions[*].selectableFields` field of the
 CustomResourceDefinition.
 
-### Selectable fields for custom resources {#crd-selectable-fields}
+### Selectable fields for custom resources
 
 Feature gate: `CustomResourceFieldSelectors`
 

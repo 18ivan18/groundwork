@@ -171,7 +171,7 @@ spec:
 * The effective CPU request of the Pod is the higher of the two values
   (300m and 500m), which is 500m.
 
-## Linux cgroups {#cgroups}
+## Linux cgroups
 
 On Linux, resource allocations for Pod level control groups (cgroups) are based on the effective Pod
 request and limit, the same as the scheduler.

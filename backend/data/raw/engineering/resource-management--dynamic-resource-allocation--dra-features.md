@@ -2,7 +2,7 @@ This page describes optional DRA features for advanced use cases. Some of
 these features require support from the DRA driver. Each feature notes its
 maturity and the feature gate that enables it.
 
-## Partitionable devices {#partitionable-devices}
+## Partitionable devices
 
 Feature gate: `DRAPartitionableDevices`
 
@@ -74,7 +74,7 @@ Partitionable devices is controlled by the
 [`DRAPartitionableDevices` feature gate](/docs/reference/command-line-tools-reference/feature-gates/#DRAPartitionableDevices)
 in the `kube-apiserver` and `kube-scheduler`.
 
-## Device compatibility groups {#device-compatibility-groups}
+## Device compatibility groups
 
 Feature gate: `DRADeviceCompatibilityGroups`
 
@@ -98,7 +98,7 @@ only exist for partitionable devices. Both the `DRADeviceCompatibilityGroups`
 and `DRAPartitionableDevices` feature gates must be enabled in the
 `kube-apiserver` and `kube-scheduler`.
 
-### How it works {#device-compatibility-groups-how-it-works}
+### How it works
 
 A driver defines a `compatibilityGroups` list for each
 `device.consumesCounters[]` entry in a ResourceSlice. The list contains
@@ -120,7 +120,7 @@ The constraint applies across all claims being allocated in a single scheduling
 cycle: if two claims each allocate a device from the same counter set, the
 cross-claim group intersection is also enforced.
 
-### Example {#device-compatibility-groups-example}
+### Example
 
 Consider a GPU that can operate in either MIG mode or vGPU mode. The driver
 publishes two devices, each consuming 4 GiB from the same shared memory counter
@@ -187,7 +187,7 @@ rejected — even though the counter set has enough memory for both. Both
 requests can only be satisfied by two MIG devices (or two vGPU devices) from a
 pool where such pairs exist.
 
-### Constraints {#device-compatibility-groups-constraints}
+### Constraints
 
 - Each `consumesCounters[]` entry may declare at most **2** group names.
 - Group names must be unique within a single entry.
@@ -196,7 +196,7 @@ pool where such pairs exist.
 - Groups are compared per counter set: groups on one counter set have no effect
   on co-allocation decisions for a different counter set.
 
-### Version-skew safety {#device-compatibility-groups-version-skew}
+### Version-skew safety
 
 When the `DRADeviceCompatibilityGroups` feature gate is disabled (the default
 for alpha), the kube-apiserver strips the `compatibilityGroups` field from any
@@ -324,7 +324,7 @@ by ensuring devices are distributed based on their attributes. For example, you 
 use it to distribute devices across different NUMA nodes to optimize memory bandwidth
 and reduce contention.
 
-## Granular status authorization {#granular-status-authorization}
+## Granular status authorization
 
 Feature gate: `DRAResourceClaimGranularStatusAuthorization`
 
@@ -338,7 +338,7 @@ drivers, see
 For a step-by-step cluster administrator procedure, see
 [Harden Dynamic Resource Allocation in Your Cluster](/docs/tasks/administer-cluster/hardening-dra/).
 
-## Optional node operations {#optional-node-operations}
+## Optional node operations
 
 Feature gate: `DRAOptionalNodeOperations`
 

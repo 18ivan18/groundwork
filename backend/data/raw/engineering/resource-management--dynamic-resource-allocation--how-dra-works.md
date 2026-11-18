@@ -1,14 +1,14 @@
 This page describes how Kubernetes allocates devices to workloads with dynamic
 resource allocation (DRA), and how pre-scheduled Pods interact with the process.
 
-## How resource allocation with DRA works {#how-it-works}
+## How resource allocation with DRA works
 
 The following sections describe the workflow for the various
 [types of DRA users](/docs/concepts/resource-management/dynamic-resource-allocation/#dra-user-types)
 and for the Kubernetes system during
 dynamic resource allocation.
 
-### Workflow for users {#user-workflow}
+### Workflow for users
 
 1. **Driver creation**: device owners or third-party entities create drivers
    that can create and manage ResourceSlices in the cluster. These drivers
@@ -22,7 +22,7 @@ dynamic resource allocation.
    DeviceClass. In the same step, workload operators modify their Kubernetes
    manifests to request those ResourceClaimTemplates or ResourceClaims.
 
-### Workflow for Kubernetes {#kubernetes-workflow}
+### Workflow for Kubernetes
 
 1. **ResourceSlice creation**: drivers in the cluster create ResourceSlices that
    represent one or more devices in a managed pool of similar devices.
@@ -153,7 +153,7 @@ profiles:
       bindingTimeout: 60s
 ```
 
-### Example {#device-binding-conditions-example}
+### Example
 
 Here is an example of a ResourceSlice that you might see in a cluster where there's a DRA driver in use, and that driver supports binding conditions:
 
@@ -205,7 +205,7 @@ Device binding conditions is controlled by the
 [`DRADeviceBindingConditions` feature gate](/docs/reference/command-line-tools-reference/feature-gates/#DRADeviceBindingConditions)
 in the `kube-apiserver` and `kube-scheduler`.
 
-## Node allocatable resources {#node-allocatable-resources}
+## Node allocatable resources
 
 Feature gate: `DRANodeAllocatableResources`
 

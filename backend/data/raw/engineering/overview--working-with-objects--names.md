@@ -39,7 +39,7 @@ This means the name must:
 - start with an alphanumeric character
 - end with an alphanumeric character
 
-### RFC 1123 Label Names {#dns-label-names}
+### RFC 1123 Label Names
 
 Some resource types require their names to follow the DNS
 label standard as defined in [RFC 1123](https://tools.ietf.org/html/rfc1123).

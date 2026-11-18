@@ -276,7 +276,7 @@ variable names in pods is [restricted](/docs/tasks/inject-data-application/defin
 If any keys do not meet the rules, those keys are not made available to your container, though
 the Pod is allowed to start.
 
-## Immutable ConfigMaps {#configmap-immutable}
+## Immutable ConfigMaps
 
 FEATURE STATE: Kubernetes v1.21 [stable]
 

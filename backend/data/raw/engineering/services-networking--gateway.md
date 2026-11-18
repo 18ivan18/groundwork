@@ -51,7 +51,7 @@ that may be attached to its `listeners`, forming a bidirectional trust model wit
 
 The following figure illustrates the relationships of the three stable Gateway API kinds:
 
-### GatewayClass {#api-kind-gateway-class}
+### GatewayClass
 
 Gateways can be implemented by different controllers, often with different configurations. A Gateway
 must reference a GatewayClass that contains the name of the controller that implements the
@@ -75,7 +75,7 @@ the implementation's controller.
 See the [GatewayClass](https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1.GatewayClass)
 reference for a full definition of this API kind.
 
-### Gateway {#api-kind-gateway}
+### Gateway
 
 A Gateway describes an instance of traffic handling infrastructure. It defines a network endpoint
 that can be used for processing traffic, i.e. filtering, balancing, splitting, etc. for backends
@@ -114,7 +114,7 @@ reference for a full definition of this API kind. For guidance on configuring HT
 **Note:** 
 By default, a Gateway only accepts Routes from the same namespace. Cross-namespace Routes require configuring `allowedRoutes`.
 
-### HTTPRoute {#api-kind-httproute}
+### HTTPRoute
 
 The HTTPRoute kind specifies routing behavior of HTTP requests from a Gateway listener to backend network
 endpoints. For a Service backend, an implementation may represent the backend network endpoint as a Service
@@ -150,7 +150,7 @@ and the request path specified as `/login` will be routed to Service `example-sv
 See the [HTTPRoute](https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1.HTTPRoute)
 reference for a full definition of this API kind.
 
-### GRPCRoute {#api-kind-grpcroute}
+### GRPCRoute
 
 The GRPCRoute kind specifies routing behavior of gRPC requests from a Gateway listener to backend network
 endpoints. For a Service backend, an implementation may represent the backend network endpoint as a Service

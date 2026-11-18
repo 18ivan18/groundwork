@@ -40,7 +40,7 @@ of the object. This makes it so that old storage versions can sit indefinitely
 as long as no updates occur to the object. Writes, on the other hand, will
 convert the stored object to the new representation upon update. 
 
-## Storage versions for custom resources {#CustomResourceDefinition-storage-version}
+## Storage versions for custom resources
 
 [Custom
 resources](/docs/concepts/extend-kubernetes/api-extension/custom-resources/#storage) are

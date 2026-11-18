@@ -129,7 +129,7 @@ When a pod is evicted using the eviction API, it is gracefully
 [terminated](/docs/concepts/workloads/pods/pod-termination/), honoring the
 `terminationGracePeriodSeconds` setting in its [PodSpec](/docs/reference/generated/kubernetes-api//#podspec-v1-core).
 
-## PodDisruptionBudget example {#pdb-example}
+## PodDisruptionBudget example
 
 Consider a cluster with 3 nodes, `node-1` through `node-3`.
 The cluster is running several applications.  One of them has 3 replicas initially called
@@ -216,7 +216,7 @@ can happen, according to:
 - the type of controller
 - the cluster's resource capacity
 
-## Pod disruption conditions {#pod-disruption-conditions}
+## Pod disruption conditions
 
 Feature gate: `PodDisruptionConditions`
 

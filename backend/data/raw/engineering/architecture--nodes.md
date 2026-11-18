@@ -247,7 +247,7 @@ The node controller also adds taints
 corresponding to node problems like node unreachable or not ready. This means
 that the scheduler won't place Pods onto unhealthy nodes.
 
-## Resource capacity tracking {#node-capacity}
+## Resource capacity tracking
 
 Node objects track information about the Node's resource capacity: for example, the amount
 of memory available and the number of CPUs.

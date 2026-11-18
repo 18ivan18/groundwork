@@ -16,7 +16,7 @@ By default, Secret objects are stored unencrypted in etcd. You should configure 
 data in `etcd`. For instructions, refer to
 [Encrypt Secret Data at Rest](/docs/tasks/administer-cluster/encrypt-data/).
 
-### Configure least-privilege access to Secrets {#least-privilege-secrets}
+### Configure least-privilege access to Secrets
 
 When planning your access control mechanism, such as Kubernetes
 Role-based Access Control [(RBAC)](/docs/reference/access-authn-authz/rbac/),

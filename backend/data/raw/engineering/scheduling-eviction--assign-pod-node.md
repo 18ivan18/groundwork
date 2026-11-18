@@ -18,7 +18,7 @@ specific Pods:
 - [nodeName](#nodename) field
 - [Pod topology spread constraints](#pod-topology-spread-constraints)
 
-## Node labels {#built-in-node-labels}
+## Node labels
 
 Like many other Kubernetes objects, nodes have
 [labels](/docs/concepts/overview/working-with-objects/labels/). You can
@@ -291,7 +291,7 @@ that the Pod matches its own terms, and the chosen node matches all requested to
 This ensures that there will not be a deadlock even if all the Pods have inter-pod affinity
 specified.
 
-#### Pod Affinity Example {#an-example-of-a-pod-that-uses-pod-affinity}
+#### Pod Affinity Example
 
 Consider the following Pod spec:
 

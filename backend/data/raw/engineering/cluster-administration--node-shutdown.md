@@ -18,7 +18,7 @@ to `/dev/null`.
 For more details, refer to the
 [`logind.conf` documentation](https://www.freedesktop.org/software/systemd/man/latest/logind.conf.html).
 
-## Graceful node shutdown {#graceful-node-shutdown}
+## Graceful node shutdown
 
 The kubelet attempts to detect node system shutdown and terminates pods running on the node.
 
@@ -128,7 +128,7 @@ Reason:         Terminated
 Message:        Pod was terminated in response to imminent node shutdown.
 ```
 
-### Pod Priority based graceful node shutdown {#pod-priority-graceful-node-shutdown}
+### Pod Priority based graceful node shutdown
 
 Feature gate: `GracefulNodeShutdownBasedOnPodPriority`
 
@@ -224,7 +224,7 @@ the feature is Beta and is enabled by default.
 Metrics `graceful_shutdown_start_time_seconds` and `graceful_shutdown_end_time_seconds`
 are emitted under the kubelet subsystem to monitor node shutdowns.
 
-## Non-graceful node shutdown handling {#non-graceful-node-shutdown}
+## Non-graceful node shutdown handling
 
 Feature gate: `NodeOutOfServiceVolumeDetach`
 
@@ -266,7 +266,7 @@ During a non-graceful shutdown, Pods are terminated in the two phases:
   moved to a new node and the user has checked that the shutdown node has been
   recovered since the user was the one who originally added the taint.
 
-### Forced storage detach on timeout {#storage-force-detach-on-timeout}
+### Forced storage detach on timeout
 
 In any situation where a pod deletion has not succeeded for 6 minutes, kubernetes will
 force detach volumes being unmounted if the node is unhealthy at that instant. Any

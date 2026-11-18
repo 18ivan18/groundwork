@@ -48,7 +48,7 @@ object once it is set.
 Custom finalizer names **must** be publicly qualified finalizer names, such as `example.com/finalizer-name`.
 Kubernetes enforces this format; the API server rejects writes to objects where the change does not use qualified finalizer names for any custom finalizer.
 
-## Owner references, labels, and finalizers {#owners-labels-finalizers}
+## Owner references, labels, and finalizers
 
 Like labels,
 [owner references](/docs/concepts/overview/working-with-objects/owners-dependents/)

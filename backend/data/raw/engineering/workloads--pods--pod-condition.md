@@ -29,7 +29,7 @@ Each element of the PodCondition array has the following fields:
 | `message`            | Human-readable message indicating details about the last status transition.                          |
 | `observedGeneration` | The `.metadata.generation` of the Pod at the time the condition was recorded. See [Pod generation](/docs/concepts/workloads/pods/#pod-generation). |
 
-## Built-in Pod conditions {#built-in-pod-conditions}
+## Built-in Pod conditions
 
 Kubernetes manages the following Pod conditions:
 
@@ -42,7 +42,7 @@ Kubernetes manages the following Pod conditions:
 In addition to the built-in conditions above, you can define custom conditions
 using [Pod readiness gates](#enhanced-pod-readiness).
 
-## Lifecycle Pod conditions {#lifecycle-pod-conditions}
+## Lifecycle Pod conditions
 
 As a Pod progresses through its lifecycle, the kubelet sets the following conditions roughly in this order:
 
@@ -93,7 +93,7 @@ status:
       observedGeneration: 1
 ```
 
-### PodReadyToStartContainers {#pod-ready-to-start-containers}
+### PodReadyToStartContainers
 
 Feature gate: `PodReadyToStartContainersCondition`
 
@@ -118,12 +118,12 @@ The `PodReadyToStartContainers` condition is set to `True` by the kubelet after 
 
 For a Pod with init containers, the kubelet sets the `Initialized` condition to `True` after the init containers have successfully completed (which happens after successful sandbox creation and network configuration by the runtime plugin). For a Pod without init containers, the kubelet sets the `Initialized` condition to `True` before sandbox creation and network configuration starts.
 
-## Other Pod conditions {#other-pod-conditions}
+## Other Pod conditions
 
 The following conditions are not part of the normal Pod lifecycle progression.
 They are set in response to specific operations or events.
 
-### DisruptionTarget {#disruption-target}
+### DisruptionTarget
 
 A dedicated Pod `DisruptionTarget` condition is added to indicate that
 the Pod is about to be deleted due to a disruption.
@@ -167,7 +167,7 @@ When using a Job (or CronJob), you may want to use these Pod disruption conditio
 
 For more details, see [Disruptions](/docs/concepts/workloads/pods/disruptions/).
 
-### PodResizePending and PodResizeInProgress {#pod-resize-conditions}
+### PodResizePending and PodResizeInProgress
 
 The kubelet updates the Pod's status conditions to indicate the state of a resize request:
 

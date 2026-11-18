@@ -120,7 +120,7 @@ running workload is defined based on an image digest rather than a tag.
 That might be useful if you want to make sure that your entire workload is
 running the same code no matter what tag changes happen at the registry.
 
-#### Default image pull policy {#imagepullpolicy-defaulting}
+#### Default image pull policy
 
 When you (or a controller) submit a new Pod to the API server, your cluster sets the
 `imagePullPolicy` field when specific conditions are met:
@@ -290,7 +290,7 @@ For an example of configuring a private container image registry, see the
 [Pull an Image from a Private Registry](/docs/tasks/configure-pod-container/pull-image-private-registry)
 task. That example uses a private registry in Docker Hub.
 
-### Kubelet credential provider for authenticated image pulls {#kubelet-credential-provider}
+### Kubelet credential provider for authenticated image pulls
 
 You can configure the kubelet to invoke a plugin binary to dynamically fetch
 registry credentials for a container image. This is the most robust and versatile
@@ -306,7 +306,7 @@ have references to other API resources in its specification.
 
 See [Configure a kubelet image credential provider](/docs/tasks/administer-cluster/kubelet-credential-provider/) for more details.
 
-### Interpretation of config.json {#config-json}
+### Interpretation of config.json
 
 The interpretation of `config.json` varies between the original Docker
 implementation and the Kubernetes interpretation. In Docker, the `auths` keys
@@ -393,7 +393,7 @@ on images hosted in a private registry.
 Feature gate: `KubeletEnsureSecretPulledImages`
 Access to pre-pulled images may be authorized according to [image pull credential verification](#ensureimagepullcredentialverification).
 
-### Ensure image pull credential verification {#ensureimagepullcredentialverification}
+### Ensure image pull credential verification
 
 Feature gate: `KubeletEnsureSecretPulledImages`
 

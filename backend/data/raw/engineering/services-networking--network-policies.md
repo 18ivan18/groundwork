@@ -61,7 +61,7 @@ For a connection from a source pod to a destination pod to be allowed, both the 
 the source pod and the ingress policy on the destination pod need to allow the connection. If
 either side does not allow the connection, it will not happen.
 
-## The NetworkPolicy resource {#networkpolicy-resource}
+## The NetworkPolicy resource
 
 See the [NetworkPolicy](/docs/reference/generated/kubernetes-api//#networkpolicy-v1-networking-k8s-io)
 reference for a full definition of the resource.

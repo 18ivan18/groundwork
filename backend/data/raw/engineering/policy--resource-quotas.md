@@ -91,7 +91,7 @@ ResourceQuota in that namespace.
 The ResourceQuota mechanism lets you enforce different kinds of limits. This
 section describes the types of limit that you can enforce.
 
-### Quota for infrastructure resources {#compute-resource-quota}
+### Quota for infrastructure resources
 
 You can limit the total sum of
 [compute resources](/docs/concepts/configuration/manage-resources-containers/)
@@ -212,7 +212,7 @@ add additional, custom APIs that are not defined as CustomResourceDefinitions, t
 control plane does not enforce quota for the aggregated API. The extension API server is expected to
 provide quota enforcement if that's appropriate for the custom API.
 
-##### Generic syntax {#resource-quota-object-count-generic}
+##### Generic syntax
 
 This is a list of common examples of object kinds that you may want to put under object count quota,
 listed by the configuration string that you would use.
@@ -228,7 +228,7 @@ listed by the configuration string that you would use.
 * `count/jobs.batch`
 * `count/cronjobs.batch`
 
-##### Specialized syntax {#resource-quota-object-count-specialized}
+##### Specialized syntax
 
 There is another syntax only to set the same type of quota, that only works for certain API kinds.
 The following types are supported:
@@ -448,7 +448,7 @@ one value. For example:
 If the `operator` is `Exists` or `DoesNotExist`, the `values` field must *NOT* be
 specified.
 
-### Best effort Pods scope {#quota-scope-best-effort}
+### Best effort Pods scope
 
 This scope only tracks quota consumed by Pods.
 It only matches pods that have the [best effort](/docs/concepts/workloads/pods/pod-qos/#besteffort)
@@ -456,7 +456,7 @@ It only matches pods that have the [best effort](/docs/concepts/workloads/pods/p
 
 The `operator` for a `scopeSelector` must be `Exists`.
 
-### Not-best-effort Pods scope {#quota-scope-non-best-effort}
+### Not-best-effort Pods scope
 
 This scope only tracks quota consumed by Pods.
 It only matches pods that have the [Guaranteed](/docs/concepts/workloads/pods/pod-qos/#guaranteed)
@@ -465,7 +465,7 @@ or [Burstable](/docs/concepts/workloads/pods/pod-qos/#burstable)
 
 The `operator` for a `scopeSelector` must be `Exists`.
 
-### Non-terminating Pods scope {#quota-scope-non-terminating}
+### Non-terminating Pods scope
 
 This scope only tracks quota consumed by Pods that are not terminating. The `operator` for a `scopeSelector`
 must be `Exists`.
@@ -483,7 +483,7 @@ You can use a ResourceQuota with this scope to manage the following resources:
 * `limits.cpu`
 * `limits.memory`
 
-### Terminating Pods scope {#quota-scope-terminating}
+### Terminating Pods scope
 
 This scope only tracks quota consumed by Pods that are terminating. The `operator` for a `scopeSelector`
 must be `Exists`.
@@ -556,7 +556,7 @@ With the above configuration, pods can use `namespaces` and `namespaceSelector` 
 if the namespace where they are created have a resource quota object with
 `CrossNamespacePodAffinity` scope and a hard limit greater than or equal to the number of pods using those fields.
 
-### PriorityClass scope {#resource-quota-per-priorityclass}
+### PriorityClass scope
 
 FEATURE STATE: Kubernetes v1.17 [stable]
 
@@ -582,7 +582,7 @@ can only track (and limit) the following resources:
 * `requests.memory`
 * `requests.ephemeral-storage`
 
-#### Example {#quota-scope-priorityclass-example}
+#### Example
 
 This example creates a ResourceQuota matches it with pods at specific priorities. The example
 works as follows:
@@ -733,7 +733,7 @@ In this case, a pod creation will be allowed if:
 A Pod creation request is rejected if its `priorityClassName` is set to `cluster-services`
 and it is to be created in a namespace other than `kube-system`.
 
-### VolumeAttributesClass scope {#quota-scope-volume-attributes-class}
+### VolumeAttributesClass scope
 
 Feature gate: `VolumeAttributesClass`
 

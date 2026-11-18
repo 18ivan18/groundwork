@@ -2,7 +2,7 @@ The EndpointSlice API is the mechanism that Kubernetes uses to let your Service 
 
 FEATURE STATE: Kubernetes v1.21 [stable]
 
-## EndpointSlice API {#endpointslice-resource}
+## EndpointSlice API
 
 In Kubernetes, an EndpointSlice contains references to a set of network
 endpoints. The control plane automatically creates EndpointSlices
@@ -94,7 +94,7 @@ The `ready` condition is essentially a shortcut for checking
 `true` for Services with `spec.publishNotReadyAddresses` set to
 `true`).
 
-### Topology information {#topology}
+### Topology information
 
 Each endpoint within an EndpointSlice can contain relevant topology information.
 The topology information includes the location of the endpoint and information

@@ -221,12 +221,12 @@ The HorizontalPodAutoscaler (HPA) controller includes two command line options t
 
 You can only set these command line options cluster-wide.
 
-### Key behaviors for pod readiness {#pod-readiness-key-behaviors}
+### Key behaviors for pod readiness
 
 - If a Pod is `Ready` and remains `Ready`, it can be counted as contributing metrics even within the delay.
 - If a Pod rapidly toggles between `Ready` and `Unready`, metrics are ignored until it’s considered stably `Ready`.
 
-### Good practice for pod readiness {#pod-readiness-good-practices}
+### Good practice for pod readiness
 
 - Configure a `startupProbe` that doesn't pass until the high CPU usage has passed, or
 - Ensure your `readinessProbe` only reports `Ready` **after** the CPU spike subsides, using `initialDelaySeconds`.
@@ -247,7 +247,7 @@ When you create a HorizontalPodAutoscaler API object, make sure the name specifi
 More details about the API object can be found at
 [HorizontalPodAutoscaler Object](/docs/reference/generated/kubernetes-api//#horizontalpodautoscaler-v2-autoscaling).
 
-## Stability of workload scale {#flapping}
+## Stability of workload scale
 
 When managing the scale of a group of replicas using the HorizontalPodAutoscaler,
 it is possible that the number of replicas keeps fluctuating frequently due to the
@@ -472,7 +472,7 @@ interval. In the above example, all desired states from the past 5 minutes will 
 This approximates a rolling maximum, and avoids having the scaling algorithm frequently
 remove Pods only to trigger recreating an equivalent Pod just moments later.
 
-### Tolerance {#tolerance}
+### Tolerance
 
 Feature gate: `HPAConfigurableTolerance`
 

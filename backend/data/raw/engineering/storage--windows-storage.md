@@ -1,6 +1,6 @@
 This page provides an storage overview specific to the Windows operating system.
 
-## Persistent storage {#storage}
+## Persistent storage
 
 Windows has a layered filesystem driver to mount container layers and create a copy
 filesystem based on NTFS. All file paths in the container are resolved only within

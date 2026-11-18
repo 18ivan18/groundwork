@@ -48,7 +48,7 @@ For more information, see [Pod Priority and Preemption](/docs/concepts/schedulin
 
 A _RuntimeClass_ allows you to specify the low-level container runtime for a Pod. It is useful when you want to specify different container runtimes for different kinds of Pod, such as when you need different isolation levels or runtime features.
 
-### Example Pod {#runtimeclass-pod-example}
+### Example Pod
 
 apiVersion: v1
 kind: Pod
@@ -68,18 +68,18 @@ They might set up that special container runtime configuration on all nodes, or 
 
 For more information, see the [RuntimeClass](/docs/concepts/containers/runtime-class/) documentation.
 
-## Pod and container level security context configuration {#security-context}
+## Pod and container level security context configuration
 
 The `Security context` field in the Pod specification provides granular control over security settings for Pods and containers.
 
-### Pod-wide `securityContext` {#pod-level-security-context}
+### Pod-wide `securityContext`
 
 Some aspects of security apply to the whole Pod; for other aspects,
 you might want to set a default, without any container-level overrides.
 
 Here's an example of using `securityContext` at the Pod level:
 
-#### Example Pod {#pod-level-security-context-example}
+#### Example Pod
 
 apiVersion: v1
 kind: Pod
@@ -95,12 +95,12 @@ spec:
     image: registry.k8s.io/e2e-test-images/agnhost:2.45
     command: ["sh", "-c", "sleep 1h"]
 
-### Container-level security context {#container-level-security-context}
+### Container-level security context
 
 You can specify the security context just for a specific container.
 Here's an example:
 
-#### Example Pod {#container-level-security-context-example}
+#### Example Pod
 
 apiVersion: v1
 kind: Pod
@@ -141,7 +141,7 @@ Pod-level security context. For details and instructions, see
 
 For more information, see [Configure a Security Context for a Pod or Container](/docs/tasks/configure-pod-container/security-context/).
 
-## Influencing Pod scheduling decisions {#scheduling}
+## Influencing Pod scheduling decisions
 
 Kubernetes provides several mechanisms to control which nodes your Pods are scheduled on.
 

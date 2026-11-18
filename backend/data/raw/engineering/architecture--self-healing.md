@@ -1,7 +1,7 @@
 Kubernetes is designed with self-healing capabilities that help maintain the health and availability of workloads. 
 It automatically replaces failed containers, reschedules workloads when nodes become unavailable, and ensures that the desired state of the system is maintained.
 
-## Self-Healing capabilities {#self-healing-capabilities} 
+## Self-Healing capabilities
 
 - **Container-level restarts:** If a container inside a Pod fails, Kubernetes restarts it based on the [`restartPolicy`](/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy).
 
@@ -21,7 +21,7 @@ Here are some of the key components that provide Kubernetes self-healing:
 
 - **PersistentVolume controller:** Manages volume attachment and detachment for stateful workloads.
 
-## Considerations {#considerations} 
+## Considerations
 
 - **Storage Failures:** If a persistent volume becomes unavailable, recovery steps may be required.
 

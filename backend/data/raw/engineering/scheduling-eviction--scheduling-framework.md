@@ -41,7 +41,7 @@ stateful tasks.
 Some interfaces match the scheduler extension points which can be configured through
 [Scheduler Configuration](/docs/reference/scheduling/config/#extension-points).
 
-### PreEnqueue {#pre-enqueue}
+### PreEnqueue
 
 These plugins are called prior to adding Pods to the internal active queue, where Pods are marked as
 ready for scheduling.
@@ -68,13 +68,13 @@ When the QueueingHint finds that the event might make the Pod schedulable,
 the Pod is put into the active queue or the backoff queue
 so that the scheduler will retry the scheduling of the Pod.
 
-### QueueSort {#queue-sort}
+### QueueSort
 
 These plugins are used to sort Pods in the scheduling queue. A queue sort plugin
 essentially provides a `Less(Pod1, Pod2)` function. Only one queue sort
 plugin may be enabled at a time.
 
-### PreFilter {#pre-filter}
+### PreFilter
 
 These plugins are used to pre-process info about the Pod, or to check certain
 conditions that the cluster or the Pod must meet. If a PreFilter plugin returns
@@ -87,7 +87,7 @@ node, the scheduler will call filter plugins in their configured order. If any
 filter plugin marks the node as infeasible, the remaining plugins will not be
 called for that node. Nodes may be evaluated concurrently.
 
-### PostFilter {#post-filter}
+### PostFilter
 
 These plugins are called after the Filter phase, but only when no feasible nodes
 were found for the pod. Plugins are called in their configured order. If
@@ -95,13 +95,13 @@ any postFilter plugin marks the node as `Schedulable`, the remaining plugins
 will not be called. A typical PostFilter implementation is preemption, which
 tries to make the pod schedulable by preempting other Pods.
 
-### PreScore {#pre-score}
+### PreScore
 
 These plugins are used to perform "pre-scoring" work, which generates a sharable
 state for Score plugins to use. If a PreScore plugin returns an error, the
 scheduling cycle is aborted.
 
-### Score {#scoring}
+### Score
 
 These plugins are used to rank nodes that have passed the filtering phase. The
 scheduler will call each scoring plugin for each node. There will be a well
@@ -109,7 +109,7 @@ defined range of integers representing the minimum and maximum scores. After the
 [NormalizeScore](#normalize-scoring) phase, the scheduler will combine node
 scores from all plugins according to the configured plugin weights.
 
-#### Capacity scoring {#scoring-capacity}
+#### Capacity scoring
 
 Feature gate: `StorageCapacityScoring`
 
@@ -121,7 +121,7 @@ to score Nodes based on the storage capacity on each of them.
 This feature is applicable to CSI volumes that supported [Storage Capacity](/docs/concepts/storage/storage-capacity/),
 including local storage backed by a CSI driver.
 
-### NormalizeScore {#normalize-scoring}
+### NormalizeScore
 
 These plugins are used to modify scores before the scheduler computes a final
 ranking of Nodes. A plugin that registers for this extension point will be
@@ -160,7 +160,7 @@ aborted.
 Plugins wishing to perform "pre-reserve" work should use the
 NormalizeScore extension point.
 
-### Reserve {#reserve}
+### Reserve
 
 A plugin that implements the Reserve interface has two methods, namely `Reserve`
 and `Unreserve`, that back two informational scheduling phases called Reserve
@@ -211,7 +211,7 @@ While any plugin can access the list of "waiting" Pods and approve them
 we expect only the permit plugins to approve binding of reserved Pods that are in "waiting" state.
 Once a Pod is approved, it is sent to the [PreBind](#pre-bind) phase.
 
-### PreBind {#pre-bind}
+### PreBind
 
 These plugins are used to perform any work required before a Pod is bound. For
 example, a pre-bind plugin may provision a network volume and mount it on the
@@ -228,7 +228,7 @@ configured order. A bind plugin may choose whether or not to handle the given
 Pod. If a bind plugin chooses to handle a Pod, **the remaining bind plugins are
 skipped**.
 
-### PostBind {#post-bind}
+### PostBind
 
 This is an informational interface. Post-bind plugins are called after a
 Pod is successfully bound. This is the end of a binding cycle, and can be used

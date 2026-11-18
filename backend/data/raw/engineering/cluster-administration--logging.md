@@ -19,7 +19,7 @@ query logs. Kubernetes does not provide a native storage solution for log data. 
 there are many logging solutions that integrate with Kubernetes. The following sections
 describe how to handle and store logs on nodes.
 
-## Pod and container logs {#basic-logging-in-kubernetes}
+## Pod and container logs
 
 Kubernetes captures logs from each container in a running Pod.
 
@@ -154,7 +154,7 @@ and those components directly involved in running containers. For example:
   The etcd component runs in the control plane, and most commonly also as a static pod.
   If your cluster uses kube-proxy, you typically run this as a `DaemonSet`.
 
-### Log locations {#log-location-node}
+### Log locations
 
 The way that the kubelet and container runtime write logs depends on the operating
 system that the node uses:
@@ -253,7 +253,7 @@ applications running on the node.
 Containers write to stdout and stderr, but with no agreed format. A node-level agent collects
 these logs and forwards them for aggregation.
 
-### Using a sidecar container with the logging agent {#sidecar-container-with-logging-agent}
+### Using a sidecar container with the logging agent
 
 You can use a sidecar container in one of the following ways:
 

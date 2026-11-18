@@ -11,7 +11,7 @@ concepts:
 * [Admission controllers](/docs/reference/access-authn-authz/admission-controllers/)
 * [Admission webhooks](/docs/reference/access-authn-authz/extensible-admission-controllers/#what-are-admission-webhooks)
 
-## Importance of good webhook design {#why-good-webhook-design-matters}
+## Importance of good webhook design
 
 Admission control occurs when any create, update, or delete request
 is sent to the Kubernetes API. Admission controllers intercept requests that
@@ -39,7 +39,7 @@ in unexpected behavior after you upgrade your clusters to newer versions.
 This page describes common webhook failure scenarios and how to avoid them by
 cautiously and thoughtfully designing and implementing your webhooks. 
 
-## Identify whether you use admission webhooks {#identify-admission-webhooks}
+## Identify whether you use admission webhooks
 
 Even if you don't run your own admission webhooks, some third-party applications
 that you run in your clusters might use mutating or validating admission
@@ -61,7 +61,7 @@ kubectl get validatingwebhookconfigurations
 ```
 The output lists any validating admission controllers in the cluster. 
 
-## Choose an admission control mechanism {#choose-admission-mechanism}
+## Choose an admission control mechanism
 
 Kubernetes includes multiple admission control and policy enforcement options.
 Knowing when to use a specific option can help you to improve latency and
@@ -128,7 +128,7 @@ you want to declare simpler logic without the overhead of running a webhook
 server. The Kubernetes project recommends that you use CEL-based admission
 control when possible.
 
-### Use built-in validation and defaulting for CustomResourceDefinitions {#no-crd-validation-defaulting}
+### Use built-in validation and defaulting for CustomResourceDefinitions
 
 If you use
 CustomResourceDefinitions,
@@ -141,7 +141,7 @@ To learn more, see the following resources:
 * [Validation rules](/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#validation-rules)
 * [Defaulting](/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#defaulting)
 
-## Performance and latency {#performance-latency}
+## Performance and latency
 
 This section describes recommendations for improving performance and reducing
 latency. In summary, these are as follows:
@@ -152,7 +152,7 @@ latency. In summary, these are as follows:
 * Set a small timeout value for each webhook.
 * Consider cluster availability needs during webhook design.
 
-### Design admission webhooks for low latency {#design-admission-webhooks-low-latency}
+### Design admission webhooks for low latency
 
 Mutating admission webhooks are called in sequence. Depending on the mutating
 webhook setup, some webhooks might be called multiple times. Every mutating
@@ -172,7 +172,7 @@ Consider the following to reduce latency:
 * Consolidate small webhooks into one server and configuration to help with
   ordering and organization.
 
-### Prevent loops caused by competing controllers {#prevent-loops-competing-controllers}
+### Prevent loops caused by competing controllers
 
 Consider any other components that run in your cluster that might conflict with
 the mutations that your webhook makes. For example, if your webhook adds a label
@@ -195,7 +195,7 @@ To detect these loops, try the following:
     same patch being applied to the same object, or for an object having
     a field updated and reverted multiple times.
 
-### Set a small timeout value {#small-timeout}
+### Set a small timeout value
 
 Admission webhooks should evaluate as quickly as possible (typically in
 milliseconds), since they add to API request latency. Use a small timeout for
@@ -204,14 +204,14 @@ webhooks.
 For details, see
 [Timeouts](/docs/reference/access-authn-authz/extensible-admission-controllers/#timeouts).
 
-### Use a load balancer to ensure webhook availability {#load-balancer-webhook}
+### Use a load balancer to ensure webhook availability
 
 Admission webhooks should leverage some form of load-balancing to provide high
 availability and performance benefits. If a webhook is running within the
 cluster, you can run multiple webhook backends behind a Service of type
 `ClusterIP`.
 
-### Use a high-availability deployment model {#ha-deployment}
+### Use a high-availability deployment model
 
 Consider your cluster's availability requirements when designing your webhook. 
 For example, during node downtime or zonal outages, Kubernetes marks Pods as
@@ -225,7 +225,7 @@ Consider situations like the preceding example when writing your webhooks.
 Exclude operations that are a result of Kubernetes responding to unavoidable
 incidents.
 
-## Request filtering {#request-filtering}
+## Request filtering
 
 This section provides recommendations for filtering which requests trigger
 specific webhooks. In summary, these are as follows:
@@ -235,7 +235,7 @@ specific webhooks. In summary, these are as follows:
 * Use match conditions to perform fine-grained request filtering.
 * Match all versions of an object.
 
-### Limit the scope of each webhook {#webhook-limit-scope}
+### Limit the scope of each webhook
 
 Admission webhooks are only called when an API request matches the corresponding
 webhook configuration. Limit the scope of each webhook to reduce unnecessary
@@ -258,7 +258,7 @@ calls to the webhook server. Consider the following scope limitations:
 * Limit each webhook to a specific namespace by using a
   [`namespaceSelector`](/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-namespaceselector).
 
-### Filter for specific requests by using match conditions {#filter-match-conditions}
+### Filter for specific requests by using match conditions
 
 Admission controllers support multiple fields that you can use to match requests
 that meet specific criteria. For example, you can use a `namespaceSelector` to
@@ -273,7 +273,7 @@ server.
 For details, see
 [Matching requests: `matchConditions`](/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-matchconditions).
 
-### Match all versions of an API {#match-all-versions}
+### Match all versions of an API
 
 By default, admission webhooks run on any API versions that affect a specified
 resource. The `matchPolicy` field in the webhook configuration controls this
@@ -283,7 +283,7 @@ the field to allow the webhook to run on any API version.
 For details, see
 [Matching requests: `matchPolicy`](/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-matchpolicy).
 
-## Mutation scope and field considerations {#mutation-scope-considerations}
+## Mutation scope and field considerations
 
 This section provides recommendations for the scope of mutations and any special
 considerations for object fields. In summary, these are as follows:
@@ -297,7 +297,7 @@ considerations for object fields. In summary, these are as follows:
 * Prevent webhooks from self-triggering.
 * Don't change immutable objects.
 
-### Patch only required fields {#patch-required-fields}
+### Patch only required fields
 
 Admission webhook servers send HTTP responses to indicate what to do with a
 specific Kubernetes API request. This response is an AdmissionReview object.
@@ -310,7 +310,7 @@ For example, consider a mutating webhook that's configured to ensure that
 create a Deployment object matches your webhook configuration, the webhook
 should only update the value in the `spec.replicas` field.
 
-### Don't overwrite array values {#dont-overwrite-arrays}
+### Don't overwrite array values
 
 Fields in Kubernetes object specifications might include arrays. Some arrays
 contain key:value pairs (like the `envVar` field in a container specification),
@@ -330,7 +330,7 @@ Consider the following when modifying arrays:
 * Use caution when modifying label fields. An accidental modification might
   cause label selectors to break, resulting in unintended behavior.
 
-### Avoid side effects {#avoid-side-effects}
+### Avoid side effects
 
 Ensure that your webhooks operate only on the content of the AdmissionReview
 that's sent to them, and do not make out-of-band changes. These additional
@@ -345,7 +345,7 @@ suppressed when processing an AdmissionReview object with `dryRun` set to
 For details, see
 [Side effects](/docs/reference/access-authn-authz/extensible-admission-controllers/#side-effects).
 
-### Avoid self-mutations {#avoid-self-mutation}
+### Avoid self-mutations
 
 A webhook running inside the cluster might cause deadlocks for its own
 deployment if it is configured to intercept resources required to start its own
@@ -363,7 +363,7 @@ result, the migration cannot happen.
 Exclude the namespace where your webhook is running with a
 [`namespaceSelector`](/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-namespaceselector).
 
-### Avoid dependency loops {#avoid-dependency-loops}
+### Avoid dependency loops
 
 Dependency loops can occur in scenarios like the following:
 
@@ -384,7 +384,7 @@ To avoid these dependency loops, try the following:
 * Prevent your webhooks from acting on dependent add-ons by using an
   [`objectSelector`](/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector).
 
-### Fail open and validate the final state {#fail-open-validate-final-state}
+### Fail open and validate the final state
 
 Mutating admission webhooks support the `failurePolicy` configuration field.
 This field indicates whether the API server should admit or reject the request
@@ -406,14 +406,14 @@ This approach has the following benefits:
 * Policy enforcement occurs during validating admission control.
 * Mutating webhooks don't interfere with other controllers in the cluster.
 
-### Plan for future updates to fields {#plan-future-field-updates}
+### Plan for future updates to fields
 
 In general, design your webhooks under the assumption that Kubernetes APIs might
 change in a later version. Don't write a server that takes the stability of an
 API for granted. For example, the release of sidecar containers in Kubernetes
 added a `restartPolicy` field to the Pod API. 
 
-### Prevent your webhook from triggering itself {#prevent-webhook-self-trigger}
+### Prevent your webhook from triggering itself
 
 Mutating webhooks that respond to a broad range of API requests might
 unintentionally trigger themselves. For example, consider a webhook that
@@ -424,7 +424,7 @@ creation requests.
 To avoid this, consider setting a unique label in any resources that your
 webhook creates. Exclude this label from your webhook match conditions.
 
-### Don't change immutable objects {#dont-change-immutable-objects}
+### Don't change immutable objects
 
 Some Kubernetes objects in the API server can't change. For example, when you
 deploy a static Pod, the
@@ -438,7 +438,7 @@ Don't attempt to mutate these objects during admission. All mirror Pods have the
 the security risk of ignoring an annotation, allow static Pods to only run in
 specific namespaces. 
 
-## Mutating webhook ordering and idempotence {#ordering-idempotence}
+## Mutating webhook ordering and idempotence
 
 This section provides recommendations for webhook order and designing idempotent
 webhooks. In summary, these are as follows:
@@ -449,7 +449,7 @@ webhooks. In summary, these are as follows:
 * Ensure that the set of mutating webhooks is idempotent, not just the
   individual webhooks.
 
-### Don't rely on mutating webhook invocation order {#dont-rely-webhook-order}
+### Don't rely on mutating webhook invocation order
 
 Mutating admission webhooks don't run in a consistent order. Various factors
 might change when a specific webhook is called. Don't rely on your webhook
@@ -464,7 +464,7 @@ changes:
   and re-run the webhook as needed. For details, see
   [Reinvocation policy](/docs/reference/access-authn-authz/extensible-admission-controllers/#reinvocation-policy).
 
-### Ensure that the mutating webhooks in your cluster are idempotent {#ensure-mutating-webhook-idempotent}
+### Ensure that the mutating webhooks in your cluster are idempotent
 
 Every mutating admission webhook should be _idempotent_. The webhook should be
 able to run on an object that it already modified without making additional
@@ -521,7 +521,7 @@ The following examples show non-idempotent mutation logic:
    Reinvoking the webhook will result in duplicated containers in the Pod, which
    makes the request invalid and rejected by the API server.
 
-## Mutation testing and validation {#mutation-testing-validation}
+## Mutation testing and validation
 
 This section provides recommendations for testing your mutating webhooks and
 validating mutated objects. In summary, these are as follows:
@@ -531,7 +531,7 @@ validating mutated objects. In summary, these are as follows:
 * Test minor version upgrades for regressions and conflicts.
 * Validate mutated objects before admission.
 
-### Test webhooks in staging environments {#test-in-staging-environments}
+### Test webhooks in staging environments
 
 Robust testing should be a core part of your release cycle for new or updated
 webhooks. If possible, test any changes to your cluster webhooks in a staging
@@ -540,7 +540,7 @@ consider using a tool like [minikube](https://minikube.sigs.k8s.io/docs/) or
 [kind](https://kind.sigs.k8s.io/) to create a small test cluster for webhook
 changes.
 
-### Ensure that mutations don't violate validations {#ensure-mutations-dont-violate-validations}
+### Ensure that mutations don't violate validations
 
 Your mutating webhooks shouldn't break any of the validations that apply to an
 object before admission. For example, consider a mutating webhook that sets the 
@@ -549,7 +549,7 @@ is set to a lower value than the mutated request, the Pod fails admission.
 
 Test every mutating webhook against the validations that run in your cluster.
 
-### Test minor version upgrades to ensure consistent behavior {#test-minor-version-upgrades}
+### Test minor version upgrades to ensure consistent behavior
 
 Before upgrading your production clusters to a new minor version, test your
 webhooks and workloads in a staging environment. Compare the results to ensure
@@ -560,7 +560,7 @@ Additionally, use the following resources to stay informed about API changes:
 * [Kubernetes release notes](/releases/)
 * [Kubernetes blog](/blog/)
 
-### Validate mutations before admission {#validate-mutations}
+### Validate mutations before admission
 
 Mutating webhooks run to completion before any validating webhooks run. There is
 no stable order in which mutations are applied to objects. As a result, your
@@ -579,7 +579,7 @@ For details, see the following resources:
 * [Validating Admission Policy](/docs/reference/access-authn-authz/validating-admission-policy/)
 * [ValidatingAdmissionWebhooks](/docs/reference/access-authn-authz/admission-controllers/#validatingadmissionwebhook)
 
-## Mutating webhook deployment {#mutating-webhook-deployment}
+## Mutating webhook deployment
 
 This section provides recommendations for deploying your mutating admission
 webhooks. In summary, these are as follows:
@@ -590,7 +590,7 @@ webhooks. In summary, these are as follows:
 * Limit access to the namespace that runs the webhook server, if the server is
   in-cluster.
 
-### Install and enable a mutating webhook {#install-enable-mutating-webhook}
+### Install and enable a mutating webhook
 
 When you're ready to deploy your mutating webhook to a cluster, use the
 following order of operations: 
@@ -607,7 +607,7 @@ webhook out to other namespaces. If the webhook intercepts an API request that
 it wasn't meant to intercept, pause the rollout and adjust the scope of the
 webhook configuration.
 
-### Limit edit access to mutating webhooks {#limit-edit-access}
+### Limit edit access to mutating webhooks
 
 Mutating webhooks are powerful Kubernetes controllers. Use RBAC or another
 authorization mechanism to limit access to your webhook configurations and
@@ -621,7 +621,7 @@ entities:
 If your mutating webhook server runs in the cluster, limit access to create or
 modify any resources in that namespace.
 
-## Examples of good implementations {#example-good-implementations}
+## Examples of good implementations
 
 The following projects are examples of "good" custom webhook server
 implementations. You can use them as a starting point when designing your own

@@ -30,7 +30,7 @@ from a range of available addresses configured in the following components:
 - The kube-apiserver is configured to assign IP addresses to Services.
 - The kubelet or the cloud-controller-manager is configured to assign IP addresses to Nodes.
 
-## Cluster networking types {#cluster-network-ipfamilies}
+## Cluster networking types
 
 Kubernetes clusters, attending to the IP families configured, can be categorized into:
 

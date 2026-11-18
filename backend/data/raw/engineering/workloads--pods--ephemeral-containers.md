@@ -58,7 +58,7 @@ When using ephemeral containers, it's helpful to enable [process namespace
 sharing](/docs/tasks/configure-pod-container/share-process-namespace/) so
 you can view processes in other containers.
 
-## Access control {#access-control}
+## Access control
 
 Adding an ephemeral container to a running Pod uses the Pod's
 `ephemeralcontainers` subresource rather than being writable via `pod.spec`.

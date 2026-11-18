@@ -105,7 +105,7 @@ on those short-lived session tokens. Pods running in your cluster can make use o
 and operator ensures they are valid. This separation means that you can run Pods that are unaware of
 the exact mechanisms for issuing and refreshing those session tokens.
 
-## Types of Secret {#secret-types}
+## Types of Secret
 
 When creating a Secret, you can specify its type using the `type` field of
 the [Secret](/docs/reference/kubernetes-api/config-and-storage-resources/secret-v1/)
@@ -416,7 +416,7 @@ There are several options to create a Secret:
 - [Use a configuration file](/docs/tasks/configmap-secret/managing-secret-using-config-file/)
 - [Use the Kustomize tool](/docs/tasks/configmap-secret/managing-secret-using-kustomize/)
 
-#### Constraints on Secret names and data {#restriction-names-data}
+#### Constraints on Secret names and data
 
 The name of a Secret object must be a valid
 [DNS subdomain name](/docs/concepts/overview/working-with-objects/names#dns-subdomain-names).
@@ -433,7 +433,7 @@ merged into the `data` field. If a key appears in both the `data` and the
 `stringData` field, the value specified in the `stringData` field takes
 precedence.
 
-#### Size limit {#restriction-data-size}
+#### Size limit
 
 Individual Secrets are limited to 1MiB in size. This is to discourage creation
 of very large Secrets that could exhaust the API server and kubelet memory.
@@ -474,7 +474,7 @@ due to a temporary lack of connection to the API server) the kubelet
 periodically retries running that Pod. The kubelet also reports an Event
 for that Pod, including details of the problem fetching the Secret.
 
-#### Optional Secrets {#restriction-secret-must-exist}
+#### Optional Secrets
 
 When you reference a Secret in a Pod, you can mark the Secret as _optional_,
 such as in the following example. If an optional Secret doesn't exist,
@@ -488,7 +488,7 @@ all non-optional Secrets are available.
 If a Pod references a specific key in a non-optional Secret and that Secret
 does exist, but is missing the named key, the Pod fails during startup.
 
-### Using Secrets as files from a Pod {#using-secrets-as-files-from-a-pod}
+### Using Secrets as files from a Pod
 
 If you want to access data from a Secret in a Pod, one way to do that is to
 have Kubernetes make the value of that Secret be available as a file inside
@@ -541,7 +541,7 @@ names in pods is [restricted](/docs/tasks/inject-data-application/define-environ
 If any keys do not meet the rules, those keys are not made available to your container, though
 the Pod is allowed to start.
 
-### Container image pull Secrets {#using-imagepullsecrets}
+### Container image pull Secrets
 
 If you want to fetch container images from a private repository, you need a way for
 the kubelet on each node to authenticate to that repository. You can configure
@@ -570,11 +570,11 @@ created with that ServiceAccount or created with that ServiceAccount by default,
 See [Add ImagePullSecrets to a service account](/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account)
 for a detailed explanation of that process.
 
-### Using Secrets with static Pods {#restriction-static-pod}
+### Using Secrets with static Pods
 
 You cannot use ConfigMaps or Secrets with static Pods.
 
-## Immutable Secrets {#secret-immutable}
+## Immutable Secrets
 
 FEATURE STATE: Kubernetes v1.21 [stable]
 
@@ -587,7 +587,7 @@ Preventing changes to the data of an existing Secret has the following benefits:
   by significantly reducing load on kube-apiserver. The kubelet does not need to maintain
   a [watch] on any Secrets that are marked as immutable.
 
-### Marking a Secret as immutable {#secret-immutable-create}
+### Marking a Secret as immutable
 
 You can create an immutable Secret by setting the `immutable` field to `true`. For example,
 

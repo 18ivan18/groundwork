@@ -177,7 +177,7 @@ and `requests` are set equal to `limits` when not explicitly specified. And the
 container's resource limit for the CPU resource is an integer greater than or
 equal to one. The `nginx` container is granted 2 exclusive CPUs.
 
-##### Static policy options {#cpu-policy-static--options}
+##### Static policy options
 
 Here are the available policy options for the static CPU management policy,
 listed in alphabetical order:
@@ -311,7 +311,7 @@ allocation for memory resources. It consults with the Topology Manager to make
 resource assignment decisions. To learn more, read
 [Control Memory Management Policies on a Node](/docs/tasks/administer-cluster/memory-manager/).
 
-### Policies for assigning memory to Pods {#memory-management-policies}
+### Policies for assigning memory to Pods
 
 The Kubernetes *Memory Manager* allocates RAM (memory, and optionally Linux huge pages) resources
 for pods in the `Guaranteed` QoS class.
@@ -335,7 +335,7 @@ topology information provided by device plugins, to make resource assignment
 decisions. To learn more, read
 [Device Plugin Integration with the Topology Manager](/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#device-plugin-integration-with-the-topology-manager).
 
-## Pod-level resource managers {#pod-level-resource-managers}
+## Pod-level resource managers
 
 Feature gate: `PodLevelResourceManagers`
 

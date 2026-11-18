@@ -129,7 +129,7 @@ For a Pod, you can specify resource limits and requests for CPU and memory by in
 
 ## Resource units in Kubernetes
 
-### CPU resource units {#meaning-of-cpu}
+### CPU resource units
 
 Limits and requests for CPU resources are measured in *cpu* units.
 In Kubernetes, 1 CPU unit is equivalent to **1 physical CPU core**,
@@ -157,7 +157,7 @@ its CPU resources. By using the decimal form, it's harder to spot that `0.0005` 
 is an invalid value, while by using the milliCPU form, it's easier to spot that
 `0.5m` is an invalid value.
 
-### Memory resource units {#meaning-of-memory}
+### Memory resource units
 
 Limits and requests for `memory` are measured in bytes. You can express memory as
 a plain integer or as a fixed-point number using one of these
@@ -175,7 +175,7 @@ Here are some examples of memory quantities that represent roughly the same valu
 Pay attention to the case of the suffixes. "M" means megabytes, while "m" means millibytes. If you request `400m` of memory, this is a request for 0.4 bytes. Someone who types that probably meant to ask for 400 mebibytes (`400Mi`)
 or 400 megabytes (`400M`).
 
-## Container resources example {#example-1}
+## Container resources example
 
 The following Pod has two containers. Both containers are defined with a request for
 0.25 CPU
@@ -211,7 +211,7 @@ spec:
         cpu: "500m"
 ```
 
-## Pod resources example {#example-2}
+## Pod resources example
 
 Feature gate: `PodLevelResources`
 
@@ -239,7 +239,7 @@ a Pod on a node if the capacity check fails. This protects against a resource
 shortage on a node when resource usage later increases, for example, during a
 daily peak in request rate.
 
-## How Kubernetes applies resource requests and limits {#how-pods-with-resource-limits-are-run}
+## How Kubernetes applies resource requests and limits
 
 When the kubelet starts a container as part of a Pod, the kubelet passes that container's
 requests and limits for memory and CPU to the container runtime.
@@ -283,7 +283,7 @@ see the [Troubleshooting](#troubleshooting) section.
 After creating a Pod, you may need to adjust its CPU or memory resources based on
 actual usage patterns. Kubernetes provides two approaches for resizing Pod resources:
 
-#### In-place resize {#pod-resize-inplace}
+#### In-place resize
 Feature gate: `InPlacePodVerticalScaling`
 
 You can modify the CPU and memory `requests` and `limits` of containers
@@ -328,7 +328,7 @@ are available in your cluster, then Pod resource usage can be retrieved either
 from the [Metrics API](/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/#metrics-api)
 directly or from your monitoring tools.
 
-### Considerations for memory backed `emptyDir` volumes {#memory-backed-emptydir}
+### Considerations for memory backed `emptyDir` volumes
 
 **Note:** 
 Feature gate: `InPlacePodVerticalScalingMemoryBackedVolumes`

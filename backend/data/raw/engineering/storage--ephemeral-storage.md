@@ -28,7 +28,7 @@ the resource quota is not enforced on ephemeral-storage.
 Kubernetes lets you track, reserve and limit the amount
 of ephemeral local storage a Pod can consume.
 
-## Configurations for local ephemeral storage {#configurations}
+## Configurations for local ephemeral storage
 
 Kubernetes supports the following ways to configure local ephemeral storage on a
 node:
@@ -97,7 +97,7 @@ through the supported layouts. If you mount extra filesystems under paths such a
 `/var/lib/kubelet`, `/var/log`, or the container runtime storage directory
 outside those layouts, the kubelet might not report ephemeral storage correctly.
 
-## Setting requests and limits for local ephemeral storage {#requests-limits}
+## Setting requests and limits for local ephemeral storage
 
 You can specify `ephemeral-storage` for managing local ephemeral storage. Each
 container of a Pod can specify either or both of the following:
@@ -167,7 +167,7 @@ For more information, see
 
 The scheduler ensures that the sum of the resource requests of the scheduled containers is less than the capacity of the node.
 
-## Ephemeral storage consumption management {#resource-emphemeralstorage-consumption}
+## Ephemeral storage consumption management
 
 If the kubelet is managing local ephemeral storage as a resource, then the
 kubelet measures storage use in:

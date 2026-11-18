@@ -4,7 +4,7 @@ In Kubernetes, the lease concept is represented by [Lease](/docs/reference/kuber
 objects in the `coordination.k8s.io` API Group,
 which are used for system-critical capabilities such as node heartbeats and component-level leader election.
 
-## Node heartbeats {#node-heart-beats}
+## Node heartbeats
 
 Kubernetes uses the Lease API to communicate kubelet node heartbeats to the Kubernetes API server.
 For every `Node` , there is a `Lease` object with a matching name in the `kube-node-lease`
@@ -89,7 +89,7 @@ Expired leases from kube-apiservers that no longer exist are garbage collected b
 You can disable API server identity leases by disabling the `APIServerIdentity`
 [feature gate](/docs/reference/command-line-tools-reference/feature-gates/).
 
-## Workloads {#custom-workload}
+## Workloads
 
 Your own workload can define its own use of Leases. For example, you might run a custom
 controller where a primary or leader member

@@ -22,7 +22,7 @@ API Server. If the kubelet or the
 container runtime's management service is restarted while waiting for processes to terminate, the
 cluster retries from the start including the full original grace period.
 
-## Stop Signals {#pod-termination-stop-signals}
+## Stop Signals
 
 The stop signal used to kill the container can be defined in the container image with the `STOPSIGNAL` instruction.
 If no stop signal is defined in the image, the default signal of the container runtime
@@ -54,7 +54,7 @@ spec:
 If a stop signal is defined in the lifecycle, this will override the signal defined in the container image.
 If no stop signal is defined in the container spec, the container would fall back to the default behavior.
 
-## Pod Termination Flow {#pod-termination-flow}
+## Pod Termination Flow
 
 Pod termination flow, illustrated with an example:
 
@@ -126,7 +126,7 @@ Pod termination flow, illustrated with an example:
       to 0 (immediate deletion).
    1. The API server deletes the Pod's API object, which is then no longer visible from any client.
 
-## Forced Pod termination {#pod-termination-forced}
+## Forced Pod termination
 
 **Caution:** 
 Forced deletions can be potentially disruptive for some workloads and their Pods.
@@ -156,7 +156,7 @@ If you need to force-delete Pods that are part of a StatefulSet, refer to the ta
 documentation for
 [deleting Pods from a StatefulSet](/docs/tasks/run-application/force-delete-stateful-set-pod/).
 
-## Pod shutdown and sidecar containers {#termination-with-sidecars}
+## Pod shutdown and sidecar containers
 
 If your Pod includes one or more
 [sidecar containers](/docs/concepts/workloads/pods/sidecar-containers/)
@@ -174,7 +174,7 @@ Similarly, if the Pod has a `preStop` hook that exceeds the termination grace pe
 In general, if you have used `preStop` hooks to control the termination order without sidecar containers, you can now
 remove them and allow the kubelet to manage sidecar termination automatically.
 
-## Garbage collection of Pods {#pod-garbage-collection}
+## Garbage collection of Pods
 
 For failed Pods, the API objects remain in the cluster's API until a human or
 controller process

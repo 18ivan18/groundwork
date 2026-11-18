@@ -187,7 +187,7 @@ because `memory.high` throttling on older kernels can trigger a known
 If the `MemoryQoS` feature gate is enabled on an older kernel, the kubelet logs
 a warning at startup.
 
-## Some behavior is independent of QoS class {#class-independent-behavior}
+## Some behavior is independent of QoS class
 
 Certain behavior is independent of the QoS class assigned by Kubernetes. For example:
 

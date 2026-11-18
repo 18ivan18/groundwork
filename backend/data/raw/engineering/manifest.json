@@ -15,7 +15,7 @@
         "section": "architecture"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/cgroups.md",
-      "sha256": "7679706854969519c9ef07aad06ac4ef7782145cfa23543b168e73d2cf648b08"
+      "sha256": "7ed24730fd0bc0f691a108effa4de9a9e402c336140fec1780033de3afbbed60"
     },
     {
       "key": "architecture-cloud-controller",
@@ -27,7 +27,7 @@
         "section": "architecture"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/cloud-controller.md",
-      "sha256": "44b8fa202088e5c1abb9954d6f695e95b833b16d219f3e91c89ef031b58092a1"
+      "sha256": "0b0911a1a25c678222b0d804b0c2a39b8cfb22fccd7f62e7436ce4281744ce04"
     },
     {
       "key": "architecture-control-plane-node-communication",
@@ -51,7 +51,7 @@
         "section": "architecture"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/controller.md",
-      "sha256": "b216304ab7a98f9bc4ffc169a370fd7e02190b7efb9316ae6475c254aaeb1d42"
+      "sha256": "a00ba6567b71ac18a60aa89eb8f4ab8464eccbf62b08267f93d9cbf5d71f8ff6"
     },
     {
       "key": "architecture-garbage-collection",
@@ -63,7 +63,7 @@
         "section": "architecture"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/garbage-collection.md",
-      "sha256": "b565af12bf2e0dab8cef5ab9ecc329c3e77855e94a6be1470bffc3d799b6ca69"
+      "sha256": "7591a21b5fb49c4c545ac78c37ca6eac1e756562f90a201978585d2007b504fc"
     },
     {
       "key": "architecture-leases",
@@ -75,7 +75,7 @@
         "section": "architecture"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/leases.md",
-      "sha256": "0bfaff01e5de08386bef68876a46acf8c9b14f7d8161d034b4a87c6147420d7b"
+      "sha256": "cd12f20a87f7ad7ef436728d50358a1ebcbd2b0b5e9a0029b7075f211e2bd654"
     },
     {
       "key": "architecture-mixed-version-proxy",
@@ -87,7 +87,7 @@
         "section": "architecture"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/mixed-version-proxy.md",
-      "sha256": "920685abed349a39c7984102076d7031059b96c1d5429c1f8dced8f140abcb38"
+      "sha256": "20b8f2063c048fc06f5add439ed964ca47c3ef47bd4875c0dd9372954c8a8849"
     },
     {
       "key": "architecture-nodes",
@@ -99,7 +99,7 @@
         "section": "architecture"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/nodes.md",
-      "sha256": "166dd9adedac51813c5e442f05c92be2643c158f5f317f0c582ff561e5faca82"
+      "sha256": "67bef6f334f912d06a987527e389f6f1c6d19610dbdaea108b65c204d52e6077"
     },
     {
       "key": "architecture-self-healing",
@@ -111,7 +111,7 @@
         "section": "architecture"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/self-healing.md",
-      "sha256": "f10a4289909e6523a3bf79eb4cb99a11054fa4e167871d17f7c3cdbd1b9d2a66"
+      "sha256": "e0a792ef733cc356a444f60792803ee3b425e1c2f768278cc87f37e7e99b25a7"
     },
     {
       "key": "cluster-administration-addons",
@@ -135,7 +135,7 @@
         "section": "cluster-administration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/admission-webhooks-good-practices.md",
-      "sha256": "c05a097cdfc83cce909bd46a1f1eec3d3558f630130ffcd2f746e25dfde71b71"
+      "sha256": "54a7091e8ddf8ffd0cb186b62f58b0f1f30f41ef083e18c06e62c991f449c34d"
     },
     {
       "key": "cluster-administration-certificates",
@@ -195,7 +195,7 @@
         "section": "cluster-administration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/flow-control.md",
-      "sha256": "3e6d3a30ae278e09a4e7e12da6ee356146361c8fdec70df679139fb91317a410"
+      "sha256": "a909d418f8fd09763a3fc5d7d9c2355a452a388e9d17b3f7a1d22ea5cfa7dea5"
     },
     {
       "key": "cluster-administration-kube-state-metrics",
@@ -207,7 +207,7 @@
         "section": "cluster-administration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/kube-state-metrics.md",
-      "sha256": "0c8e3f29815818d83fe9c61e533cca5ebbd2984f053c64a39f3b7a31d12a9868"
+      "sha256": "f2d8759fd4ca12d74dea49582c6bb53ab0ce25413815b20e7795b307bfe9ee13"
     },
     {
       "key": "cluster-administration-logging",
@@ -219,7 +219,7 @@
         "section": "cluster-administration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/logging.md",
-      "sha256": "c14b39442e9641bb725be10b21761240301245f81d44a8df41ef5e3558ebf9bc"
+      "sha256": "e26900f08df9ea541be7c27d00a611bbb5a5aff7cc7a7ec4cd9c99158a46b0ba"
     },
     {
       "key": "cluster-administration-networking",
@@ -231,7 +231,7 @@
         "section": "cluster-administration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/networking.md",
-      "sha256": "cc0d9b74ab0524aef4aa03f71008fdefa37b2766fdbc037d94eb709570a759ae"
+      "sha256": "8aab3469c7631f260ce8983068d2931f28270b6ccc8aeb7499abbfc9a0836a4c"
     },
     {
       "key": "cluster-administration-node-autoscaling",
@@ -243,7 +243,7 @@
         "section": "cluster-administration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/node-autoscaling.md",
-      "sha256": "a804e7afe9b0f0f384675a25f194b01722039482290886f9586807f58c10beb7"
+      "sha256": "d9a10a53368575d153e0d14040f6916e2e642c980a1230631ce61c9cba2de55a"
     },
     {
       "key": "cluster-administration-node-shutdown",
@@ -255,7 +255,7 @@
         "section": "cluster-administration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/node-shutdown.md",
-      "sha256": "c0e46ece1047151f7762329260bfc5d9cdb7010e9326ea1c8a9d465f77189b17"
+      "sha256": "e3b5b2bf4a0a63b2616fe6f20d79f1fc0db235153ed0c1437da89bde57e9fefe"
     },
     {
       "key": "cluster-administration-observability",
@@ -291,7 +291,7 @@
         "section": "cluster-administration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/swap-memory-management.md",
-      "sha256": "9e70c0cb4ff620df62aa1e72339a0d1106899158d0622b7815502e03d809a0a0"
+      "sha256": "19368a6154794d143d5284ebbd8f04febe9ffa527d670818b1e0a4c2ea1f3b3b"
     },
     {
       "key": "cluster-administration-system-logs",
@@ -339,7 +339,7 @@
         "section": "configuration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/configuration/configmap.md",
-      "sha256": "2e02c7cf1c35c8862352b26fc6013a2a51474938d8649a14df9848fcd0fae81e"
+      "sha256": "5e59a7269bb1e95e226b4829175d44b2a51afd3a2c1825c0c9bfa84d824ba89c"
     },
     {
       "key": "configuration-manage-resources-containers",
@@ -351,7 +351,7 @@
         "section": "configuration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/configuration/manage-resources-containers.md",
-      "sha256": "60a2f4a502293ca922f4c4661a440f39a82e90178d419dc36d9358bff9213aa8"
+      "sha256": "b2a5bcde1831fec508d76eeb6b53269d315436c238011e42ff44302f7db115ad"
     },
     {
       "key": "configuration-organize-cluster-access-kubeconfig",
@@ -375,7 +375,7 @@
         "section": "configuration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/configuration/secret.md",
-      "sha256": "9352e59078fecd11b6bf4acae86e3436e7738565dd2bdbe2f95ca838a8e165f6"
+      "sha256": "700e2f0ad9ebdfa75ce1d0f2ebaa17efe82f56e1e7ecda5fcc49f083e8813c04"
     },
     {
       "key": "configuration-windows-resource-management",
@@ -387,7 +387,7 @@
         "section": "configuration"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/configuration/windows-resource-management.md",
-      "sha256": "1e12f023c01d860e9768af160761d4f3f6b8e2260b057430a394686052e36ca4"
+      "sha256": "ba20c8979efed15d7664ec4a4cee4da0863731dc8707b429183359332c8ce35f"
     },
     {
       "key": "containers-container-environment",
@@ -423,7 +423,7 @@
         "section": "containers"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/containers/cri.md",
-      "sha256": "4c982764abde4343695a5d6b6f0630a7cd27e231e746ad217fe5e615743d9d43"
+      "sha256": "6fc94deab68dd90c45f419d13a58acf91a0582fd48bbbeaea4e224f8ebefa7c0"
     },
     {
       "key": "containers-images",
@@ -435,7 +435,7 @@
         "section": "containers"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/containers/images.md",
-      "sha256": "0b7772cf4aff74a1a0cfc01cc4c361d7c3d9844442e4ebe4664c9389e6b99206"
+      "sha256": "0214668308a27538a87704e8673357b2725aeebe78354977c38cbc8e57bd7ece"
     },
     {
       "key": "containers-runtime-class",
@@ -471,7 +471,7 @@
         "section": "extend-kubernetes"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/extend-kubernetes/api-extension/custom-resources.md",
-      "sha256": "401a290103e5cf7b10d1fbbed5e2e31a485fb7e2c01360fe2bf3f3e77d9b4abb"
+      "sha256": "f518130983cbbde6f808f905e4ce99825c80d5208870ea62827c16958a086c9c"
     },
     {
       "key": "extend-kubernetes-compute-storage-net-device-plugins",
@@ -483,7 +483,7 @@
         "section": "extend-kubernetes"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins.md",
-      "sha256": "67640cdf8440034bff6627b78bc27a9f7ba349ac90123a0de5e29d73492cb033"
+      "sha256": "1a46388161dd66db86c8ff22adac4cc38875e27f99caa6b7c8a11a6ee9c94125"
     },
     {
       "key": "extend-kubernetes-compute-storage-net-network-plugins",
@@ -507,7 +507,7 @@
         "section": "extend-kubernetes"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/extend-kubernetes/operator.md",
-      "sha256": "eb549ad3b3b1ead4bb478234f61213ed6ffd81540bdb7caa7aa410d5d77ebb48"
+      "sha256": "12b7e8f92194cec6106c768785bc7f0053b7d0b70368043102c6bd6cdc9d6dbc"
     },
     {
       "key": "overview-components",
@@ -591,7 +591,7 @@
         "section": "overview"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/finalizers.md",
-      "sha256": "3d00a2b739a7b900f4ac7f830d4d5c9afbaafc80e22b52497d0300ac1d406e9d"
+      "sha256": "0181894e9d99349bf15b8c90a761c38edc8cfd27fd9c318995bfb001be6f655f"
     },
     {
       "key": "overview-working-with-objects-labels",
@@ -615,7 +615,7 @@
         "section": "overview"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/names.md",
-      "sha256": "47801a38020edff87818ce94c7f65bca024b406abfebe354cd9d105dea1bac98"
+      "sha256": "d2ea84847246563bb70f31ac2aa227d1cc39aa46d7ee383ff081f0edcee94b61"
     },
     {
       "key": "overview-working-with-objects-namespaces",
@@ -663,7 +663,7 @@
         "section": "overview"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/storage-version.md",
-      "sha256": "547fe9aa46a0689b0bef4e2d7d50542a7029ad8b3144f36bba24edcd3b9f1831"
+      "sha256": "8648234694ce3e68b1f18769b6aaa84596b3072924f62a3e12ed9005bcdfa5bf"
     },
     {
       "key": "policy-limit-range",
@@ -699,7 +699,7 @@
         "section": "policy"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/policy/resource-quotas.md",
-      "sha256": "0d996d7ef6c0230440bfc95c2fc196f99235e2c9e491f366dead24c0c34c3be0"
+      "sha256": "18a24b644f8ea105d347d4bb86c9f8adb64cf1e1764a745b710e0d9d0f0bdf7c"
     },
     {
       "key": "resource-management-dynamic-resource-allocation-device-taints",
@@ -711,7 +711,7 @@
         "section": "resource-management"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/dynamic-resource-allocation/device-taints.md",
-      "sha256": "f665891e6982871c4c590afff4081da4b587278575a2a5b4fb22d59f4af58022"
+      "sha256": "754da04409103259d8c6f006f5cd8e7d66d251003a3b3455192e4538d4134026"
     },
     {
       "key": "resource-management-dynamic-resource-allocation-dra-api",
@@ -723,7 +723,7 @@
         "section": "resource-management"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/dynamic-resource-allocation/dra-api.md",
-      "sha256": "3f80f9515507b54d8cefbd0c93edbdc7e2a03fe7dffbc0bd86eb112e1dc23cf2"
+      "sha256": "30a4a71e815f02ff7f8d2e04cf815d745510dfb414f365d21479672c2c422338"
     },
     {
       "key": "resource-management-dynamic-resource-allocation-dra-features",
@@ -735,7 +735,7 @@
         "section": "resource-management"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/dynamic-resource-allocation/dra-features.md",
-      "sha256": "e4177a520dd9ab9394c67bc00b6d976adda3d10d557df87e70974bf27592e9a9"
+      "sha256": "24cefa8c501bd3f08d3e55100e7ffc32e03660e3453f791a186600a973177dd1"
     },
     {
       "key": "resource-management-dynamic-resource-allocation-dra-observability",
@@ -747,7 +747,7 @@
         "section": "resource-management"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/dynamic-resource-allocation/dra-observability.md",
-      "sha256": "f7b6045ac7f5705247d25f36606ee0d8739dcf3abacf33a127efbdeeb22f5af2"
+      "sha256": "bd8d71bfdbb7a99797a2f47bc5c85826d5e488445ac3e0440ef8c99745061b10"
     },
     {
       "key": "resource-management-dynamic-resource-allocation-how-dra-works",
@@ -759,7 +759,7 @@
         "section": "resource-management"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/dynamic-resource-allocation/how-dra-works.md",
-      "sha256": "e3c856c0609ef374a6d4809b7d88769c7f7b6967cf7fe006757a9ab937707743"
+      "sha256": "5fc977604bb917f519b2c25eb3d11cafae4fa16b9d83daec86ae727f602d0d7d"
     },
     {
       "key": "resource-management-effective-pod-requests-limits",
@@ -771,7 +771,7 @@
         "section": "resource-management"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/effective-pod-requests-limits.md",
-      "sha256": "7d24f78efa0c3ccb5558fbfae7252b668738ce89fc30b13478b92a1a05bf1252"
+      "sha256": "9d7e8ce524fdf6a164cc1b00dcb78d2e0eda01d783c0d85641a4df41bb21057a"
     },
     {
       "key": "resource-management-pod-level-resource-managers",
@@ -783,7 +783,7 @@
         "section": "resource-management"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/pod-level-resource-managers.md",
-      "sha256": "651732ea8766367f0d302a504e473592b48e9687a31831082080b98dd9c22a0c"
+      "sha256": "04c13f98c91f493e0236ba68a249a91c49fecf070182ab9d8be1f9df35462e72"
     },
     {
       "key": "resource-management-resource-managers",
@@ -795,7 +795,7 @@
         "section": "resource-management"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/resource-managers.md",
-      "sha256": "05bb5990eea3803164c687e85122d20089bbf9ca3eaadee974ca7ef304febb90"
+      "sha256": "30ffa4cf8b9a9ffc98a7ec244993c26b2ad16c21360ce1a63b07bf85621c8d24"
     },
     {
       "key": "scheduling-eviction-api-eviction",
@@ -819,7 +819,7 @@
         "section": "scheduling-eviction"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/assign-pod-node.md",
-      "sha256": "1beeaec90d1685ada22cf04032a85e827e69309f918ab3d72e48ab779aefd801"
+      "sha256": "5eef7e6fa30684925a5d4b919c5a8f0607f3f78d1a947027d1916b45a4aab5e4"
     },
     {
       "key": "scheduling-eviction-gang-scheduling",
@@ -843,7 +843,7 @@
         "section": "scheduling-eviction"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/kube-scheduler.md",
-      "sha256": "69fd1c1e6bc5b0db7076c5c46025249fc2d5370a9da38e5131592a0e442dab89"
+      "sha256": "5632f5913b48fd59118748c02bf6068d46a368d92745b901dfb95eea80749d9d"
     },
     {
       "key": "scheduling-eviction-node-declared-features",
@@ -867,7 +867,7 @@
         "section": "scheduling-eviction"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/node-pressure-eviction.md",
-      "sha256": "8ce495ef8ccdd818bc69a1b716eabfa9f70150ce6ee8e12d9bfa607fc3c18ba1"
+      "sha256": "00e059cc9fb33b820ca5c5f0792cc357fb86bad6bebaf15f77a65b59e2558587"
     },
     {
       "key": "scheduling-eviction-pod-overhead",
@@ -879,7 +879,7 @@
         "section": "scheduling-eviction"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/pod-overhead.md",
-      "sha256": "86b096566fefec06d39d229fdd2c1ce67935ca7c68552cb73d03db0353220bc0"
+      "sha256": "e472d769e40c9eac321a0ebfe6471ca3d06a18b86628e6683e2e352872fc14ee"
     },
     {
       "key": "scheduling-eviction-pod-priority-preemption",
@@ -891,7 +891,7 @@
         "section": "scheduling-eviction"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/pod-priority-preemption.md",
-      "sha256": "5d7e51431f3dedf45fd732fc2c96607b434819c65e7e3eab85ddd77119bf57e2"
+      "sha256": "181258c19a62c71912057651366bd3062af4fbac8bdc2b88a135d582ce66cbb1"
     },
     {
       "key": "scheduling-eviction-pod-scheduling-readiness",
@@ -951,7 +951,7 @@
         "section": "scheduling-eviction"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/scheduler-perf-tuning.md",
-      "sha256": "b57a4dd0fe745259473bff3d50d0452625b379914482c6285dbbe24f0b8bffc6"
+      "sha256": "4616b0fef41f0189b61765987c564b3611cb83f12af42e8ed0e4bce68145a2dc"
     },
     {
       "key": "scheduling-eviction-scheduling-framework",
@@ -963,7 +963,7 @@
         "section": "scheduling-eviction"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/scheduling-framework.md",
-      "sha256": "1f135ac73b79793526d0759ad51d2c816e3bdcf673e8d69d03ef1fc5a18f9b90"
+      "sha256": "44f6e94739a34d4619405c0767c3f79e04d5e3439063a4f6e764658fb190c46e"
     },
     {
       "key": "scheduling-eviction-taint-and-toleration",
@@ -975,7 +975,7 @@
         "section": "scheduling-eviction"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/taint-and-toleration.md",
-      "sha256": "e70d479e5b5d369b9e7fabceef84cb9e3923ec9f0154e0f76c973b9f069b59e4"
+      "sha256": "d6cae84783f869d91311efb5ad5f45c1719b8ab85bb83966b86fadf53fe6ecf0"
     },
     {
       "key": "scheduling-eviction-topology-aware-scheduling",
@@ -999,7 +999,7 @@
         "section": "scheduling-eviction"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/topology-spread-constraints.md",
-      "sha256": "2bd318c838266ade50f0b2af12044bd0eeacffb97dcc1bc06b038ff77470f2b0"
+      "sha256": "009981280e76316ac5dda6e4ffe781b48a3cc48258b49588240f2c90b78d85e4"
     },
     {
       "key": "scheduling-eviction-workload-aware-preemption",
@@ -1023,7 +1023,7 @@
         "section": "security"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/api-server-bypass-risks.md",
-      "sha256": "9fef1d886d7907f2f76ad4973fcc71305406c08667d0fcb688c42a723aa1598c"
+      "sha256": "59d5f31d003d83bf81d031e29d0c972ee28116569ce742c2b9234ccd26379e92"
     },
     {
       "key": "security-application-security-checklist",
@@ -1035,7 +1035,7 @@
         "section": "security"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/application-security-checklist.md",
-      "sha256": "698ac5da5baca288e2c051293b3e2219affcdca87aeda2c98717674700194e42"
+      "sha256": "fc2ae211e4e5b1aead7c20d081d43403f90d4ea123d24910c8a7c547a30dec87"
     },
     {
       "key": "security-cloud-native-security",
@@ -1047,7 +1047,7 @@
         "section": "security"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/cloud-native-security.md",
-      "sha256": "60625515c74bb2a6e62584914995243384fa30c2419b8450eb34b493866b7a0d"
+      "sha256": "22cb3be45c93a331b2f5b21a5dab9b6d207cb13017239a12a22ab69865b4c97a"
     },
     {
       "key": "security-controlling-access",
@@ -1071,7 +1071,7 @@
         "section": "security"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/hardening-guide/authentication-mechanisms.md",
-      "sha256": "4a72262aa1f41599a20c691988bd44cf0f12ea1b677cb73dbacdbedddb4acd85"
+      "sha256": "32fa798bf2ac74ae8f3b09b5921541bbdbcc5239b6ea61c40ead2c57ff9d04ec"
     },
     {
       "key": "security-hardening-guide-dynamic-resource-allocation",
@@ -1107,7 +1107,7 @@
         "section": "security"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/linux-kernel-security-constraints.md",
-      "sha256": "a46936e24d9c10e50939743e57932888a0c659d583491d279b4c621fe9014507"
+      "sha256": "50bb27900695f280fc9c06294a6e4fc3b20d10df3e8a65262defefc2e1261df2"
     },
     {
       "key": "security-linux-security",
@@ -1131,7 +1131,7 @@
         "section": "security"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/multi-tenancy.md",
-      "sha256": "9bd9ffe9e16237cf4bf23958f709034c9d6de86fdcd0561ff1f787fda6c95604"
+      "sha256": "040944e2c018f1566760be3af94ca51134db39c968dce182eefb8d19c015d7d3"
     },
     {
       "key": "security-pod-security-admission",
@@ -1179,7 +1179,7 @@
         "section": "security"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/rbac-good-practices.md",
-      "sha256": "5ffec3d7a2ef3204759a335acff887e8803b9716451b2847e0203da7c234942c"
+      "sha256": "5db83732cc756a3ef73c6b25bb365be7851482db6dd85641ae3a626bd3bcaac6"
     },
     {
       "key": "security-secrets-good-practices",
@@ -1191,7 +1191,7 @@
         "section": "security"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/secrets-good-practices.md",
-      "sha256": "e19188180eddb977c6712b5d512e100a23fbc4ec73f893a3952966a87793a681"
+      "sha256": "618b243fe64b3642e08b15e954e19304c47add9469c9ef5452ffd6e93c3a4292"
     },
     {
       "key": "security-security-checklist",
@@ -1215,7 +1215,7 @@
         "section": "security"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/service-accounts.md",
-      "sha256": "c582562394c3442c8f1d9066fb8d03f0183c4dcba30e03ebf95d778d903f3837"
+      "sha256": "ff9afdde82396ecb6a6c148342c4be332490b7f534b0cb98ca0a751dfc236417"
     },
     {
       "key": "security-windows-security",
@@ -1239,7 +1239,7 @@
         "section": "services-networking"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/cluster-ip-allocation.md",
-      "sha256": "b2812b5f3ac97cb67bf2ea2d32a01b824b61fe8e626cea45c21eb593774e81fa"
+      "sha256": "bcad2b29cb1055380457c026054a2ca5a7cb637d4c1abb321867b3f1f284096c"
     },
     {
       "key": "services-networking-dns-pod-service",
@@ -1251,7 +1251,7 @@
         "section": "services-networking"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/dns-pod-service.md",
-      "sha256": "fe88bb07287f57da163c7b5ff362b9b0ecec0574036ac85899206dcbe65d495e"
+      "sha256": "0014a54e95125dcb5a883a1518b18b7ca07be54b94ca5b94bbcabe56319b03b1"
     },
     {
       "key": "services-networking-dual-stack",
@@ -1275,7 +1275,7 @@
         "section": "services-networking"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/endpoint-slices.md",
-      "sha256": "dedb0f55410e0f5810fa81c6df5422707845bc676f085f0f22209daeade73f93"
+      "sha256": "a42921aac56e223fc6439f8636c9e74a04f20d25ed7eabffdd60af897a5cecbf"
     },
     {
       "key": "services-networking-gateway",
@@ -1287,7 +1287,7 @@
         "section": "services-networking"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/gateway.md",
-      "sha256": "0a2993794d6e0ba975badd625d419dd2b7186879fc7cf77d5faeaa38dc0dff07"
+      "sha256": "5d962b3787a02840428f8fdfc114b53695d386b6b7398d67ae418a316a8ec0b8"
     },
     {
       "key": "services-networking-ingress-controllers",
@@ -1311,7 +1311,7 @@
         "section": "services-networking"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/ingress.md",
-      "sha256": "04079961e099453940df0e43b5087e3806cfa843b0d3699c34c3713e2b03f2a9"
+      "sha256": "08e3f5b866e298dc6de02e5a338ab2bcc2328cebef64fa47733e439a9e72a9d9"
     },
     {
       "key": "services-networking-network-policies",
@@ -1323,7 +1323,7 @@
         "section": "services-networking"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/network-policies.md",
-      "sha256": "28dead52a58a7f0f0c7e44c38431336e4c3651a16fa4e292e9de3cb3099759a8"
+      "sha256": "9d8040e855f3a4a7d1e0c3894dd263e1c322ef8ae7640cda917555f0245b6423"
     },
     {
       "key": "services-networking-service-traffic-policy",
@@ -1347,7 +1347,7 @@
         "section": "services-networking"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/service.md",
-      "sha256": "f32500ef459a247edd554c801b00b8fd9935698ebf1426f1ac6323b45c29269c"
+      "sha256": "9eac75fac1582fafddfe759ed52391eaa031b04488f1a8d00b82d529ebf5f877"
     },
     {
       "key": "services-networking-topology-aware-routing",
@@ -1359,7 +1359,7 @@
         "section": "services-networking"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/topology-aware-routing.md",
-      "sha256": "67b413178f63c0a18132eddb920c924a0a76eb9f3794c4d10421e8d10b6dff60"
+      "sha256": "60a085d0db63b56ca063428d5404a245217a072b41bfb97c096000eff4b10fa9"
     },
     {
       "key": "services-networking-windows-networking",
@@ -1371,7 +1371,7 @@
         "section": "services-networking"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/windows-networking.md",
-      "sha256": "79b544016a1861adf9360d77275613dabe55f1bbc6a115d753af75844c1a1e3b"
+      "sha256": "a7abbca2859a231bbcd70a5008b07a76ecf87d7c42103388025868c16504f64c"
     },
     {
       "key": "storage-dynamic-provisioning",
@@ -1395,7 +1395,7 @@
         "section": "storage"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/ephemeral-storage.md",
-      "sha256": "46baaca92ee0fac39442eb5def243b5307500ae3bf3f05a5b554d9e61e62e788"
+      "sha256": "cab8570484058e09d84b292105fa0fb8abdc05818912f715cf9ac84d239eb54e"
     },
     {
       "key": "storage-ephemeral-volumes",
@@ -1419,7 +1419,7 @@
         "section": "storage"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/persistent-volumes.md",
-      "sha256": "da529c111ffbcf4e2f46367a4ae1000d9843cdc69e6511cbae3df063df413c1c"
+      "sha256": "156f9d103d4602cd6eabb877d7204c2f5ca5409bbb3f2d0d7cc85b57b6fb0106"
     },
     {
       "key": "storage-projected-volumes",
@@ -1431,7 +1431,7 @@
         "section": "storage"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/projected-volumes.md",
-      "sha256": "3942045c818c5209c091780bf80256d8f9cb74c33530bed03ad8e55dbf9c8eef"
+      "sha256": "885e3d537dad305d7ebe03bff711e3ccf461aa93155aa922851558f6a99bf35e"
     },
     {
       "key": "storage-storage-capacity",
@@ -1455,7 +1455,7 @@
         "section": "storage"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/storage-classes.md",
-      "sha256": "5cda97c63f0bcccc335c28a16738625a6b2ec821aee891ae24d50ac566222831"
+      "sha256": "85e17fc77d911628339648125f0abbb3098e18df0bf9507bc18f2ce703e7989a"
     },
     {
       "key": "storage-storage-limits",
@@ -1539,7 +1539,7 @@
         "section": "storage"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/volume-snapshots.md",
-      "sha256": "30918d172f0d4b66a70770ea14917280b32f60b9eb7f92bb6e9b9ce0708e60ec"
+      "sha256": "81d0c86ba240202c8c1726bad5a8e28cfc3f594771bef2bbc5d8e58502afaf10"
     },
     {
       "key": "storage-volumes",
@@ -1551,7 +1551,7 @@
         "section": "storage"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/volumes.md",
-      "sha256": "5b0b974fd9410ecce4a21b802be5ea8764e1970cd3265142482eb58af2afad78"
+      "sha256": "026e7eab0c8447f5b19b3ddbc8cb0d4bb15e1ad7582509d2a826c599c07d09f1"
     },
     {
       "key": "storage-windows-storage",
@@ -1563,7 +1563,7 @@
         "section": "storage"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/windows-storage.md",
-      "sha256": "b33fb385b8cd655191051a8856c8f62e23ddd6066226a80c76a898c384613c76"
+      "sha256": "daba28816dbdf5a2b57f94a49190576dab59964ae19c6ee1756143b155aa0bdc"
     },
     {
       "key": "windows-intro",
@@ -1575,7 +1575,7 @@
         "section": "windows"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/windows/intro.md",
-      "sha256": "0cbf7ae761aaeb620dcc7219e390038c65426b15ddd37e29e938382ee9a56448"
+      "sha256": "e115e6a216b06bfc74f9cf4c5bb501040ce270b58aa507e5889dfb792cd57908"
     },
     {
       "key": "windows-user-guide",
@@ -1611,7 +1611,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale.md",
-      "sha256": "41a7ab7eaf8d02c49299e5b76fa5462de873c8f975ca2f348d0a09c0ce9438c5"
+      "sha256": "8fd0c1e2771f26ed2fb88d384902dc0d6f10a3a25143c26fa96ba52b29e90801"
     },
     {
       "key": "workloads-autoscaling-vertical-pod-autoscale",
@@ -1623,7 +1623,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/autoscaling/vertical-pod-autoscale.md",
-      "sha256": "1c399b941944530d7efe744f790484eed6084a8a2af2e0a250c0cd5cf16ca2e5"
+      "sha256": "787aa0bd7953a6864b10dd0599d80c80d17a04ecc6f8768be3ffe774b2efd0a7"
     },
     {
       "key": "workloads-compositepodgroup-api-lifecycle",
@@ -1647,7 +1647,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/cron-jobs.md",
-      "sha256": "78fa3dfd72b53bf567652b25b7d4c9131933412e27eac6244cda50cb89848fe5"
+      "sha256": "ff8a573fb8f904ed9e99607198c1409991a8f5730fe373d71962eabb2845224e"
     },
     {
       "key": "workloads-controllers-daemonset",
@@ -1671,7 +1671,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/deployment.md",
-      "sha256": "c1419f60d1ecc26b195cca14ac4ae912bb99936ba69f5d49e519af5932f4606c"
+      "sha256": "8b0789f6b04a8a5610c46be860469cd8ffd0597836051f0780417133b66e7233"
     },
     {
       "key": "workloads-controllers-job",
@@ -1683,7 +1683,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/job.md",
-      "sha256": "956b4639089fcb7548b9448bf99e9e46f1929a545714772341929f1ef1c3b0b2"
+      "sha256": "8de8f1d665eaa5baeda22ab71f7ca64db6f6b02e8ffd1092644c2d83d0fd7b34"
     },
     {
       "key": "workloads-controllers-replicaset",
@@ -1719,7 +1719,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/statefulset.md",
-      "sha256": "c864f61628f28c785c4a890da169cf55bfa256603a1a39d5b80d439eef6a3937"
+      "sha256": "3402fdb1be4914600fcb5fc61868c4bcbc1ece54bc2359dcb57e888ed900a992"
     },
     {
       "key": "workloads-controllers-ttlafterfinished",
@@ -1743,7 +1743,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/management.md",
-      "sha256": "ff76339842f91e802bceb9a5ceef41e7359809f234067cd4115694a55fed23c5"
+      "sha256": "af3d97b9c3ce854d30a0df5847940fadf17e8631666030c976de9d5c79614ae8"
     },
     {
       "key": "workloads-podgroup-api-lifecycle",
@@ -1767,7 +1767,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/advanced-pod-config.md",
-      "sha256": "1bb48e128705826aa07f6d60b62b76c748cb747b8a2c671360c11b7629581263"
+      "sha256": "864a4f4c97ce4d81cd1489c011c362736fc352763a72bd2c76402b3ca107e734"
     },
     {
       "key": "workloads-pods-disruptions",
@@ -1779,7 +1779,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/disruptions.md",
-      "sha256": "5e73c79dfde56fca7322e2165c28fd05f1c1402cf19ec7e0b47ea0c94b2d53a1"
+      "sha256": "9ca4a14b5615ca72eca2bf7d35fe525dfce300dbe5a84838dfced830f38280a6"
     },
     {
       "key": "workloads-pods-downward-api",
@@ -1791,7 +1791,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/downward-api.md",
-      "sha256": "50c5690daf2bcc186c2b699efc5f49fe5d20725fafd264d6075dfc6a919379ac"
+      "sha256": "03c88d9319653fe65503d1854afec1a5b6ed0facc5975757d954653855ca7e12"
     },
     {
       "key": "workloads-pods-ephemeral-containers",
@@ -1803,7 +1803,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/ephemeral-containers.md",
-      "sha256": "8012ff3d193b8eedce0033ac88cd5d56ddd8970cae7d4ec7aa0fa27eed2adf3d"
+      "sha256": "0458a7ca6fcd2207442b1c4114fb4ad15584e85869d366db3b6eff725fe716cf"
     },
     {
       "key": "workloads-pods-init-containers",
@@ -1815,7 +1815,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/init-containers.md",
-      "sha256": "6fafcc927f9e2d966c644db6c228ad449f7ce2ca475a4cec0b59ba8257aec4c5"
+      "sha256": "1a80c95fa6dde47564145b9bf57c9833ee814d99d05ee83f49c7d360911d366e"
     },
     {
       "key": "workloads-pods-pod-condition",
@@ -1827,7 +1827,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/pod-condition.md",
-      "sha256": "fcc203c2fcf8e8c0f3c59181f18e8dabd10780b78b7bcdbf8b21a960d80b8e27"
+      "sha256": "2689b1ce3f29536bb415e4870b8742c54e8b2f0c64fd1e1fbfa057998e8492c3"
     },
     {
       "key": "workloads-pods-pod-hostname",
@@ -1851,7 +1851,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/pod-lifecycle.md",
-      "sha256": "2dc3ead05d66ca264f5e1f6f1030d484c589c47d2592160b82ad021272845a35"
+      "sha256": "3b08756f1f1662800b8b2f4a4699b741f9bb60a6b321233ba8fe0dc6a45260cd"
     },
     {
       "key": "workloads-pods-pod-qos",
@@ -1863,7 +1863,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/pod-qos.md",
-      "sha256": "415f4a5cc97cb876387bcf9213e586e8908605b71d56acbeadbdd2532ba8601b"
+      "sha256": "acd67ae2b3c04260bb834f994ee55ae7493100d0f24e2ed38071f07a28dce78c"
     },
     {
       "key": "workloads-pods-pod-termination",
@@ -1875,7 +1875,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/pod-termination.md",
-      "sha256": "74e538c8df79a826aceeefb8fb134e70a3a2b005281fa3041b2a428eb8c4ccec"
+      "sha256": "61f59e02f0fab34dec7692a83f124c49dafa03f80375836bc7b0ce2056311549"
     },
     {
       "key": "workloads-pods-probes",
@@ -1887,7 +1887,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/probes.md",
-      "sha256": "faf5f782a4860200c35360ac884d43032a696044505f579b0042fe23ee60c593"
+      "sha256": "7ae102ee584817abca3bfd95949a03bca669763312907e77b45809564f8d4afc"
     },
     {
       "key": "workloads-pods-scheduling-group",
@@ -1911,7 +1911,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/sidecar-containers.md",
-      "sha256": "bb045a905428a78633b3a759634e3ee5717b3d4373b184ed2ce9e5fc1636109b"
+      "sha256": "54d17004958ed7e9ca192d1ca7c9033e67bb79809b328150604e4d695360bc83"
     },
     {
       "key": "workloads-pods-static-pods",
@@ -1923,7 +1923,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/static-pods.md",
-      "sha256": "1c67881c1b7200f341017e49f900922d91f78efa8a2efa4ec6d470c4f3faa3fb"
+      "sha256": "0342c624748fbe36c8515b6dccad576ca54636da2b61ac4adf52404a60abf3a5"
     },
     {
       "key": "workloads-pods-user-namespaces",
@@ -1935,7 +1935,7 @@
         "section": "workloads"
       },
       "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/user-namespaces.md",
-      "sha256": "74f9517cfb237bf369760b54f5b0664aaad4282c88058e3ece2e8c3ad4dd9dbc"
+      "sha256": "c44273439d0db5b72b78146f1dc88726b6da443c95fa2ad62f2e6bb5108700d1"
     },
     {
       "key": "workloads-workload-api-disruption-and-priority",

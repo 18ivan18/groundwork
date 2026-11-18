@@ -43,7 +43,7 @@ kubectl get pods -n kube-system | grep kube-scheduler
 
 to verify that the kube-scheduler component is healthy.
 
-## Node scoring threshold {#percentage-of-nodes-to-score}
+## Node scoring threshold
 
 To improve scheduling performance, the kube-scheduler can stop looking for
 feasible nodes once it has found enough of them. In large clusters, this saves

@@ -59,7 +59,7 @@ But, as it was explained before, the IP address 10.96.0.10 has not been reserved
 If other Services are created before or in parallel with dynamic allocation, there is a chance they can allocate this IP.
 Hence, you will not be able to create the DNS Service because it will fail with a conflict error.
 
-## How can you avoid Service ClusterIP conflicts? {#avoid-ClusterIP-conflict}
+## How can you avoid Service ClusterIP conflicts?
 
 The allocation strategy implemented in Kubernetes to allocate ClusterIPs to Services reduces the
 risk of collision.
@@ -71,9 +71,9 @@ Dynamic IP assignment uses the upper band by default, once this has been exhaust
 use the lower range. This will allow users to use static allocations on the lower band with a low
 risk of collision.
 
-## Examples {#allocation-examples}
+## Examples
 
-### Example 1 {#allocation-example-1}
+### Example 1
 
 This example uses the IP address range: 10.96.0.0/24 (CIDR notation) for the IP addresses
 of Services.
@@ -89,7 +89,7 @@ pie showData
     "Static" : 16
     "Dynamic" : 238
 
-### Example 2 {#allocation-example-2}
+### Example 2
 
 This example uses the IP address range: 10.96.0.0/20 (CIDR notation) for the IP addresses
 of Services.
@@ -105,7 +105,7 @@ pie showData
     "Static" : 256
     "Dynamic" : 3838
 
-### Example 3 {#allocation-example-3}
+### Example 3
 
 This example uses the IP address range: 10.96.0.0/16 (CIDR notation) for the IP addresses
 of Services.

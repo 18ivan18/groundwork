@@ -7,7 +7,7 @@ the container or makes a network request.
 Based on the probe results, Kubernetes can restart unhealthy containers
 or stop sending traffic to containers that are not ready.
 
-## Types of probe {#types-of-probe}
+## Types of probe
 
 The kubelet can optionally perform and react to three kinds of probes on running
 containers, each serving a different purpose:
@@ -16,7 +16,7 @@ containers, each serving a different purpose:
 - [Liveness probe](#liveness-probe)
 - [Readiness probe](#readiness-probe)
 
-### Startup probe {#startup-probe}
+### Startup probe
 
 Startup probes verify whether the application within a container is started.
 If a startup probe is configured, Kubernetes does not execute liveness or 
@@ -28,7 +28,7 @@ probes, which are run periodically.
 If the startup probe fails, the kubelet kills the container, and the container
 is subjected to its [restart policy](/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy).
 
-### Liveness probe {#liveness-probe}
+### Liveness probe
 
 Liveness probes determine when to restart a container.
 For example, liveness probes could catch a deadlock, where an application is
@@ -53,7 +53,7 @@ as your application became less scalable; and increased workload on remaining
 pods due to some failed pods. Understand the difference between liveness and
 readiness probes and when to apply them for your app.
 
-### Readiness probe {#readiness-probe}
+### Readiness probe
 
 Readiness probes determine when a container is ready to accept traffic.
 This is useful when waiting for an application to perform time-consuming initial
@@ -77,9 +77,9 @@ condition will be set to false, so load balancers will not use the Pod for
 regular traffic. See [Pod termination](/docs/concepts/workloads/pods/pod-termination/)
 for more information about how the kubelet handles Pod deletion.
 
-## When to use each probe {#when-to-use-each-probe}
+## When to use each probe
 
-### When should you use a startup probe? {#when-should-you-use-a-startup-probe}
+### When should you use a startup probe?
 
 Startup probes are useful for Pods that have containers that take a long time to
 come into service. Rather than set a long liveness interval, you can configure a
@@ -93,7 +93,7 @@ for `periodSeconds` is 10s. You should then set its `failureThreshold` high
 enough to allow the container to start, without changing the default values of
 the liveness probe. This helps to protect against deadlocks.
 
-### When should you use a liveness probe? {#when-should-you-use-a-liveness-probe}
+### When should you use a liveness probe?
 
 If the process in your container is able to crash on its own whenever it
 encounters an issue or becomes unhealthy, you do not necessarily need a liveness
@@ -109,7 +109,7 @@ as for readiness probes, but with a higher `failureThreshold`. This ensures
 that the pod is observed as not-ready for some period of time before it is hard
 killed.
 
-### When should you use a readiness probe? {#when-should-you-use-a-readiness-probe}
+### When should you use a readiness probe?
 
 To start sending traffic to a Pod only when a probe succeeds, specify a
 readiness probe. The readiness probe might be the same as the liveness probe,
@@ -132,7 +132,7 @@ migrations during startup, consider using a [startup probe](#startup-probe).
 However, if you want to detect the difference between an app that has failed
 and an app that is still processing its startup data, you might prefer a readiness probe.
 
-## Check mechanisms {#check-mechanisms}
+## Check mechanisms
 
 There are four different ways to check a container using a probe. Each probe
 must define exactly one of these four mechanisms:
@@ -168,7 +168,7 @@ case of the clusters having higher pod densities, lower intervals of
 mechanism might introduce an overhead on the cpu usage of the node. In such
 scenarios, consider using the alternative probe mechanisms to avoid the overhead.
 
-## Probe results {#probe-results}
+## Probe results
 
 The kubelet evaluates the result of each probe execution and takes action
 accordingly. Each probe has one of three results:
@@ -191,7 +191,7 @@ If a container does not provide a particular probe, the kubelet always
 considers the result as `Success`. For readiness probes specifically,
 the result is considered `Failure` before the initial delay.
 
-## Configuration fields {#configure-probes}
+## Configuration fields
 
 [Probes](/docs/reference/generated/kubernetes-api//#probe-v1-core)
 have a number of fields that you can use to more precisely control the behavior of startup,
@@ -252,7 +252,7 @@ Incorrect implementation of readiness probes may result in an ever growing
 number of processes in the container, and resource starvation if this is left
 unchecked.
 
-### Probe-level `terminationGracePeriodSeconds` {#probe-level-terminationgraceperiodseconds}
+### Probe-level `terminationGracePeriodSeconds`
 
 FEATURE STATE: Kubernetes v1.28 [stable]
 
@@ -295,9 +295,9 @@ spec:
 Probe-level `terminationGracePeriodSeconds` **cannot** be set for readiness probes.
 It will be rejected by the API server.
 
-## Probe mechanism details {#probe-mechanism-details}
+## Probe mechanism details
 
-### HTTP probes {#http-probes}
+### HTTP probes
 
 [HTTP probes](/docs/reference/generated/kubernetes-api//#httpgetaction-v1-core)
 have additional fields that can be set on `httpGet`:
@@ -377,7 +377,7 @@ the API server rejects the combination of `protocol: HTTP2` with
 `scheme: HTTPS`. For more details, see
 [Use HTTP/2 cleartext (h2c) with HTTP probes](/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#use-h2c-with-http-probes).
 
-#### Redirect handling {#http-probes-redirects}
+#### Redirect handling
 
 When the kubelet probes a container using HTTP, it follows redirects only if
 the redirect is to the same host. This includes redirects that change the
@@ -417,13 +417,13 @@ For reliable `httpGet` probes, it is strongly recommended to use dedicated healt
 that return a minimal response body. If you must use an existing endpoint with a large payload,
 consider using an `exec` probe to perform a HEAD request instead.
 
-### TCP probes {#tcp-probes}
+### TCP probes
 
 For a TCP probe, the kubelet makes the probe connection at the node, not in the
 Pod, which means that you can not use a service name in the `host` parameter
 since the kubelet is unable to resolve it.
 
-### gRPC probes {#grpc-probes}
+### gRPC probes
 
 FEATURE STATE: Kubernetes v1.27 [stable]
 

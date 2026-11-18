@@ -21,7 +21,7 @@ You can also run the cloud controller manager as a Kubernetes
 addon rather than as part
 of the control plane.
 
-## Cloud controller manager functions {#functions-of-the-ccm}
+## Cloud controller manager functions
 
 The controllers inside the cloud controller manager include:
 
@@ -65,7 +65,7 @@ when you declare a Service resource that requires them.
 This section breaks down the access that the cloud controller manager requires
 on various API objects, in order to perform its operations.
 
-### Node controller {#authorization-node-controller}
+### Node controller
 
 The Node controller only works with Node objects. It requires full access
 to read and modify Node objects.
@@ -80,7 +80,7 @@ to read and modify Node objects.
 - watch
 - delete
 
-### Route controller {#authorization-route-controller}
+### Route controller
 
 The route controller listens to Node object creation and configures
 routes appropriately. It requires Get access to Node objects.
@@ -89,7 +89,7 @@ routes appropriately. It requires Get access to Node objects.
 
 - get
 
-### Service controller {#authorization-service-controller}
+### Service controller
 
 The service controller watches for Service object **create**, **update** and **delete** events and then
 configures load balancers for those Services appropriately.
@@ -105,7 +105,7 @@ To access Services, it requires **list**, and **watch** access. To update Servic
 - patch
 - update
 
-### Others {#authorization-miscellaneous}
+### Others
 
 The implementation of the core of the cloud controller manager requires access to create Event
 objects, and to ensure secure operation, it requires access to create ServiceAccounts.

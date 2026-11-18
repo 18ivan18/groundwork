@@ -12,7 +12,7 @@ This page describes the ways in which the security controls built into the
 Kubernetes API server can be bypassed, so that cluster operators
 and security architects can ensure that these bypasses are appropriately restricted.
 
-## Static Pods {#static-pods}
+## Static Pods
 
 The kubelet on each node loads and
 directly manages any manifests that are stored in a named directory or fetched from
@@ -35,7 +35,7 @@ If a static Pod fails admission control, the kubelet won't register the Pod with
 API server. However, the Pod still runs on the node. For more information, refer to
 [kubeadm issue #1541](https://github.com/kubernetes/kubeadm/issues/1541#issuecomment-487331701).
 
-### Mitigations {#static-pods-mitigations}
+### Mitigations
 
 - Only [enable the kubelet static Pod manifest functionality](/docs/tasks/configure-pod-container/static-pod/#static-pod-creation)
   if required by the node.
@@ -46,7 +46,7 @@ API server. However, the Pod still runs on the node. For more information, refer
 - Regularly audit and centrally report all access to directories or web storage locations that host
   static Pod manifests and kubelet configuration files.
 
-## The kubelet API {#kubelet-api}
+## The kubelet API
 
 The kubelet provides an HTTP API that is typically exposed on TCP port 10250 on cluster
 worker nodes. The API might also be exposed on control plane nodes depending on the Kubernetes
@@ -111,7 +111,7 @@ the feature exists. Since there is no authorization model, any certificate
 with client access to etcd can be used to gain full access to etcd. Typically, etcd client certificates
 that are only used for health checking can also grant full read and write access.
 
-### Mitigations {#etcd-api-mitigations}
+### Mitigations
 
 - Ensure that the certificate authority trusted by etcd is used only for the purposes of
   authentication to that service.
@@ -120,7 +120,7 @@ that are only used for health checking can also grant full read and write access
 - Consider restricting access to the etcd port at a network level, to only allow access
   from specified and trusted IP address ranges.
 
-## Container runtime socket {#runtime-socket}
+## Container runtime socket
 
 On each node in a Kubernetes cluster, access to interact with containers is controlled
 by the container runtime (or runtimes, if you have configured more than one). Typically,
@@ -132,7 +132,7 @@ run on the compromised node have access to Secrets or other confidential
 data that an attacker could use to escalate privileges to other worker nodes or to
 control plane components.
 
-### Mitigations {#runtime-socket-mitigations}
+### Mitigations
 
 - Ensure that you tightly control filesystem access to container runtime sockets.
   When possible, restrict this access to the `root` user.

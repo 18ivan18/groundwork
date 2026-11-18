@@ -2,7 +2,7 @@ Kubernetes supports running nodes on either Linux or Windows. You can mix both k
 within a single cluster.
 This page provides an overview to networking specific to the Windows operating system.
 
-## Container networking on Windows {#networking}
+## Container networking on Windows
 
 Networking for Windows containers is exposed through
 [CNI plugins](/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/).
@@ -71,7 +71,7 @@ TCP/UDP traffic:
 * Node → Pod
 * Pod → Node
 
-## IP address management (IPAM) {#ipam}
+## IP address management (IPAM)
 
 The following IPAM options are supported on Windows:
 
@@ -79,7 +79,7 @@ The following IPAM options are supported on Windows:
 * [azure-vnet-ipam](https://github.com/Azure/azure-container-networking/blob/master/docs/ipam.md) (for azure-cni only)
 * [Windows Server IPAM](https://docs.microsoft.com/windows-server/networking/technologies/ipam/ipam-top) (fallback option if no IPAM is set)
 
-## Direct Server Return (DSR) {#dsr}
+## Direct Server Return (DSR)
 
 Feature gate: `WinDSR`
 

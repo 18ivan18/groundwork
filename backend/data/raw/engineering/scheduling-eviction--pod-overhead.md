@@ -14,7 +14,7 @@ A pod's overhead is considered in addition to the sum of container resource requ
 scheduling a Pod. Similarly, the kubelet will include the Pod overhead when sizing the Pod cgroup,
 and when carrying out Pod eviction ranking.
 
-## Configuring Pod overhead {#set-up}
+## Configuring Pod overhead
 
 You need to make sure a `RuntimeClass` is utilized which defines the `overhead` field.
 

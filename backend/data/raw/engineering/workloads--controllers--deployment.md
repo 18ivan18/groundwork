@@ -703,7 +703,7 @@ nginx-deployment-1989198191   7         7         0         7m
 nginx-deployment-618515232    11        11        11        7m
 ```
 
-## Pausing and Resuming a rollout of a Deployment {#pausing-and-resuming-a-deployment}
+## Pausing and Resuming a rollout of a Deployment
 
 When you update a Deployment, or plan to, you can pause rollouts
 for that Deployment before you trigger one or more updates. When

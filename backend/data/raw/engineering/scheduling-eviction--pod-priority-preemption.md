@@ -86,7 +86,7 @@ globalDefault: false
 description: "This priority class should be used for XYZ service pods only."
 ```
 
-## Non-preempting PriorityClass {#non-preempting-priority-class}
+## Non-preempting PriorityClass
 
 FEATURE STATE: Kubernetes v1.24 [stable]
 
@@ -309,7 +309,7 @@ gone, and Pod P could possibly be scheduled on Node N.
 We may consider adding cross Node preemption in future versions if there is
 enough demand and if we find an algorithm with reasonable performance.
 
-### Preemption for in-place Pod resize {#preemption-for-in-place-pod-resize}
+### Preemption for in-place Pod resize
 
 Feature gate: `InPlacePodVerticalScalingSchedulerPreemption`
 
@@ -352,7 +352,7 @@ preemption in several key ways:
 For more details on in-place Pod resizing, see
 [Resize CPU and Memory Resources assigned to Containers](/docs/tasks/configure-pod-container/resize-container-resources/).
 
-#### Disabling preemption for in-place Pod resize at the Node level {#disabling-preemption-for-in-place-pod-resize-at-the-node-level}
+#### Disabling preemption for in-place Pod resize at the Node level
 
 Cluster operators and controllers can disable scheduler-triggered preemption
 caused by in-place Pod resize requests on specific nodes.
@@ -446,7 +446,7 @@ scheduler may choose another node with higher priority Pods.
 When multiple nodes exist for preemption and none of the above scenarios apply,
 the scheduler chooses a node with the lowest priority.
 
-## Interactions between Pod priority and quality of service {#interactions-of-pod-priority-and-qos}
+## Interactions between Pod priority and quality of service
 
 Pod priority and QoS class
 are two orthogonal features with few interactions and no default restrictions on

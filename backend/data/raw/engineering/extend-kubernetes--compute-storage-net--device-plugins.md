@@ -45,7 +45,7 @@ other resources, with the following differences:
 * Extended resources are only supported as integer resources and cannot be overcommitted.
 * Devices cannot be shared between containers.
 
-### Example {#example-pod}
+### Example
 
 Suppose a Kubernetes cluster is running a device plugin that advertises resource `hardware-vendor.example/foo`
 on certain nodes. Here is an example of a pod requesting this resource to run a demo workload:
@@ -254,7 +254,7 @@ service PodResourcesLister {
 }
 ```
 
-### `List` gRPC endpoint {#grpc-endpoint-list}
+### `List` gRPC endpoint
 
 The `List` endpoint provides information on resources of running pods, with details such as the
 id of exclusively allocated CPUs, device id as it was reported by device plugins and id of
@@ -342,7 +342,7 @@ below:
 2. Call `GetCpuIds` on all `ContainerResources` in the system
 3. Subtract out all of the CPUs from the `GetCpuIds` calls from the `GetAllocatableResources` call
 
-### `GetAllocatableResources` gRPC endpoint {#grpc-endpoint-getallocatableresources}
+### `GetAllocatableResources` gRPC endpoint
 
 FEATURE STATE: Kubernetes v1.28 [stable]
 
@@ -401,7 +401,7 @@ and a new socket is created, while the directory stays untouched.
 So the original inode for the socket becomes unusable. The inode to the directory
 will continue working.
 
-### `Get` gRPC endpoint {#grpc-endpoint-get}
+### `Get` gRPC endpoint
 
 FEATURE STATE: Kubernetes v1.34 [beta]
 
@@ -456,7 +456,7 @@ An example `TopologyInfo` struct populated for a device by a Device Plugin:
 pluginapi.Device{ID: "25102017", Health: pluginapi.Healthy, Topology:&pluginapi.TopologyInfo{Nodes: []*pluginapi.NUMANode{&pluginapi.NUMANode{ID: 0,},}}}
 ```
 
-## Device plugin examples {#examples}
+## Device plugin examples
 
 Here are some examples of device plugin implementations:
 

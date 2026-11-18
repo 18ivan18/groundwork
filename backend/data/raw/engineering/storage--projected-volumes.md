@@ -16,11 +16,11 @@ Currently, the following types of volume sources can be projected:
 All sources are required to be in the same namespace as the Pod. For more details,
 see the [all-in-one volume](https://git.k8s.io/design-proposals-archive/node/all-in-one-volume.md) design document.
 
-### Example configuration with a secret, a downwardAPI, and a configMap {#example-configuration-secret-downwardapi-configmap}
+### Example configuration with a secret, a downwardAPI, and a configMap
 
 (Example: `pods/storage/projected-secret-downwardapi-configmap.yaml`)
 
-### Example configuration: secrets with a non-default permission mode set {#example-configuration-secrets-nondefault-permission-mode}
+### Example configuration: secrets with a non-default permission mode set
 
 (Example: `pods/storage/projected-secrets-nondefault-permission-mode.yaml`)
 
@@ -33,7 +33,7 @@ parameters are nearly the same with two exceptions:
   volume source. However, as illustrated above, you can explicitly set the `mode`
   for each individual projection.
 
-## serviceAccountToken projected volumes {#serviceaccounttoken}
+## serviceAccountToken projected volumes
 You can inject the token for the current [service account](/docs/reference/access-authn-authz/authentication/#service-account-tokens)
 into a Pod at a specified path. For example:
 
@@ -57,7 +57,7 @@ of the projected volume.
 A container using a projected volume source as a [`subPath`](/docs/concepts/storage/volumes/#using-subpath)
 volume mount will not receive updates for those volume sources.
 
-## clusterTrustBundle projected volumes {#clustertrustbundle}
+## clusterTrustBundle projected volumes
 
 Feature gate: `ClusterTrustBundleProjection`
 
@@ -87,7 +87,7 @@ and the pod will start up with an empty file at `path`.
 
 (Example: `pods/storage/projected-clustertrustbundle.yaml`)
 
-## podCertificate projected volumes {#podcertificate}
+## podCertificate projected volumes
 
 Feature gate: `PodCertificateRequest`
 
