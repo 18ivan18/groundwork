@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from run_eval import (
+    EVAL_COLLECTIONS,
     Question,
     document_key,
     filing_key,
@@ -41,7 +42,7 @@ from run_eval import (
 
 from groundwork.config import Settings
 from groundwork.container import build_dense_index, build_services
-from groundwork.domain.models import ScoredPassage, section_label
+from groundwork.domain.models import ScoredPassage, SearchFilters, section_label
 from groundwork.ingestion.corpus import load_corpus
 from groundwork.ingestion.loaders import load_file
 from groundwork.llm.base import LLMError, RateLimitError
@@ -172,6 +173,9 @@ def append(path: Path, record: Record) -> None:
         file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+EVAL_FILTERS = SearchFilters(collections=tuple(sorted(EVAL_COLLECTIONS)))
+
+
 def ask_all(
     questions: Sequence[Question],
     qa: QAService,
@@ -187,7 +191,8 @@ def ask_all(
     for number, question in enumerate(pending, start=1):
         waited = pacer.wait()
         try:
-            answer = qa.ask(question.question)
+            # Only the collections the questions are about, as in the retrieval eval.
+            answer = qa.ask(question.question, EVAL_FILTERS)
         except RateLimitError as error:
             log(f"Stopped at {question.id}: {error} Run `ask` again later to resume.")
             return False
@@ -509,7 +514,7 @@ def main() -> None:
 
     settings = Settings()
     questions = load_questions(EVAL_DIR / "questions.jsonl")
-    corpus = load_corpus(settings.data_dir / "raw")
+    corpus = load_corpus(settings.data_dir / "raw", EVAL_COLLECTIONS)
     keys = [(path, document_key(meta)) for path, meta in corpus]
     validate(questions, {key: normalize(load_file(path).text) for path, key in keys})
     formats = {key: path.suffix.lower() for path, key in keys}

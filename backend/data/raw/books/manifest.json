@@ -1,0 +1,53 @@
+{
+  "collection": "books",
+  "description": "Three novels from Project Gutenberg: long, weakly structured prose for testing chunking. Dated by first publication.",
+  "source": "Project Gutenberg",
+  "licence": "Public domain in the United States. Each file keeps the Project Gutenberg licence; only the text between its START and END lines is indexed.",
+  "documents": [
+    {
+      "key": "pride-and-prejudice",
+      "filename": "pg1342.txt",
+      "title": "Pride and Prejudice",
+      "doc_type": "book",
+      "doc_date": "1813-01-28",
+      "metadata": {
+        "author": "Jane Austen"
+      },
+      "source_url": "https://www.gutenberg.org/ebooks/1342",
+      "provenance": {
+        "ebook_number": "1342"
+      },
+      "sha256": "3f6bb9d6f78e0293b56acd4714dd68cb7d6d1d293402031ce9d5a216bcaf9d75"
+    },
+    {
+      "key": "frankenstein",
+      "filename": "pg84.txt",
+      "title": "Frankenstein; or, The Modern Prometheus",
+      "doc_type": "book",
+      "doc_date": "1818-01-01",
+      "metadata": {
+        "author": "Mary Wollstonecraft Shelley"
+      },
+      "source_url": "https://www.gutenberg.org/ebooks/84",
+      "provenance": {
+        "ebook_number": "84"
+      },
+      "sha256": "2b97b7f8aad508649481d8dd4f6b54f9b965ddb3ba634e9151c815f537b49e42"
+    },
+    {
+      "key": "sherlock-holmes",
+      "filename": "pg1661.txt",
+      "title": "The Adventures of Sherlock Holmes",
+      "doc_type": "book",
+      "doc_date": "1892-10-14",
+      "metadata": {
+        "author": "Arthur Conan Doyle"
+      },
+      "source_url": "https://www.gutenberg.org/ebooks/1661",
+      "provenance": {
+        "ebook_number": "1661"
+      },
+      "sha256": "922e2a12ccb43a4c9544c260b2166c6ad2097aeb5957faeee113f173bb857cd0"
+    }
+  ]
+}

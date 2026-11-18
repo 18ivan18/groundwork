@@ -1,4 +1,6 @@
 import hashlib
+from dataclasses import replace
+from datetime import date
 from typing import Any
 
 import pytest
@@ -107,11 +109,18 @@ def test_source_url_strips_cik_padding_and_accession_dashes() -> None:
 def test_manifest_entry_has_required_metadata() -> None:
     entry = manifest_entry(make_filing(), b"content")
 
-    assert entry["company"] == "ACME Corp"
-    assert entry["ticker"] == "ACME"
-    assert entry["form"] == "10-K"
-    assert entry["period_end"] == "2025-09-27"
-    assert entry["filing_date"] == "2025-10-31"
-    assert entry["filename"] == "ACME-10-K-2025-09-27.htm"
-    assert entry["source_url"].endswith("/acme-20250927.htm")
-    assert entry["sha256"] == hashlib.sha256(b"content").hexdigest()
+    assert entry.title == "ACME Corp · Form 10-K"
+    assert entry.metadata == {"company": "ACME Corp", "ticker": "ACME", "form": "10-K"}
+    assert entry.doc_type == "10-K"
+    assert entry.doc_date == date(2025, 9, 27)
+    assert entry.provenance["filing_date"] == "2025-10-31"
+    assert entry.filename == "ACME-10-K-2025-09-27.htm"
+    assert entry.source_url is not None
+    assert entry.source_url.endswith("/acme-20250927.htm")
+
+
+def test_a_10k405_is_filed_under_10k_and_keeps_its_form() -> None:
+    entry = manifest_entry(replace(make_filing(), form="10-K405"), b"content")
+
+    assert (entry.doc_type, entry.metadata["form"]) == ("10-K", "10-K405")
+    assert entry.sha256 == hashlib.sha256(b"content").hexdigest()

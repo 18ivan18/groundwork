@@ -28,7 +28,7 @@ from typing import get_args
 from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
 from groundwork.domain.models import DocumentMeta, ScoredPassage
-from groundwork.ingestion.corpus import load_corpus
+from groundwork.ingestion.corpus import SEC_COLLECTION, load_corpus
 from groundwork.ingestion.loaders import load_file
 from groundwork.ingestion.pipeline import ingest_file
 from groundwork.retrieval.dense import DenseIndex
@@ -38,6 +38,9 @@ from groundwork.retrieval.reranker import Reranker
 from groundwork.retrieval.sparse import SparseIndex
 
 EVAL_DIR = Path(__file__).parent
+# The collections the questions are about. Until the question set covers more (M1, #23), other
+# collections stay out, so the numbers compare with earlier runs.
+EVAL_COLLECTIONS = frozenset({SEC_COLLECTION})
 CHUNK_SIZES = (200, 300, 400)
 K_VALUES = (1, 3, 6, 8, 10, 20)
 # MRR stops at rank 10, so it stays comparable with the runs recorded in decisions.md.
@@ -181,7 +184,7 @@ def build_retriever(
     directory: Path,
 ) -> tuple[HybridRetriever, DenseIndex]:
     dense = DenseIndex(directory, settings.embedding_model)
-    for path, meta in load_corpus(settings.data_dir / "raw"):
+    for path, meta in load_corpus(settings.data_dir / "raw", EVAL_COLLECTIONS):
         ingest_file(
             path,
             meta,
@@ -269,7 +272,7 @@ def gate_table(answerable: list[float], off_topic: list[float], in_domain: list[
 def main() -> None:
     settings = Settings()
     questions = load_questions(EVAL_DIR / "questions.jsonl")
-    corpus = load_corpus(settings.data_dir / "raw")
+    corpus = load_corpus(settings.data_dir / "raw", EVAL_COLLECTIONS)
     keys = [(path, document_key(meta)) for path, meta in corpus]
     validate(questions, {key: normalize(load_file(path).text) for path, key in keys})
     answerable = [q for q in questions if q.evidence]

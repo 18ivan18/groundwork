@@ -1,4 +1,4 @@
-"""Download annual reports for each company from SEC EDGAR into data/raw/.
+"""Download annual reports for each company from SEC EDGAR into data/raw/sec-10k/.
 
 Each company gets its latest 10-K (HTML) and its newest plain-text annual report. EDGAR stopped
 receiving plain-text filings around 2001, so the text files are old, but they are real filings
@@ -8,17 +8,24 @@ Run from backend/: uv run python scripts/fetch_filings.py
 """
 
 import hashlib
-import json
 import sys
 import time
 from collections.abc import Iterable, Sequence
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import httpx
 
 from groundwork.config import Settings
+from groundwork.ingestion.corpus import (
+    MANIFEST,
+    SEC_COLLECTION,
+    Manifest,
+    ManifestDocument,
+    write_manifest,
+)
 
 # Ticker -> SEC Central Index Key. CIKs are permanent, while ticker lookups need another request.
 COMPANIES = {
@@ -35,6 +42,9 @@ DISPLAY_NAMES = {
 }
 # 10-K405 was a 10-K variant, discontinued in 2003. NVIDIA's plain-text filing uses it.
 PLAIN_TEXT_FORMS = ("10-K", "10-K405")
+# 10-K405 was a variant of the 10-K, so it is found under the same document type. The original
+# form stays in the metadata.
+DOC_TYPE_BY_FORM = {"10-K405": "10-K"}
 # EDGAR allows 10 requests per second; stay well under that.
 SECONDS_BETWEEN_REQUESTS = 0.2
 
@@ -106,13 +116,24 @@ def find_latest_filing(
     )
 
 
-def manifest_entry(filing: Filing, content: bytes) -> dict[str, str]:
-    return {
-        **asdict(filing),
-        "source_url": filing.source_url,
-        "filename": filing.filename,
-        "sha256": hashlib.sha256(content).hexdigest(),
-    }
+def manifest_entry(filing: Filing, content: bytes) -> ManifestDocument:
+    doc_type = DOC_TYPE_BY_FORM.get(filing.form, filing.form)
+    return ManifestDocument(
+        key=Path(filing.filename).stem.lower(),
+        filename=filing.filename,
+        title=f"{filing.company} · Form {doc_type}",
+        doc_type=doc_type,
+        doc_date=date.fromisoformat(filing.period_end),
+        metadata={"company": filing.company, "ticker": filing.ticker, "form": filing.form},
+        source_url=filing.source_url,
+        provenance={
+            "cik": filing.cik,
+            "filing_date": filing.filing_date,
+            "accession_number": filing.accession_number,
+            "primary_document": filing.primary_document,
+        },
+        sha256=hashlib.sha256(content).hexdigest(),
+    )
 
 
 def fetch(client: httpx.Client, url: str) -> httpx.Response:
@@ -127,7 +148,7 @@ def main() -> None:
     if not settings.sec_user_agent:
         sys.exit('SEC_USER_AGENT is required by EDGAR. Set it in .env: "Your Name your@email"')
 
-    raw_dir = settings.data_dir / "raw"
+    raw_dir = settings.data_dir / "raw" / SEC_COLLECTION
     raw_dir.mkdir(parents=True, exist_ok=True)
 
     entries = []
@@ -157,8 +178,15 @@ def main() -> None:
                 entries.append(manifest_entry(filing, content))
                 print(f"{filing.filename}: {len(content):,} bytes, filed {filing.filing_date}")
 
-    manifest = json.dumps(entries, indent=2) + "\n"
-    (raw_dir / "manifest.json").write_text(manifest)
+    manifest = Manifest(
+        collection=SEC_COLLECTION,
+        description="Annual reports (Form 10-K) of Apple, Microsoft and NVIDIA: the latest in "
+        "inline XBRL HTML and the newest in plain text, from around 2000.",
+        source="SEC EDGAR",
+        licence="Public filings published by the SEC on EDGAR.",
+        documents=tuple(entries),
+    )
+    (raw_dir / MANIFEST).write_text(write_manifest(manifest))
 
 
 if __name__ == "__main__":
