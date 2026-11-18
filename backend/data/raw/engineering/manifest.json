@@ -1,0 +1,1989 @@
+{
+  "collection": "engineering",
+  "description": "Concept pages of the Kubernetes documentation: technical prose in Markdown with nested headings, code and tables.",
+  "source": "https://github.com/kubernetes/website/tree/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts",
+  "licence": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). © The Kubernetes Authors. Changed: Hugo front matter and shortcodes were rewritten as plain Markdown, and HTML comments removed.",
+  "revision": "6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751",
+  "documents": [
+    {
+      "key": "architecture-cgroups",
+      "filename": "architecture--cgroups.md",
+      "title": "About cgroup v2",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "architecture"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/cgroups.md",
+      "sha256": "7679706854969519c9ef07aad06ac4ef7782145cfa23543b168e73d2cf648b08"
+    },
+    {
+      "key": "architecture-cloud-controller",
+      "filename": "architecture--cloud-controller.md",
+      "title": "Cloud Controller Manager",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "architecture"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/cloud-controller.md",
+      "sha256": "44b8fa202088e5c1abb9954d6f695e95b833b16d219f3e91c89ef031b58092a1"
+    },
+    {
+      "key": "architecture-control-plane-node-communication",
+      "filename": "architecture--control-plane-node-communication.md",
+      "title": "Communication between Nodes and the Control Plane",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "architecture"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/control-plane-node-communication.md",
+      "sha256": "4289554d0700fddcbf7ec9c5ef81cfd4fd0079545604de82a3dd6d47b50bc26e"
+    },
+    {
+      "key": "architecture-controller",
+      "filename": "architecture--controller.md",
+      "title": "Controllers",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "architecture"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/controller.md",
+      "sha256": "b216304ab7a98f9bc4ffc169a370fd7e02190b7efb9316ae6475c254aaeb1d42"
+    },
+    {
+      "key": "architecture-garbage-collection",
+      "filename": "architecture--garbage-collection.md",
+      "title": "Garbage Collection",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "architecture"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/garbage-collection.md",
+      "sha256": "b565af12bf2e0dab8cef5ab9ecc329c3e77855e94a6be1470bffc3d799b6ca69"
+    },
+    {
+      "key": "architecture-leases",
+      "filename": "architecture--leases.md",
+      "title": "Leases",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "architecture"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/leases.md",
+      "sha256": "0bfaff01e5de08386bef68876a46acf8c9b14f7d8161d034b4a87c6147420d7b"
+    },
+    {
+      "key": "architecture-mixed-version-proxy",
+      "filename": "architecture--mixed-version-proxy.md",
+      "title": "Mixed Version Proxy",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "architecture"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/mixed-version-proxy.md",
+      "sha256": "920685abed349a39c7984102076d7031059b96c1d5429c1f8dced8f140abcb38"
+    },
+    {
+      "key": "architecture-nodes",
+      "filename": "architecture--nodes.md",
+      "title": "Nodes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "architecture"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/nodes.md",
+      "sha256": "166dd9adedac51813c5e442f05c92be2643c158f5f317f0c582ff561e5faca82"
+    },
+    {
+      "key": "architecture-self-healing",
+      "filename": "architecture--self-healing.md",
+      "title": "Kubernetes Self-Healing",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "architecture"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/self-healing.md",
+      "sha256": "f10a4289909e6523a3bf79eb4cb99a11054fa4e167871d17f7c3cdbd1b9d2a66"
+    },
+    {
+      "key": "cluster-administration-addons",
+      "filename": "cluster-administration--addons.md",
+      "title": "Installing Addons",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/addons.md",
+      "sha256": "543f08e0c06105094d68004de0a43e1e3ee05c12e594def211f99d73022b86b6"
+    },
+    {
+      "key": "cluster-administration-admission-webhooks-good-practices",
+      "filename": "cluster-administration--admission-webhooks-good-practices.md",
+      "title": "Admission Webhook Good Practices",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/admission-webhooks-good-practices.md",
+      "sha256": "c05a097cdfc83cce909bd46a1f1eec3d3558f630130ffcd2f746e25dfde71b71"
+    },
+    {
+      "key": "cluster-administration-certificates",
+      "filename": "cluster-administration--certificates.md",
+      "title": "Certificates",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/certificates.md",
+      "sha256": "80fee5ab317e65a9edb0cecc43ca498bb93bfe66c0184afeea7b4ebefdbbf7dc"
+    },
+    {
+      "key": "cluster-administration-compatibility-version",
+      "filename": "cluster-administration--compatibility-version.md",
+      "title": "Compatibility Version For Kubernetes Control Plane Components",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/compatibility-version.md",
+      "sha256": "cc3dfa5f6345ed98ce6b5df7ab25dcdc6e5ae47c9ad93969bb10d71662a2b25e"
+    },
+    {
+      "key": "cluster-administration-coordinated-leader-election",
+      "filename": "cluster-administration--coordinated-leader-election.md",
+      "title": "Coordinated Leader Election",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/coordinated-leader-election.md",
+      "sha256": "d954bead693762b03b432dee03d7b53e9b2b6fae9dab1efea5fb4a834abe693e"
+    },
+    {
+      "key": "cluster-administration-dra",
+      "filename": "cluster-administration--dra.md",
+      "title": "Good practices for Dynamic Resource Allocation as a Cluster Admin",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/dra.md",
+      "sha256": "b374c93b46f66f29ea64468afe3cba77a619858f341cc7099f2f0e05ebf7314c"
+    },
+    {
+      "key": "cluster-administration-flow-control",
+      "filename": "cluster-administration--flow-control.md",
+      "title": "API Priority and Fairness",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/flow-control.md",
+      "sha256": "3e6d3a30ae278e09a4e7e12da6ee356146361c8fdec70df679139fb91317a410"
+    },
+    {
+      "key": "cluster-administration-kube-state-metrics",
+      "filename": "cluster-administration--kube-state-metrics.md",
+      "title": "Metrics for Kubernetes Object States",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/kube-state-metrics.md",
+      "sha256": "0c8e3f29815818d83fe9c61e533cca5ebbd2984f053c64a39f3b7a31d12a9868"
+    },
+    {
+      "key": "cluster-administration-logging",
+      "filename": "cluster-administration--logging.md",
+      "title": "Logging Architecture",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/logging.md",
+      "sha256": "c14b39442e9641bb725be10b21761240301245f81d44a8df41ef5e3558ebf9bc"
+    },
+    {
+      "key": "cluster-administration-networking",
+      "filename": "cluster-administration--networking.md",
+      "title": "Cluster Networking",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/networking.md",
+      "sha256": "cc0d9b74ab0524aef4aa03f71008fdefa37b2766fdbc037d94eb709570a759ae"
+    },
+    {
+      "key": "cluster-administration-node-autoscaling",
+      "filename": "cluster-administration--node-autoscaling.md",
+      "title": "Node Autoscaling",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/node-autoscaling.md",
+      "sha256": "a804e7afe9b0f0f384675a25f194b01722039482290886f9586807f58c10beb7"
+    },
+    {
+      "key": "cluster-administration-node-shutdown",
+      "filename": "cluster-administration--node-shutdown.md",
+      "title": "Node Shutdowns",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/node-shutdown.md",
+      "sha256": "c0e46ece1047151f7762329260bfc5d9cdb7010e9326ea1c8a9d465f77189b17"
+    },
+    {
+      "key": "cluster-administration-observability",
+      "filename": "cluster-administration--observability.md",
+      "title": "Observability",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/observability.md",
+      "sha256": "20585bc9f46b1f66442cb030b26f05635adfe6554e571dcd061f0093716ea95b"
+    },
+    {
+      "key": "cluster-administration-proxies",
+      "filename": "cluster-administration--proxies.md",
+      "title": "Proxies in Kubernetes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/proxies.md",
+      "sha256": "5a00973d8fa7440d5616ece87b7e781cd3f45a69f67d19a530a08609f60e73fb"
+    },
+    {
+      "key": "cluster-administration-swap-memory-management",
+      "filename": "cluster-administration--swap-memory-management.md",
+      "title": "Swap memory management",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/swap-memory-management.md",
+      "sha256": "9e70c0cb4ff620df62aa1e72339a0d1106899158d0622b7815502e03d809a0a0"
+    },
+    {
+      "key": "cluster-administration-system-logs",
+      "filename": "cluster-administration--system-logs.md",
+      "title": "System Logs",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/system-logs.md",
+      "sha256": "67fbea0a5720c0f8642690db3a024c25ceb083a0639ef02c3bff8dd81d8b8101"
+    },
+    {
+      "key": "cluster-administration-system-metrics",
+      "filename": "cluster-administration--system-metrics.md",
+      "title": "Metrics For Kubernetes System Components",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/system-metrics.md",
+      "sha256": "57f8cdcdcf49cdd1fe4f4d88a3c2866ea6a875afcc9c152a88456b1122297695"
+    },
+    {
+      "key": "cluster-administration-system-traces",
+      "filename": "cluster-administration--system-traces.md",
+      "title": "Traces For Kubernetes System Components",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "cluster-administration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/cluster-administration/system-traces.md",
+      "sha256": "b2e564aca6c450a33f2b98d63bd9e85a103f9fed79a3e463209a72e8a824c3a1"
+    },
+    {
+      "key": "configuration-configmap",
+      "filename": "configuration--configmap.md",
+      "title": "ConfigMaps",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "configuration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/configuration/configmap.md",
+      "sha256": "2e02c7cf1c35c8862352b26fc6013a2a51474938d8649a14df9848fcd0fae81e"
+    },
+    {
+      "key": "configuration-manage-resources-containers",
+      "filename": "configuration--manage-resources-containers.md",
+      "title": "Resource Management for Pods and Containers",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "configuration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/configuration/manage-resources-containers.md",
+      "sha256": "60a2f4a502293ca922f4c4661a440f39a82e90178d419dc36d9358bff9213aa8"
+    },
+    {
+      "key": "configuration-organize-cluster-access-kubeconfig",
+      "filename": "configuration--organize-cluster-access-kubeconfig.md",
+      "title": "Organizing Cluster Access Using kubeconfig Files",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "configuration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/configuration/organize-cluster-access-kubeconfig.md",
+      "sha256": "d55b297ac162d707367e471dc55d683f3b3f5581e6b8ee902b735f1ab5c06dcb"
+    },
+    {
+      "key": "configuration-secret",
+      "filename": "configuration--secret.md",
+      "title": "Secrets",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "configuration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/configuration/secret.md",
+      "sha256": "9352e59078fecd11b6bf4acae86e3436e7738565dd2bdbe2f95ca838a8e165f6"
+    },
+    {
+      "key": "configuration-windows-resource-management",
+      "filename": "configuration--windows-resource-management.md",
+      "title": "Resource Management for Windows nodes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "configuration"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/configuration/windows-resource-management.md",
+      "sha256": "1e12f023c01d860e9768af160761d4f3f6b8e2260b057430a394686052e36ca4"
+    },
+    {
+      "key": "containers-container-environment",
+      "filename": "containers--container-environment.md",
+      "title": "Container Environment",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "containers"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/containers/container-environment.md",
+      "sha256": "be5e93374aa4127e69645858789acb68079d9a2566d6600b6cee83668a57a29d"
+    },
+    {
+      "key": "containers-container-lifecycle-hooks",
+      "filename": "containers--container-lifecycle-hooks.md",
+      "title": "Container Lifecycle Hooks",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "containers"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/containers/container-lifecycle-hooks.md",
+      "sha256": "c3649891f56919883236cc8d9fdbcfc4aa91f39931a642919372b96f2380f7f4"
+    },
+    {
+      "key": "containers-cri",
+      "filename": "containers--cri.md",
+      "title": "Container Runtime Interface (CRI)",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "containers"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/containers/cri.md",
+      "sha256": "4c982764abde4343695a5d6b6f0630a7cd27e231e746ad217fe5e615743d9d43"
+    },
+    {
+      "key": "containers-images",
+      "filename": "containers--images.md",
+      "title": "Images",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "containers"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/containers/images.md",
+      "sha256": "0b7772cf4aff74a1a0cfc01cc4c361d7c3d9844442e4ebe4664c9389e6b99206"
+    },
+    {
+      "key": "containers-runtime-class",
+      "filename": "containers--runtime-class.md",
+      "title": "Runtime Class",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "containers"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/containers/runtime-class.md",
+      "sha256": "821653a0cbc397171d54820b841166757d8f325523e22bcfc2dabc0c6ec5da04"
+    },
+    {
+      "key": "extend-kubernetes-api-extension-apiserver-aggregation",
+      "filename": "extend-kubernetes--api-extension--apiserver-aggregation.md",
+      "title": "Kubernetes API Aggregation Layer",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "extend-kubernetes"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation.md",
+      "sha256": "b64b947e0eb15ba93e46c11a541a827a504f15046d02fa6a92849cdb1163f89e"
+    },
+    {
+      "key": "extend-kubernetes-api-extension-custom-resources",
+      "filename": "extend-kubernetes--api-extension--custom-resources.md",
+      "title": "Custom Resources",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "extend-kubernetes"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/extend-kubernetes/api-extension/custom-resources.md",
+      "sha256": "401a290103e5cf7b10d1fbbed5e2e31a485fb7e2c01360fe2bf3f3e77d9b4abb"
+    },
+    {
+      "key": "extend-kubernetes-compute-storage-net-device-plugins",
+      "filename": "extend-kubernetes--compute-storage-net--device-plugins.md",
+      "title": "Device Plugins",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "extend-kubernetes"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins.md",
+      "sha256": "67640cdf8440034bff6627b78bc27a9f7ba349ac90123a0de5e29d73492cb033"
+    },
+    {
+      "key": "extend-kubernetes-compute-storage-net-network-plugins",
+      "filename": "extend-kubernetes--compute-storage-net--network-plugins.md",
+      "title": "Network Plugins",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "extend-kubernetes"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins.md",
+      "sha256": "c510580ff2e53b948104604b1444be16b346d81f9e6c584a10c7581d04f46f8d"
+    },
+    {
+      "key": "extend-kubernetes-operator",
+      "filename": "extend-kubernetes--operator.md",
+      "title": "Operator pattern",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "extend-kubernetes"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/extend-kubernetes/operator.md",
+      "sha256": "eb549ad3b3b1ead4bb478234f61213ed6ffd81540bdb7caa7aa410d5d77ebb48"
+    },
+    {
+      "key": "overview-components",
+      "filename": "overview--components.md",
+      "title": "Kubernetes Components",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/components.md",
+      "sha256": "20a9a5ada752fc7a6947c47cd8b52a8021deabe660ca27b909d3ab62acfa4382"
+    },
+    {
+      "key": "overview-kubectl",
+      "filename": "overview--kubectl.md",
+      "title": "The kubectl command-line tool",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/kubectl.md",
+      "sha256": "5c0fa1776b6278d0d13f22b5b1a8fdeb246ad57fb17b5337b1b05344744d3f36"
+    },
+    {
+      "key": "overview-kubernetes-api",
+      "filename": "overview--kubernetes-api.md",
+      "title": "The Kubernetes API",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/kubernetes-api.md",
+      "sha256": "ce1ebcd260d0ef7db1015ff31d178e8055a08702842e96f61d3b9b3345699852"
+    },
+    {
+      "key": "overview-working-with-objects-annotations",
+      "filename": "overview--working-with-objects--annotations.md",
+      "title": "Annotations",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/annotations.md",
+      "sha256": "5ca929d47bd1db70c5a5513f10c233090b47d287d66409f5f480adaa528bdefc"
+    },
+    {
+      "key": "overview-working-with-objects-common-labels",
+      "filename": "overview--working-with-objects--common-labels.md",
+      "title": "Recommended Labels",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/common-labels.md",
+      "sha256": "730a702c76e0db7513319ba6ba485a0f089977026d6146641158a79b015918e1"
+    },
+    {
+      "key": "overview-working-with-objects-field-selectors",
+      "filename": "overview--working-with-objects--field-selectors.md",
+      "title": "Field Selectors",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/field-selectors.md",
+      "sha256": "4c99dd4cc0d5d5f6c05c006c42c1ae76ea018ef1b2c7a56e58cb0ba462e24c2c"
+    },
+    {
+      "key": "overview-working-with-objects-finalizers",
+      "filename": "overview--working-with-objects--finalizers.md",
+      "title": "Finalizers",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/finalizers.md",
+      "sha256": "3d00a2b739a7b900f4ac7f830d4d5c9afbaafc80e22b52497d0300ac1d406e9d"
+    },
+    {
+      "key": "overview-working-with-objects-labels",
+      "filename": "overview--working-with-objects--labels.md",
+      "title": "Labels and Selectors",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/labels.md",
+      "sha256": "30ecb2e99ae0ea2b71ce3755210b27435b08f63753d1944762bac1ef7f490dfe"
+    },
+    {
+      "key": "overview-working-with-objects-names",
+      "filename": "overview--working-with-objects--names.md",
+      "title": "Object Names and IDs",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/names.md",
+      "sha256": "47801a38020edff87818ce94c7f65bca024b406abfebe354cd9d105dea1bac98"
+    },
+    {
+      "key": "overview-working-with-objects-namespaces",
+      "filename": "overview--working-with-objects--namespaces.md",
+      "title": "Namespaces",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/namespaces.md",
+      "sha256": "0453d3984664470224f54c4cab356595ec68223c988c7143f9c606024c5c714d"
+    },
+    {
+      "key": "overview-working-with-objects-object-management",
+      "filename": "overview--working-with-objects--object-management.md",
+      "title": "Kubernetes Object Management",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/object-management.md",
+      "sha256": "ce9cd46ee4823f2c69e368d3b58ae8b22486a7034751bc5d901335ed37e2c296"
+    },
+    {
+      "key": "overview-working-with-objects-owners-dependents",
+      "filename": "overview--working-with-objects--owners-dependents.md",
+      "title": "Owners and Dependents",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/owners-dependents.md",
+      "sha256": "75bb6cf53efc46004f8f74984d6c567cd80db3462d16eb8a5a323091d9dcfc8d"
+    },
+    {
+      "key": "overview-working-with-objects-storage-version",
+      "filename": "overview--working-with-objects--storage-version.md",
+      "title": "Storage Versions",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "overview"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/overview/working-with-objects/storage-version.md",
+      "sha256": "547fe9aa46a0689b0bef4e2d7d50542a7029ad8b3144f36bba24edcd3b9f1831"
+    },
+    {
+      "key": "policy-limit-range",
+      "filename": "policy--limit-range.md",
+      "title": "Limit Ranges",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "policy"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/policy/limit-range.md",
+      "sha256": "50660a1a7285ca0a0b53903b0804322b55866da7499331e7bc4299015dcedb7f"
+    },
+    {
+      "key": "policy-pid-limiting",
+      "filename": "policy--pid-limiting.md",
+      "title": "Process ID Limits And Reservations",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "policy"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/policy/pid-limiting.md",
+      "sha256": "42d0f16cc0a0bd6ad49d218853bced4f6e325c7276e810d577ccceccaf2151e0"
+    },
+    {
+      "key": "policy-resource-quotas",
+      "filename": "policy--resource-quotas.md",
+      "title": "Resource Quotas",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "policy"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/policy/resource-quotas.md",
+      "sha256": "0d996d7ef6c0230440bfc95c2fc196f99235e2c9e491f366dead24c0c34c3be0"
+    },
+    {
+      "key": "resource-management-dynamic-resource-allocation-device-taints",
+      "filename": "resource-management--dynamic-resource-allocation--device-taints.md",
+      "title": "Device Taints and Tolerations",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "resource-management"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/dynamic-resource-allocation/device-taints.md",
+      "sha256": "f665891e6982871c4c590afff4081da4b587278575a2a5b4fb22d59f4af58022"
+    },
+    {
+      "key": "resource-management-dynamic-resource-allocation-dra-api",
+      "filename": "resource-management--dynamic-resource-allocation--dra-api.md",
+      "title": "DRA API Objects",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "resource-management"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/dynamic-resource-allocation/dra-api.md",
+      "sha256": "3f80f9515507b54d8cefbd0c93edbdc7e2a03fe7dffbc0bd86eb112e1dc23cf2"
+    },
+    {
+      "key": "resource-management-dynamic-resource-allocation-dra-features",
+      "filename": "resource-management--dynamic-resource-allocation--dra-features.md",
+      "title": "DRA Features",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "resource-management"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/dynamic-resource-allocation/dra-features.md",
+      "sha256": "e4177a520dd9ab9394c67bc00b6d976adda3d10d557df87e70974bf27592e9a9"
+    },
+    {
+      "key": "resource-management-dynamic-resource-allocation-dra-observability",
+      "filename": "resource-management--dynamic-resource-allocation--dra-observability.md",
+      "title": "Observability of Dynamic Resources",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "resource-management"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/dynamic-resource-allocation/dra-observability.md",
+      "sha256": "f7b6045ac7f5705247d25f36606ee0d8739dcf3abacf33a127efbdeeb22f5af2"
+    },
+    {
+      "key": "resource-management-dynamic-resource-allocation-how-dra-works",
+      "filename": "resource-management--dynamic-resource-allocation--how-dra-works.md",
+      "title": "How DRA Works",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "resource-management"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/dynamic-resource-allocation/how-dra-works.md",
+      "sha256": "e3c856c0609ef374a6d4809b7d88769c7f7b6967cf7fe006757a9ab937707743"
+    },
+    {
+      "key": "resource-management-effective-pod-requests-limits",
+      "filename": "resource-management--effective-pod-requests-limits.md",
+      "title": "Effective Pod requests and limits",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "resource-management"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/effective-pod-requests-limits.md",
+      "sha256": "7d24f78efa0c3ccb5558fbfae7252b668738ce89fc30b13478b92a1a05bf1252"
+    },
+    {
+      "key": "resource-management-pod-level-resource-managers",
+      "filename": "resource-management--pod-level-resource-managers.md",
+      "title": "Pod-level resource managers",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "resource-management"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/pod-level-resource-managers.md",
+      "sha256": "651732ea8766367f0d302a504e473592b48e9687a31831082080b98dd9c22a0c"
+    },
+    {
+      "key": "resource-management-resource-managers",
+      "filename": "resource-management--resource-managers.md",
+      "title": "Resource managers",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "resource-management"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/resource-management/resource-managers.md",
+      "sha256": "05bb5990eea3803164c687e85122d20089bbf9ca3eaadee974ca7ef304febb90"
+    },
+    {
+      "key": "scheduling-eviction-api-eviction",
+      "filename": "scheduling-eviction--api-eviction.md",
+      "title": "API-initiated Eviction",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/api-eviction.md",
+      "sha256": "6c71b992006d10292bdd140e5009a8be356c594687e2c35b683a9d9f5e068a8b"
+    },
+    {
+      "key": "scheduling-eviction-assign-pod-node",
+      "filename": "scheduling-eviction--assign-pod-node.md",
+      "title": "Assigning Pods to Nodes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/assign-pod-node.md",
+      "sha256": "1beeaec90d1685ada22cf04032a85e827e69309f918ab3d72e48ab779aefd801"
+    },
+    {
+      "key": "scheduling-eviction-gang-scheduling",
+      "filename": "scheduling-eviction--gang-scheduling.md",
+      "title": "Gang Scheduling",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/gang-scheduling.md",
+      "sha256": "d1b9e8c74a8d298bb2ce4072e49266f35b22007be172c46f46417350acfbe0d7"
+    },
+    {
+      "key": "scheduling-eviction-kube-scheduler",
+      "filename": "scheduling-eviction--kube-scheduler.md",
+      "title": "Kubernetes Scheduler",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/kube-scheduler.md",
+      "sha256": "69fd1c1e6bc5b0db7076c5c46025249fc2d5370a9da38e5131592a0e442dab89"
+    },
+    {
+      "key": "scheduling-eviction-node-declared-features",
+      "filename": "scheduling-eviction--node-declared-features.md",
+      "title": "Node Declared Features",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/node-declared-features.md",
+      "sha256": "46fa9548e4aa34a9d68ff8d1a8e4a96f78549676adf97cf9afb9628f43a12965"
+    },
+    {
+      "key": "scheduling-eviction-node-pressure-eviction",
+      "filename": "scheduling-eviction--node-pressure-eviction.md",
+      "title": "Node-pressure Eviction",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/node-pressure-eviction.md",
+      "sha256": "8ce495ef8ccdd818bc69a1b716eabfa9f70150ce6ee8e12d9bfa607fc3c18ba1"
+    },
+    {
+      "key": "scheduling-eviction-pod-overhead",
+      "filename": "scheduling-eviction--pod-overhead.md",
+      "title": "Pod Overhead",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/pod-overhead.md",
+      "sha256": "86b096566fefec06d39d229fdd2c1ce67935ca7c68552cb73d03db0353220bc0"
+    },
+    {
+      "key": "scheduling-eviction-pod-priority-preemption",
+      "filename": "scheduling-eviction--pod-priority-preemption.md",
+      "title": "Pod Priority and Preemption",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/pod-priority-preemption.md",
+      "sha256": "5d7e51431f3dedf45fd732fc2c96607b434819c65e7e3eab85ddd77119bf57e2"
+    },
+    {
+      "key": "scheduling-eviction-pod-scheduling-readiness",
+      "filename": "scheduling-eviction--pod-scheduling-readiness.md",
+      "title": "Pod Scheduling Readiness",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/pod-scheduling-readiness.md",
+      "sha256": "af26046a8087fd85bfefdc89a7a8bae376760f0902a73e4be64f98fab0b681fd"
+    },
+    {
+      "key": "scheduling-eviction-podgroup-scheduling",
+      "filename": "scheduling-eviction--podgroup-scheduling.md",
+      "title": "PodGroup Scheduling",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/podgroup-scheduling.md",
+      "sha256": "f1cab6c39dde6b8ce6d4e780a4549e58fbee394d03acecf6c6921f120b2e8fb5"
+    },
+    {
+      "key": "scheduling-eviction-resource-bin-packing",
+      "filename": "scheduling-eviction--resource-bin-packing.md",
+      "title": "Resource Bin Packing",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/resource-bin-packing.md",
+      "sha256": "8702263861a01092506dc37e8bc988ae0ca43a46dfbc2c47462e3923822a7a24"
+    },
+    {
+      "key": "scheduling-eviction-running-multiple-schedulers",
+      "filename": "scheduling-eviction--running-multiple-schedulers.md",
+      "title": "Running multiple schedulers",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/running-multiple-schedulers.md",
+      "sha256": "bad9ed423db6de8e7dad9322680c7e4e0c3af6b38c3108e5fbfbe75d7bf925fc"
+    },
+    {
+      "key": "scheduling-eviction-scheduler-perf-tuning",
+      "filename": "scheduling-eviction--scheduler-perf-tuning.md",
+      "title": "Scheduler Performance Tuning",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/scheduler-perf-tuning.md",
+      "sha256": "b57a4dd0fe745259473bff3d50d0452625b379914482c6285dbbe24f0b8bffc6"
+    },
+    {
+      "key": "scheduling-eviction-scheduling-framework",
+      "filename": "scheduling-eviction--scheduling-framework.md",
+      "title": "Scheduling Framework",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/scheduling-framework.md",
+      "sha256": "1f135ac73b79793526d0759ad51d2c816e3bdcf673e8d69d03ef1fc5a18f9b90"
+    },
+    {
+      "key": "scheduling-eviction-taint-and-toleration",
+      "filename": "scheduling-eviction--taint-and-toleration.md",
+      "title": "Taints and Tolerations",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/taint-and-toleration.md",
+      "sha256": "e70d479e5b5d369b9e7fabceef84cb9e3923ec9f0154e0f76c973b9f069b59e4"
+    },
+    {
+      "key": "scheduling-eviction-topology-aware-scheduling",
+      "filename": "scheduling-eviction--topology-aware-scheduling.md",
+      "title": "Topology-Aware Workload Scheduling",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/topology-aware-scheduling.md",
+      "sha256": "9275395295022b59d15021f3dd2d79bb60346807c469240779c517b6eebe4b19"
+    },
+    {
+      "key": "scheduling-eviction-topology-spread-constraints",
+      "filename": "scheduling-eviction--topology-spread-constraints.md",
+      "title": "Pod Topology Spread Constraints",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/topology-spread-constraints.md",
+      "sha256": "2bd318c838266ade50f0b2af12044bd0eeacffb97dcc1bc06b038ff77470f2b0"
+    },
+    {
+      "key": "scheduling-eviction-workload-aware-preemption",
+      "filename": "scheduling-eviction--workload-aware-preemption.md",
+      "title": "Workload-Aware Preemption",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "scheduling-eviction"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/scheduling-eviction/workload-aware-preemption.md",
+      "sha256": "eb32692be26498a4e9638226497ea02739779b4117f8520d6ca7f3ea805421e1"
+    },
+    {
+      "key": "security-api-server-bypass-risks",
+      "filename": "security--api-server-bypass-risks.md",
+      "title": "Kubernetes API Server Bypass Risks",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/api-server-bypass-risks.md",
+      "sha256": "9fef1d886d7907f2f76ad4973fcc71305406c08667d0fcb688c42a723aa1598c"
+    },
+    {
+      "key": "security-application-security-checklist",
+      "filename": "security--application-security-checklist.md",
+      "title": "Application Security Checklist",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/application-security-checklist.md",
+      "sha256": "698ac5da5baca288e2c051293b3e2219affcdca87aeda2c98717674700194e42"
+    },
+    {
+      "key": "security-cloud-native-security",
+      "filename": "security--cloud-native-security.md",
+      "title": "Cloud Native Security and Kubernetes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/cloud-native-security.md",
+      "sha256": "60625515c74bb2a6e62584914995243384fa30c2419b8450eb34b493866b7a0d"
+    },
+    {
+      "key": "security-controlling-access",
+      "filename": "security--controlling-access.md",
+      "title": "Controlling Access to the Kubernetes API",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/controlling-access.md",
+      "sha256": "16d6520ec2907d5b1a11485bdb768f3ea89a5f60a9616d99789f20aed273afaf"
+    },
+    {
+      "key": "security-hardening-guide-authentication-mechanisms",
+      "filename": "security--hardening-guide--authentication-mechanisms.md",
+      "title": "Hardening Guide - Authentication Mechanisms",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/hardening-guide/authentication-mechanisms.md",
+      "sha256": "4a72262aa1f41599a20c691988bd44cf0f12ea1b677cb73dbacdbedddb4acd85"
+    },
+    {
+      "key": "security-hardening-guide-dynamic-resource-allocation",
+      "filename": "security--hardening-guide--dynamic-resource-allocation.md",
+      "title": "Hardening Guide - Dynamic Resource Allocation",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/hardening-guide/dynamic-resource-allocation.md",
+      "sha256": "d384ab2b878403c53a92e41adfbc721c6332ccc9999256e8e3872490cc1ac5a9"
+    },
+    {
+      "key": "security-hardening-guide-scheduler",
+      "filename": "security--hardening-guide--scheduler.md",
+      "title": "Hardening Guide - Scheduler Configuration",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/hardening-guide/scheduler.md",
+      "sha256": "2c04b0b44ae843302735143f387c4bf8963fb2c194609d1545f6529c0aa466a4"
+    },
+    {
+      "key": "security-linux-kernel-security-constraints",
+      "filename": "security--linux-kernel-security-constraints.md",
+      "title": "Linux kernel security constraints for Pods and containers",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/linux-kernel-security-constraints.md",
+      "sha256": "a46936e24d9c10e50939743e57932888a0c659d583491d279b4c621fe9014507"
+    },
+    {
+      "key": "security-linux-security",
+      "filename": "security--linux-security.md",
+      "title": "Security For Linux Nodes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/linux-security.md",
+      "sha256": "c8a3c649c45d096e1a5a9b424db595d6987575c56cf128aee3f383e4e8057c8c"
+    },
+    {
+      "key": "security-multi-tenancy",
+      "filename": "security--multi-tenancy.md",
+      "title": "Multi-tenancy",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/multi-tenancy.md",
+      "sha256": "9bd9ffe9e16237cf4bf23958f709034c9d6de86fdcd0561ff1f787fda6c95604"
+    },
+    {
+      "key": "security-pod-security-admission",
+      "filename": "security--pod-security-admission.md",
+      "title": "Pod Security Admission",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/pod-security-admission.md",
+      "sha256": "4bdac26a94ad5948d26c90cff1bd200b480f98587bdf431d37138985fb3aea34"
+    },
+    {
+      "key": "security-pod-security-policy",
+      "filename": "security--pod-security-policy.md",
+      "title": "Pod Security Policies",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/pod-security-policy.md",
+      "sha256": "483a4ab90e241bfc5261d9dc70c9c056402d1834f0585f3e9b198cb0c14fccee"
+    },
+    {
+      "key": "security-pod-security-standards",
+      "filename": "security--pod-security-standards.md",
+      "title": "Pod Security Standards",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/pod-security-standards.md",
+      "sha256": "fa68506f25e1dec6e1ab546e3b947cc052c82bbaffd7da0aab879a782c555785"
+    },
+    {
+      "key": "security-rbac-good-practices",
+      "filename": "security--rbac-good-practices.md",
+      "title": "Role Based Access Control Good Practices",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/rbac-good-practices.md",
+      "sha256": "5ffec3d7a2ef3204759a335acff887e8803b9716451b2847e0203da7c234942c"
+    },
+    {
+      "key": "security-secrets-good-practices",
+      "filename": "security--secrets-good-practices.md",
+      "title": "Good practices for Kubernetes Secrets",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/secrets-good-practices.md",
+      "sha256": "e19188180eddb977c6712b5d512e100a23fbc4ec73f893a3952966a87793a681"
+    },
+    {
+      "key": "security-security-checklist",
+      "filename": "security--security-checklist.md",
+      "title": "Security Checklist",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/security-checklist.md",
+      "sha256": "ef987858ac32ea1d406d995eafca10361ce3bd7cb080551a48e7c32714b67277"
+    },
+    {
+      "key": "security-service-accounts",
+      "filename": "security--service-accounts.md",
+      "title": "Service Accounts",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/service-accounts.md",
+      "sha256": "c582562394c3442c8f1d9066fb8d03f0183c4dcba30e03ebf95d778d903f3837"
+    },
+    {
+      "key": "security-windows-security",
+      "filename": "security--windows-security.md",
+      "title": "Security For Windows Nodes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "security"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/security/windows-security.md",
+      "sha256": "26740c18de562083766ec98e33affddc8de8cf634be40c5ca7a33ddbd5229ea6"
+    },
+    {
+      "key": "services-networking-cluster-ip-allocation",
+      "filename": "services-networking--cluster-ip-allocation.md",
+      "title": "Service ClusterIP allocation",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/cluster-ip-allocation.md",
+      "sha256": "b2812b5f3ac97cb67bf2ea2d32a01b824b61fe8e626cea45c21eb593774e81fa"
+    },
+    {
+      "key": "services-networking-dns-pod-service",
+      "filename": "services-networking--dns-pod-service.md",
+      "title": "DNS for Services and Pods",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/dns-pod-service.md",
+      "sha256": "fe88bb07287f57da163c7b5ff362b9b0ecec0574036ac85899206dcbe65d495e"
+    },
+    {
+      "key": "services-networking-dual-stack",
+      "filename": "services-networking--dual-stack.md",
+      "title": "IPv4/IPv6 dual-stack",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/dual-stack.md",
+      "sha256": "236d8247b99c075873248ca8a9309cefbaa9829a3240e23bbc89d10b86762761"
+    },
+    {
+      "key": "services-networking-endpoint-slices",
+      "filename": "services-networking--endpoint-slices.md",
+      "title": "EndpointSlices",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/endpoint-slices.md",
+      "sha256": "dedb0f55410e0f5810fa81c6df5422707845bc676f085f0f22209daeade73f93"
+    },
+    {
+      "key": "services-networking-gateway",
+      "filename": "services-networking--gateway.md",
+      "title": "Gateway API",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/gateway.md",
+      "sha256": "0a2993794d6e0ba975badd625d419dd2b7186879fc7cf77d5faeaa38dc0dff07"
+    },
+    {
+      "key": "services-networking-ingress-controllers",
+      "filename": "services-networking--ingress-controllers.md",
+      "title": "Ingress Controllers",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/ingress-controllers.md",
+      "sha256": "34b0c010932db6fdb62a113630fc2126c7f0e7fc0041d33b97c32c07d4c9a454"
+    },
+    {
+      "key": "services-networking-ingress",
+      "filename": "services-networking--ingress.md",
+      "title": "Ingress",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/ingress.md",
+      "sha256": "04079961e099453940df0e43b5087e3806cfa843b0d3699c34c3713e2b03f2a9"
+    },
+    {
+      "key": "services-networking-network-policies",
+      "filename": "services-networking--network-policies.md",
+      "title": "Network Policies",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/network-policies.md",
+      "sha256": "28dead52a58a7f0f0c7e44c38431336e4c3651a16fa4e292e9de3cb3099759a8"
+    },
+    {
+      "key": "services-networking-service-traffic-policy",
+      "filename": "services-networking--service-traffic-policy.md",
+      "title": "Service Internal Traffic Policy",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/service-traffic-policy.md",
+      "sha256": "68a55ff0a4034e888062eafa0e25d69a8aa0ab966ed944d7fb8d21aab146c2f5"
+    },
+    {
+      "key": "services-networking-service",
+      "filename": "services-networking--service.md",
+      "title": "Service",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/service.md",
+      "sha256": "f32500ef459a247edd554c801b00b8fd9935698ebf1426f1ac6323b45c29269c"
+    },
+    {
+      "key": "services-networking-topology-aware-routing",
+      "filename": "services-networking--topology-aware-routing.md",
+      "title": "Topology Aware Routing",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/topology-aware-routing.md",
+      "sha256": "67b413178f63c0a18132eddb920c924a0a76eb9f3794c4d10421e8d10b6dff60"
+    },
+    {
+      "key": "services-networking-windows-networking",
+      "filename": "services-networking--windows-networking.md",
+      "title": "Networking on Windows",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "services-networking"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/services-networking/windows-networking.md",
+      "sha256": "79b544016a1861adf9360d77275613dabe55f1bbc6a115d753af75844c1a1e3b"
+    },
+    {
+      "key": "storage-dynamic-provisioning",
+      "filename": "storage--dynamic-provisioning.md",
+      "title": "Dynamic Volume Provisioning",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/dynamic-provisioning.md",
+      "sha256": "85851d158e518c481eb6ef732110a746a97c21a22c87bd541df1f58b92fe11d5"
+    },
+    {
+      "key": "storage-ephemeral-storage",
+      "filename": "storage--ephemeral-storage.md",
+      "title": "Local ephemeral storage",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/ephemeral-storage.md",
+      "sha256": "46baaca92ee0fac39442eb5def243b5307500ae3bf3f05a5b554d9e61e62e788"
+    },
+    {
+      "key": "storage-ephemeral-volumes",
+      "filename": "storage--ephemeral-volumes.md",
+      "title": "Ephemeral Volumes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/ephemeral-volumes.md",
+      "sha256": "1a51b628cb67dc37b65795870d7c0992461cb5d41d77205645e26076347ba1c5"
+    },
+    {
+      "key": "storage-persistent-volumes",
+      "filename": "storage--persistent-volumes.md",
+      "title": "Persistent Volumes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/persistent-volumes.md",
+      "sha256": "da529c111ffbcf4e2f46367a4ae1000d9843cdc69e6511cbae3df063df413c1c"
+    },
+    {
+      "key": "storage-projected-volumes",
+      "filename": "storage--projected-volumes.md",
+      "title": "Projected Volumes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/projected-volumes.md",
+      "sha256": "3942045c818c5209c091780bf80256d8f9cb74c33530bed03ad8e55dbf9c8eef"
+    },
+    {
+      "key": "storage-storage-capacity",
+      "filename": "storage--storage-capacity.md",
+      "title": "Storage Capacity",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/storage-capacity.md",
+      "sha256": "dfe42cfc6841753f08bc7581c3df25b90d8cc6ef5461fd4b5435483dc06d3fa3"
+    },
+    {
+      "key": "storage-storage-classes",
+      "filename": "storage--storage-classes.md",
+      "title": "Storage Classes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/storage-classes.md",
+      "sha256": "5cda97c63f0bcccc335c28a16738625a6b2ec821aee891ae24d50ac566222831"
+    },
+    {
+      "key": "storage-storage-limits",
+      "filename": "storage--storage-limits.md",
+      "title": "Node-specific Volume Limits",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/storage-limits.md",
+      "sha256": "a521259f0011f1a8e75af6f9b24f5d3b71fdefcf1c13a7d70c8b2e87eb2d5efc"
+    },
+    {
+      "key": "storage-volume-attributes-classes",
+      "filename": "storage--volume-attributes-classes.md",
+      "title": "Volume Attributes Classes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/volume-attributes-classes.md",
+      "sha256": "61346644914a5b15bdb54c86fab36c189cc46e9cd3ca9e69ac4ad78763a9d211"
+    },
+    {
+      "key": "storage-volume-health-monitoring",
+      "filename": "storage--volume-health-monitoring.md",
+      "title": "Volume Health Monitoring",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/volume-health-monitoring.md",
+      "sha256": "cc31dfd9fdd7619f1dadc8f7f89b0322f9c0b8a06f37b565dd0b05a04cb3975f"
+    },
+    {
+      "key": "storage-volume-populators-and-data-sources",
+      "filename": "storage--volume-populators-and-data-sources.md",
+      "title": "Volume Populators and Data Sources",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/volume-populators-and-data-sources.md",
+      "sha256": "69e48cc3a2d2f23fa720f187f1e39be82bec9c193419b5c786c32ba657e26318"
+    },
+    {
+      "key": "storage-volume-pvc-datasource",
+      "filename": "storage--volume-pvc-datasource.md",
+      "title": "CSI Volume Cloning",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/volume-pvc-datasource.md",
+      "sha256": "353255f4fa7a6677527a989f485443cee36233e320a424d020ee97716f6ba005"
+    },
+    {
+      "key": "storage-volume-snapshot-classes",
+      "filename": "storage--volume-snapshot-classes.md",
+      "title": "Volume Snapshot Classes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/volume-snapshot-classes.md",
+      "sha256": "12e71a9971feb302eace988a641bb3b540918c966c05df949347ff4db73a2104"
+    },
+    {
+      "key": "storage-volume-snapshots",
+      "filename": "storage--volume-snapshots.md",
+      "title": "Volume Snapshots",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/volume-snapshots.md",
+      "sha256": "30918d172f0d4b66a70770ea14917280b32f60b9eb7f92bb6e9b9ce0708e60ec"
+    },
+    {
+      "key": "storage-volumes",
+      "filename": "storage--volumes.md",
+      "title": "Volumes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/volumes.md",
+      "sha256": "5b0b974fd9410ecce4a21b802be5ea8764e1970cd3265142482eb58af2afad78"
+    },
+    {
+      "key": "storage-windows-storage",
+      "filename": "storage--windows-storage.md",
+      "title": "Windows Storage",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "storage"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/storage/windows-storage.md",
+      "sha256": "b33fb385b8cd655191051a8856c8f62e23ddd6066226a80c76a898c384613c76"
+    },
+    {
+      "key": "windows-intro",
+      "filename": "windows--intro.md",
+      "title": "Windows containers in Kubernetes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "windows"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/windows/intro.md",
+      "sha256": "0cbf7ae761aaeb620dcc7219e390038c65426b15ddd37e29e938382ee9a56448"
+    },
+    {
+      "key": "windows-user-guide",
+      "filename": "windows--user-guide.md",
+      "title": "Guide for Running Windows Containers in Kubernetes",
+      "doc_type": "tutorial",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "windows"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/windows/user-guide.md",
+      "sha256": "a4bf33103ab8b48e629ff6979564ffa2ff9a37b758229ddb760f9568650457ee"
+    },
+    {
+      "key": "workloads-autoscaling",
+      "filename": "workloads--autoscaling.md",
+      "title": "Autoscaling Workloads",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/autoscaling.md",
+      "sha256": "36d629b0e6a8d525e952766005b968573dc7047cffc6f1f59de05c84304fb0b3"
+    },
+    {
+      "key": "workloads-autoscaling-horizontal-pod-autoscale",
+      "filename": "workloads--autoscaling--horizontal-pod-autoscale.md",
+      "title": "Horizontal Pod Autoscaling",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale.md",
+      "sha256": "41a7ab7eaf8d02c49299e5b76fa5462de873c8f975ca2f348d0a09c0ce9438c5"
+    },
+    {
+      "key": "workloads-autoscaling-vertical-pod-autoscale",
+      "filename": "workloads--autoscaling--vertical-pod-autoscale.md",
+      "title": "Vertical Pod Autoscaling",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/autoscaling/vertical-pod-autoscale.md",
+      "sha256": "1c399b941944530d7efe744f790484eed6084a8a2af2e0a250c0cd5cf16ca2e5"
+    },
+    {
+      "key": "workloads-compositepodgroup-api-lifecycle",
+      "filename": "workloads--compositepodgroup-api--lifecycle.md",
+      "title": "CompositePodGroup Lifecycle",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/compositepodgroup-api/lifecycle.md",
+      "sha256": "8d8e8bb3564440e9e12ddf70435d256ccacf01950fdd0d5aa46b5725327b9827"
+    },
+    {
+      "key": "workloads-controllers-cron-jobs",
+      "filename": "workloads--controllers--cron-jobs.md",
+      "title": "CronJob",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/cron-jobs.md",
+      "sha256": "78fa3dfd72b53bf567652b25b7d4c9131933412e27eac6244cda50cb89848fe5"
+    },
+    {
+      "key": "workloads-controllers-daemonset",
+      "filename": "workloads--controllers--daemonset.md",
+      "title": "DaemonSet",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/daemonset.md",
+      "sha256": "8383f482439ae6fb836852ffe5e21f8888b1f08e171d908c8f0346aefe398d2b"
+    },
+    {
+      "key": "workloads-controllers-deployment",
+      "filename": "workloads--controllers--deployment.md",
+      "title": "Deployments",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/deployment.md",
+      "sha256": "c1419f60d1ecc26b195cca14ac4ae912bb99936ba69f5d49e519af5932f4606c"
+    },
+    {
+      "key": "workloads-controllers-job",
+      "filename": "workloads--controllers--job.md",
+      "title": "Jobs",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/job.md",
+      "sha256": "956b4639089fcb7548b9448bf99e9e46f1929a545714772341929f1ef1c3b0b2"
+    },
+    {
+      "key": "workloads-controllers-replicaset",
+      "filename": "workloads--controllers--replicaset.md",
+      "title": "ReplicaSet",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/replicaset.md",
+      "sha256": "6f249f48302bc927008dfccb530af3dacd8f0e01af6e1f394f92cfe71e5a1311"
+    },
+    {
+      "key": "workloads-controllers-replicationcontroller",
+      "filename": "workloads--controllers--replicationcontroller.md",
+      "title": "ReplicationController",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/replicationcontroller.md",
+      "sha256": "ab52c4196804aed5338a3526a76c4a1a8b38530d6ec8a03c9747e38cfb9a408e"
+    },
+    {
+      "key": "workloads-controllers-statefulset",
+      "filename": "workloads--controllers--statefulset.md",
+      "title": "StatefulSets",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/statefulset.md",
+      "sha256": "c864f61628f28c785c4a890da169cf55bfa256603a1a39d5b80d439eef6a3937"
+    },
+    {
+      "key": "workloads-controllers-ttlafterfinished",
+      "filename": "workloads--controllers--ttlafterfinished.md",
+      "title": "Automatic Cleanup for Finished Jobs",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/controllers/ttlafterfinished.md",
+      "sha256": "a4de53c234b122dd38e82c875589c7ded17d3b3f2283d84e9b17976e03ed49ea"
+    },
+    {
+      "key": "workloads-management",
+      "filename": "workloads--management.md",
+      "title": "Managing Workloads",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/management.md",
+      "sha256": "ff76339842f91e802bceb9a5ceef41e7359809f234067cd4115694a55fed23c5"
+    },
+    {
+      "key": "workloads-podgroup-api-lifecycle",
+      "filename": "workloads--podgroup-api--lifecycle.md",
+      "title": "PodGroup Lifecycle",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/podgroup-api/lifecycle.md",
+      "sha256": "4af9d90686af88d724de589add6f2539ca93f5e648bb9e8a33c89f790afa93d0"
+    },
+    {
+      "key": "workloads-pods-advanced-pod-config",
+      "filename": "workloads--pods--advanced-pod-config.md",
+      "title": "Advanced Pod Configuration",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/advanced-pod-config.md",
+      "sha256": "1bb48e128705826aa07f6d60b62b76c748cb747b8a2c671360c11b7629581263"
+    },
+    {
+      "key": "workloads-pods-disruptions",
+      "filename": "workloads--pods--disruptions.md",
+      "title": "Disruptions",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/disruptions.md",
+      "sha256": "5e73c79dfde56fca7322e2165c28fd05f1c1402cf19ec7e0b47ea0c94b2d53a1"
+    },
+    {
+      "key": "workloads-pods-downward-api",
+      "filename": "workloads--pods--downward-api.md",
+      "title": "Downward API",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/downward-api.md",
+      "sha256": "50c5690daf2bcc186c2b699efc5f49fe5d20725fafd264d6075dfc6a919379ac"
+    },
+    {
+      "key": "workloads-pods-ephemeral-containers",
+      "filename": "workloads--pods--ephemeral-containers.md",
+      "title": "Ephemeral Containers",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/ephemeral-containers.md",
+      "sha256": "8012ff3d193b8eedce0033ac88cd5d56ddd8970cae7d4ec7aa0fa27eed2adf3d"
+    },
+    {
+      "key": "workloads-pods-init-containers",
+      "filename": "workloads--pods--init-containers.md",
+      "title": "Init Containers",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/init-containers.md",
+      "sha256": "6fafcc927f9e2d966c644db6c228ad449f7ce2ca475a4cec0b59ba8257aec4c5"
+    },
+    {
+      "key": "workloads-pods-pod-condition",
+      "filename": "workloads--pods--pod-condition.md",
+      "title": "Pod Conditions",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/pod-condition.md",
+      "sha256": "fcc203c2fcf8e8c0f3c59181f18e8dabd10780b78b7bcdbf8b21a960d80b8e27"
+    },
+    {
+      "key": "workloads-pods-pod-hostname",
+      "filename": "workloads--pods--pod-hostname.md",
+      "title": "Pod Hostname",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/pod-hostname.md",
+      "sha256": "b9ddff5cdac3dd491fed347f6426b33722c48cf983ecf500bb072fa6aca8c6d6"
+    },
+    {
+      "key": "workloads-pods-pod-lifecycle",
+      "filename": "workloads--pods--pod-lifecycle.md",
+      "title": "Pod Lifecycle",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/pod-lifecycle.md",
+      "sha256": "2dc3ead05d66ca264f5e1f6f1030d484c589c47d2592160b82ad021272845a35"
+    },
+    {
+      "key": "workloads-pods-pod-qos",
+      "filename": "workloads--pods--pod-qos.md",
+      "title": "Pod Quality of Service Classes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/pod-qos.md",
+      "sha256": "415f4a5cc97cb876387bcf9213e586e8908605b71d56acbeadbdd2532ba8601b"
+    },
+    {
+      "key": "workloads-pods-pod-termination",
+      "filename": "workloads--pods--pod-termination.md",
+      "title": "Termination of Pods",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/pod-termination.md",
+      "sha256": "74e538c8df79a826aceeefb8fb134e70a3a2b005281fa3041b2a428eb8c4ccec"
+    },
+    {
+      "key": "workloads-pods-probes",
+      "filename": "workloads--pods--probes.md",
+      "title": "Liveness, Readiness, and Startup Probes",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/probes.md",
+      "sha256": "faf5f782a4860200c35360ac884d43032a696044505f579b0042fe23ee60c593"
+    },
+    {
+      "key": "workloads-pods-scheduling-group",
+      "filename": "workloads--pods--scheduling-group.md",
+      "title": "Scheduling Group",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/scheduling-group.md",
+      "sha256": "4395ac8ace7cff4249784f9765d2bcbddffe07c3f3c4c3d50409c3c187060e7c"
+    },
+    {
+      "key": "workloads-pods-sidecar-containers",
+      "filename": "workloads--pods--sidecar-containers.md",
+      "title": "Sidecar Containers",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/sidecar-containers.md",
+      "sha256": "bb045a905428a78633b3a759634e3ee5717b3d4373b184ed2ce9e5fc1636109b"
+    },
+    {
+      "key": "workloads-pods-static-pods",
+      "filename": "workloads--pods--static-pods.md",
+      "title": "Static Pods",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/static-pods.md",
+      "sha256": "1c67881c1b7200f341017e49f900922d91f78efa8a2efa4ec6d470c4f3faa3fb"
+    },
+    {
+      "key": "workloads-pods-user-namespaces",
+      "filename": "workloads--pods--user-namespaces.md",
+      "title": "User Namespaces",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/pods/user-namespaces.md",
+      "sha256": "74f9517cfb237bf369760b54f5b0664aaad4282c88058e3ece2e8c3ad4dd9dbc"
+    },
+    {
+      "key": "workloads-workload-api-disruption-and-priority",
+      "filename": "workloads--workload-api--disruption-and-priority.md",
+      "title": "Pod Group Disruption and Priority",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/workload-api/disruption-and-priority.md",
+      "sha256": "24407a8f9dfa54544114c421d8c2c3417db1c80573234f7700ff0269cef4f2e7"
+    },
+    {
+      "key": "workloads-workload-api-policies",
+      "filename": "workloads--workload-api--policies.md",
+      "title": "PodGroup Scheduling Policies",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/workload-api/policies.md",
+      "sha256": "b858b80cc4715ca838887d6c38a17a094e1f19c7e27cd030826f84f770524bd4"
+    },
+    {
+      "key": "workloads-workload-api-topology-aware-scheduling",
+      "filename": "workloads--workload-api--topology-aware-scheduling.md",
+      "title": "Topology-Aware Workload Scheduling",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/workload-api/topology-aware-scheduling.md",
+      "sha256": "28d3e112f5160ebdc03b455d77b29c0278765a7ab0933099f0bfd6278794c8cd"
+    },
+    {
+      "key": "workloads-workload-api-workloadbuilder",
+      "filename": "workloads--workload-api--workloadbuilder.md",
+      "title": "Scheduling Building Block APIs and the workloadbuilder Library",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "workloads"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/workloads/workload-api/workloadbuilder.md",
+      "sha256": "151d4df5731dc644e8d51cfcbbc04d56bbd6a57da28c0b44063cb35b6aabc350"
+    }
+  ]
+}
