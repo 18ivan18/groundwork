@@ -1,5 +1,6 @@
 """FastAPI application factory."""
 
+import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -12,25 +13,43 @@ from fastapi.responses import JSONResponse
 from groundwork.api import routes_ask, routes_config, routes_documents, routes_health
 from groundwork.api.schemas import ErrorResponse
 from groundwork.config import Settings
-from groundwork.container import Container, build_container, build_services
+from groundwork.container import Container, app_index, build_embedder, build_services
+from groundwork.db.pool import open_pool
+from groundwork.domain.users import load_users
 from groundwork.llm.base import LLMError
+from groundwork.retrieval.embedder import Embedder
+from groundwork.retrieval.pgvector_store import PgVectorStore
+from groundwork.retrieval.store import ChunkStore
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Build the heavy objects when a server starts.
+    """Open the database and build the heavy objects when a server starts.
 
-    A bad configuration stops the server here, before it takes traffic. Tests that use
-    dependency_overrides never enter this, so they need no model download and no API keys.
+    A bad configuration stops the server here, before it takes traffic. Tests that pass their own
+    store, or use dependency_overrides without entering this, need no database, no model
+    download and no API keys.
     """
-    container: Container = app.state.container
-    logging.basicConfig(level=container.settings.log_level)
-    services = build_services(container.settings, container.dense_index)
-    app.state.qa_service = services.qa
-    app.state.upload_service = services.uploads
-    yield
+    settings: Settings = app.state.settings
+    logging.basicConfig(level=settings.log_level)
+    pool = None
+    embedder: Embedder | None = None
+    try:
+        if app.state.container is None:
+            pool = await open_pool(settings.database_url)
+            embedder = await asyncio.to_thread(build_embedder, settings)
+            index = await app_index(pool, settings, embedder.dimension)
+            app.state.container = Container(settings, PgVectorStore(pool, index), app.state.users)
+        container: Container = app.state.container
+        services = build_services(settings, container.store, embedder)
+        app.state.qa_service = services.qa
+        app.state.upload_service = services.uploads
+        yield
+    finally:
+        if pool is not None:
+            await pool.close()
 
 
 async def log_request(
@@ -57,14 +76,15 @@ def handle_unexpected_error(_: Request, error: Exception) -> JSONResponse:
     return JSONResponse(status_code=500, content={"detail": "Something went wrong."})
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
-    """Build the app. Tests pass their own settings; uvicorn's `--factory` passes none."""
+def create_app(settings: Settings | None = None, *, store: ChunkStore | None = None) -> FastAPI:
+    """Build the app. uvicorn's `--factory` passes nothing: the store is opened on Postgres when
+    the server starts. Tests pass their own settings, and a store to run without a database."""
     settings = settings if settings is not None else Settings()
     app = FastAPI(
         title="groundwork API",
         description=(
-            "Answers analysts' questions from indexed financial documents, with numbered "
-            "citations that are checked on the server."
+            "Answers questions from the indexed documents, with numbered citations that are "
+            "checked on the server."
         ),
         version="0.1.0",
         openapi_tags=[
@@ -80,7 +100,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
         openapi_url="/api/openapi.json",
     )
-    app.state.container = build_container(settings)
+    app.state.settings = settings
+    app.state.users = load_users(settings.users_file)
+    app.state.container = None if store is None else Container(settings, store, app.state.users)
 
     app.add_middleware(
         CORSMiddleware,

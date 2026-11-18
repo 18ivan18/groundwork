@@ -38,6 +38,7 @@ class MemoryStore:
         self._documents: dict[_Identity, Document] = {}
         # doc_id -> its chunks and their unit vectors, in order.
         self._chunks: dict[str, list[tuple[Chunk, np.ndarray]]] = {}
+        self._generation = 0
 
     @property
     def index(self) -> IndexInfo:
@@ -140,3 +141,10 @@ class MemoryStore:
 
     async def count_document_chunks(self, doc_id: str) -> int:
         return len(self._chunks.get(doc_id, []))
+
+    async def generation(self) -> int:
+        return self._generation
+
+    async def bump_generation(self) -> int:
+        self._generation += 1
+        return self._generation

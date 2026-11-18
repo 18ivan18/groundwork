@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from groundwork.api.deps import ContainerDep
+from groundwork.api.deps import SettingsDep
 from groundwork.api.schemas import ConfigResponse
 from groundwork.ingestion.loaders import SUPPORTED_SUFFIXES
 
@@ -17,8 +17,8 @@ router = APIRouter(tags=["config"])
         "The upload endpoint checks the same limits itself."
     ),
 )
-def config(container: ContainerDep) -> ConfigResponse:
+async def config(settings: SettingsDep) -> ConfigResponse:
     return ConfigResponse(
         upload_types=sorted(SUPPORTED_SUFFIXES),
-        max_upload_mb=container.settings.max_upload_mb,
+        max_upload_mb=settings.max_upload_mb,
     )

@@ -1,62 +1,87 @@
 from collections.abc import Sequence
-from datetime import UTC, date, datetime
-from pathlib import Path
+from dataclasses import dataclass
+from datetime import date
 
 import pytest
 
-from groundwork.config import Settings
-from groundwork.container import load_sparse_index
-from groundwork.domain.models import Chunk, Document, SearchFilters
-from groundwork.retrieval.dense import DenseIndex
+from groundwork.domain.models import Chunk, DocumentMeta, SearchFilters
 from groundwork.retrieval.embedder import FakeEmbedder
-from groundwork.retrieval.hybrid import HybridRetriever
-from groundwork.retrieval.sparse import SparseIndex
+from groundwork.retrieval.hybrid import HybridRetriever, SearchMode
+from groundwork.retrieval.memory_store import MemoryStore, memory_index
+from groundwork.retrieval.reranker import Reranker
+from groundwork.retrieval.sparse import FixedSparse, build_sparse
+from groundwork.retrieval.store import DenseHit
 
 
-def make_document(
-    doc_id: str,
+def make_meta(
     ticker: str,
     doc_type: str = "10-K",
     collection_id: str = "filings",
     doc_date: date | None = None,
-) -> Document:
-    return Document(
+) -> DocumentMeta:
+    return DocumentMeta(
         title=f"{ticker} report",
         collection_id=collection_id,
         doc_type=doc_type,
         doc_date=doc_date,
         metadata={"ticker": ticker},
-        filename=f"{doc_id}.txt",
-        doc_id=doc_id,
-        ingested_at=datetime(2025, 1, 1, tzinfo=UTC),
+        filename=f"{ticker.lower()}.txt",
     )
 
 
-def add(index: DenseIndex, document: Document, *texts: str) -> None:
-    chunks = [
-        Chunk(f"{document.doc_id}:{i}", document.doc_id, text, (), None, 0, 1)
-        for i, text in enumerate(texts)
-    ]
-    index.add(document, chunks, FakeEmbedder().embed_documents(texts))
+BETA = make_meta("BETA", "8-K", collection_id="news", doc_date=date(2025, 6, 30))
+
+
+async def add(store: MemoryStore, meta: DocumentMeta, *texts: str) -> str:
+    chunks = [Chunk("x", "x", text, (), None, 0, 1) for text in texts]
+    document = await store.add(meta, meta.title, chunks, FakeEmbedder().embed_documents(texts))
+    return document.doc_id
+
+
+@dataclass(frozen=True)
+class Library:
+    store: MemoryStore
+    acme: str
+    beta: str
 
 
 @pytest.fixture
-def dense(tmp_path: Path) -> DenseIndex:
-    index = DenseIndex(tmp_path / "chroma", "fake-model")
-    acme = make_document("a", "ACME", doc_date=date(2024, 1, 31))
-    beta = make_document("b", "BETA", "8-K", collection_id="news", doc_date=date(2025, 6, 30))
-    add(index, acme, "ACME sells anvils", "ACME roof leaks")
-    add(index, beta, "BETA sells anvils", "BETA hires engineers")
-    return index
+async def library() -> Library:
+    store = MemoryStore(memory_index(FakeEmbedder().dimension))
+    acme_meta = make_meta("ACME", doc_date=date(2024, 1, 31))
+    acme = await add(store, acme_meta, "ACME sells anvils", "ACME roof leaks")
+    beta = await add(store, BETA, "BETA sells anvils", "BETA hires engineers")
+    return Library(store, acme, beta)
 
 
-def make_retriever(dense: DenseIndex, candidates: int = 10) -> HybridRetriever:
-    sparse = SparseIndex.build(dense.all_passages())
-    return HybridRetriever(FakeEmbedder(), dense, sparse, candidates=candidates, rrf_k=60)
+async def make_retriever(
+    store: MemoryStore, reranker: Reranker | None = None, rerank_candidates: int = 20
+) -> HybridRetriever:
+    sparse = FixedSparse(await build_sparse(store))
+    return HybridRetriever(
+        FakeEmbedder(),
+        store,
+        sparse,
+        candidates=10,
+        rrf_k=60,
+        reranker=reranker,
+        rerank_candidates=rerank_candidates,
+    )
 
 
-def test_hybrid_reports_both_ranks(dense: DenseIndex) -> None:
-    passage = make_retriever(dense).search("anvils", 1)[0]
+async def texts(
+    store: MemoryStore,
+    query: str,
+    k: int,
+    filters: SearchFilters | None = None,
+    mode: SearchMode = "reranked",
+) -> list[str]:
+    retriever = await make_retriever(store)
+    return [p.chunk.text for p in await retriever.search(query, k, filters, mode)]
+
+
+async def test_hybrid_reports_both_ranks(library: Library) -> None:
+    passage = (await (await make_retriever(library.store)).search("anvils", 1))[0]
 
     assert passage.dense_rank is not None
     assert passage.sparse_rank is not None
@@ -64,29 +89,35 @@ def test_hybrid_reports_both_ranks(dense: DenseIndex) -> None:
     assert passage.rrf_score > 0
 
 
-def test_dense_mode_has_no_sparse_ranks(dense: DenseIndex) -> None:
-    passages = make_retriever(dense).search("anvils", 4, mode="dense")
+async def test_dense_mode_has_no_sparse_ranks(library: Library) -> None:
+    passages = await (await make_retriever(library.store)).search("anvils", 4, mode="dense")
 
     assert all(p.sparse_rank is None for p in passages)
     assert [p.dense_rank for p in passages] == [1, 2, 3, 4]
 
 
-def test_sparse_mode_finds_chunks_without_any_dense_data(dense: DenseIndex) -> None:
-    passages = make_retriever(dense).search("engineers", 4, mode="sparse")
+async def test_sparse_mode_finds_chunks_without_any_dense_data(library: Library) -> None:
+    retriever = await make_retriever(library.store)
 
-    assert [p.chunk.chunk_id for p in passages] == ["b:1"]
+    passages = await retriever.search("engineers", 4, mode="sparse")
+
+    assert [p.chunk.chunk_id for p in passages] == [f"{library.beta}:1"]
     assert passages[0].dense_rank is None
     assert passages[0].dense_similarity is None
     assert passages[0].document.metadata["ticker"] == "BETA"
 
 
-def test_chunk_found_only_by_bm25_is_fetched_in_hybrid_mode(
-    dense: DenseIndex, monkeypatch: pytest.MonkeyPatch
+async def test_chunk_found_only_by_bm25_is_fetched_in_hybrid_mode(
+    library: Library, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    retriever = make_retriever(dense)
-    monkeypatch.setattr(dense, "search", lambda *_: [])
+    retriever = await make_retriever(library.store)
 
-    passage = retriever.search("engineers", 4)[0]
+    async def nothing(*_: object) -> list[DenseHit]:
+        return []
+
+    monkeypatch.setattr(library.store, "search", nothing)
+
+    passage = (await retriever.search("engineers", 4))[0]
 
     assert passage.chunk.text == "BETA hires engineers"
     assert passage.document.metadata["ticker"] == "BETA"
@@ -94,8 +125,8 @@ def test_chunk_found_only_by_bm25_is_fetched_in_hybrid_mode(
     assert passage.sparse_rank == 1
 
 
-def test_k_limits_results(dense: DenseIndex) -> None:
-    assert len(make_retriever(dense).search("anvils", 2)) == 2
+async def test_k_limits_results(library: Library) -> None:
+    assert len(await texts(library.store, "anvils", 2)) == 2
 
 
 # Each filter field, alone, keeps only BETA's passages.
@@ -110,54 +141,50 @@ FILTERS_FOR_BETA = {
 
 @pytest.mark.parametrize("mode", ["hybrid", "dense", "sparse"])
 @pytest.mark.parametrize("name", FILTERS_FOR_BETA)
-def test_each_filter_applies_in_every_mode(dense: DenseIndex, mode: str, name: str) -> None:
-    passages = make_retriever(dense).search(
-        "anvils",
-        4,
-        FILTERS_FOR_BETA[name],
-        mode,  # type: ignore[arg-type]
-    )
+async def test_each_filter_applies_in_every_mode(
+    library: Library, mode: SearchMode, name: str
+) -> None:
+    retriever = await make_retriever(library.store)
+
+    passages = await retriever.search("anvils", 4, FILTERS_FOR_BETA[name], mode)
 
     assert passages
     assert {p.document.metadata["ticker"] for p in passages} == {"BETA"}
 
 
-def test_filters_combine(dense: DenseIndex) -> None:
+async def test_filters_combine(library: Library) -> None:
     filters = SearchFilters(collections=("filings", "news"), doc_types=("8-K",))
 
-    passages = make_retriever(dense).search("anvils", 4, filters)
+    passages = await (await make_retriever(library.store)).search("anvils", 4, filters)
 
     assert {p.document.doc_type for p in passages} == {"8-K"}
 
 
-def test_an_undated_document_never_matches_a_date_range(tmp_path: Path) -> None:
-    index = DenseIndex(tmp_path / "chroma", "fake-model")
-    add(index, make_document("u", "UNDATED"), "UNDATED sells anvils")
+async def test_an_undated_document_never_matches_a_date_range() -> None:
+    store = MemoryStore(memory_index(FakeEmbedder().dimension))
+    await add(store, make_meta("UNDATED"), "UNDATED sells anvils")
 
-    filters = SearchFilters(date_to=date(2100, 1, 1))
-
-    assert make_retriever(index).search("anvils", 4, filters) == []
+    assert await texts(store, "anvils", 4, SearchFilters(date_to=date(2100, 1, 1))) == []
 
 
-def test_empty_filters_restrict_nothing(dense: DenseIndex) -> None:
-    assert len(make_retriever(dense).search("anvils", 4, SearchFilters())) == 4
+async def test_empty_filters_restrict_nothing(library: Library) -> None:
+    assert len(await texts(library.store, "anvils", 4, SearchFilters())) == 4
 
 
-def test_filter_matching_nothing_returns_nothing(dense: DenseIndex) -> None:
-    assert (
-        make_retriever(dense).search("anvils", 4, SearchFilters(metadata={"ticker": "NOPE"})) == []
-    )
+async def test_filter_matching_nothing_returns_nothing(library: Library) -> None:
+    filters = SearchFilters(metadata={"ticker": "NOPE"})
+
+    assert await texts(library.store, "anvils", 4, filters) == []
 
 
-def test_sparse_index_is_rebuilt_when_it_falls_behind_chroma(
-    dense: DenseIndex, tmp_path: Path
+async def test_a_chunk_gone_from_the_store_since_bm25_was_built_is_skipped(
+    library: Library,
 ) -> None:
-    settings = Settings(_env_file=None, data_dir=tmp_path)
-    assert len(load_sparse_index(settings, dense)) == 4
+    retriever = await make_retriever(library.store)
+    # BETA is stored again with no chunks: BM25 still has the old ones.
+    await library.store.add(BETA, BETA.title, [], [])
 
-    add(dense, make_document("c", "GAMMA"), "GAMMA buys anvils")
-
-    assert len(load_sparse_index(settings, dense)) == 5
+    assert await retriever.search("engineers", 4, mode="sparse") == []
 
 
 class ScriptedReranker:
@@ -172,42 +199,29 @@ class ScriptedReranker:
         return [float(sum(word in p for word in self.preferred)) for p in passages]
 
 
-def reranking(dense: DenseIndex, reranker: ScriptedReranker, candidates: int) -> HybridRetriever:
-    sparse = SparseIndex.build(dense.all_passages())
-    return HybridRetriever(
-        FakeEmbedder(),
-        dense,
-        sparse,
-        candidates=10,
-        rrf_k=60,
-        reranker=reranker,
-        rerank_candidates=candidates,
-    )
+async def test_the_reranker_sets_the_order(library: Library) -> None:
+    retriever = await make_retriever(library.store, ScriptedReranker("roof"), 4)
 
-
-def test_the_reranker_sets_the_order(dense: DenseIndex) -> None:
-    retriever = reranking(dense, ScriptedReranker("roof"), candidates=4)
-
-    passages = retriever.search("ACME anvils", 4)
+    passages = await retriever.search("ACME anvils", 4)
 
     assert passages[0].chunk.text == "ACME roof leaks"
     assert [p.rerank_rank for p in passages] == [1, 2, 3, 4]
     assert passages[0].rerank_score == 1.0
 
 
-def test_the_reranker_reads_the_title_with_the_passage(dense: DenseIndex) -> None:
+async def test_the_reranker_reads_the_title_with_the_passage(library: Library) -> None:
     reranker = ScriptedReranker()
 
-    reranking(dense, reranker, candidates=4).search("ACME anvils", 1)
+    await (await make_retriever(library.store, reranker, 4)).search("ACME anvils", 1)
 
     assert "ACME report\nACME sells anvils" in reranker.seen
 
 
-def test_only_the_top_candidates_are_reranked(dense: DenseIndex) -> None:
+async def test_only_the_top_candidates_are_reranked(library: Library) -> None:
     reranker = ScriptedReranker("engineers")
-    unranked = make_retriever(dense).search("ACME anvils", 4)
+    unranked = await (await make_retriever(library.store)).search("ACME anvils", 4)
 
-    passages = reranking(dense, reranker, candidates=2).search("ACME anvils", 4)
+    passages = await (await make_retriever(library.store, reranker, 2)).search("ACME anvils", 4)
 
     assert len(reranker.seen) == 2
     assert {p.chunk.chunk_id for p in passages[:2]} == {p.chunk.chunk_id for p in unranked[:2]}
@@ -215,20 +229,24 @@ def test_only_the_top_candidates_are_reranked(dense: DenseIndex) -> None:
     assert [p.rerank_rank for p in passages[2:]] == [None, None]
 
 
-def test_hybrid_mode_skips_the_reranker(dense: DenseIndex) -> None:
+async def test_hybrid_mode_skips_the_reranker(library: Library) -> None:
     reranker = ScriptedReranker("roof")
+    retriever = await make_retriever(library.store, reranker, 4)
 
-    passages = reranking(dense, reranker, candidates=4).search("ACME anvils", 4, mode="hybrid")
+    passages = await retriever.search("ACME anvils", 4, mode="hybrid")
 
     assert reranker.seen == []
-    assert passages == make_retriever(dense).search("ACME anvils", 4)
+    assert passages == await (await make_retriever(library.store)).search("ACME anvils", 4)
 
 
-def test_best_similarity_counts_candidates_the_reranker_pushed_out(dense: DenseIndex) -> None:
-    retriever = reranking(dense, ScriptedReranker("engineers"), candidates=4)
-    best = make_retriever(dense).search("ACME sells anvils", 1, mode="dense")[0]
+async def test_best_similarity_counts_candidates_the_reranker_pushed_out(
+    library: Library,
+) -> None:
+    retriever = await make_retriever(library.store, ScriptedReranker("engineers"), 4)
+    plain = await make_retriever(library.store)
+    best = (await plain.search("ACME sells anvils", 1, mode="dense"))[0]
 
-    result = retriever.retrieve("ACME sells anvils", 1)
+    result = await retriever.retrieve("ACME sells anvils", 1)
 
     assert result.passages[0].chunk.text == "BETA hires engineers"
     assert result.best_similarity == best.dense_similarity

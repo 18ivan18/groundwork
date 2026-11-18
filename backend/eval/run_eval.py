@@ -2,10 +2,13 @@
 
 Run from backend/: uv run python eval/run_eval.py
 
-For each chunk size the collections the questions are about are indexed into a temporary
-directory, so the real index is untouched. A question counts as found when a passage from one of
-its `documents` (manifest keys) contains one of its `evidence` patterns. That is stricter than
-matching a section, which can span dozens of chunks.
+Needs Postgres (`docker compose up db`). For each chunk size the collections the questions are
+about are indexed into an index of their own, `eval-window-<size>-...`, which is kept: a later run
+only ingests the documents that changed, and the app's index is untouched.
+
+A question counts as found when a passage from one of its `documents` (manifest keys) contains one
+of its `evidence` patterns. That is stricter than matching a section, which can span dozens of
+chunks.
 
 Scores are reported per document format, which separates the TXT filings from the HTML ones.
 
@@ -14,13 +17,13 @@ is the most hybrid search can find. The candidate table compares it with what su
 and the cut to `top_k`.
 """
 
+import asyncio
 import json
 import re
 import statistics
-import tempfile
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal, get_args
 
@@ -28,15 +31,17 @@ from pydantic import BaseModel, ConfigDict
 
 from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
+from groundwork.db.pool import Pool, open_pool
 from groundwork.domain.models import Document, ScoredPassage
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.ingestion.pipeline import ingest_file
-from groundwork.retrieval.dense import DenseIndex
 from groundwork.retrieval.embedder import Embedder
 from groundwork.retrieval.hybrid import HybridRetriever, SearchMode
+from groundwork.retrieval.indexes import drop_index, ensure_index, window_spec
+from groundwork.retrieval.pgvector_store import PgVectorStore
 from groundwork.retrieval.reranker import Reranker
-from groundwork.retrieval.sparse import SparseIndex
+from groundwork.retrieval.sparse import FixedSparse, build_sparse
 
 EVAL_DIR = Path(__file__).parent
 CHUNK_SIZES = (200, 300, 400)
@@ -257,26 +262,46 @@ def validate(questions: Sequence[Question], texts: dict[DocumentKey, str]) -> No
             raise ValueError(f"{question.id}: {question.absent!r} does occur in the collection")
 
 
-def build_retriever(
+async def eval_store(
+    pool: Pool,
     settings: Settings,
     entries: Sequence[CorpusEntry],
     embedder: Embedder,
-    reranker: Reranker | None,
     chunk_tokens: int,
-    directory: Path,
-) -> tuple[HybridRetriever, DenseIndex]:
-    dense = DenseIndex(directory, settings.embedding_model)
+    *,
+    exact: bool = False,
+) -> PgVectorStore:
+    """The eval index for this chunk size, holding exactly `entries`. Documents already in it
+    are skipped; an index holding others (a file changed since) is rebuilt."""
+    spec = window_spec(
+        chunk_tokens, settings.chunk_overlap, settings.embedding_model, embedder.dimension
+    )
+    spec = replace(spec, name=f"eval-{spec.name}")
+    store = PgVectorStore(pool, await ensure_index(pool, spec), exact=exact)
     for entry in entries:
-        ingest_file(
+        await ingest_file(
             entry.path,
             entry.meta,
             embedder,
-            dense,
+            store,
             chunk_tokens=chunk_tokens,
             chunk_overlap=settings.chunk_overlap,
         )
-    sparse = SparseIndex.build(dense.all_passages())
-    return make_retriever(settings, embedder, dense, sparse, reranker), dense
+    if await store.count_documents() > len(entries):
+        print(f"{spec.name} holds documents no longer in the corpus: rebuilding it.")
+        await drop_index(pool, store.index.id)
+        return await eval_store(pool, settings, entries, embedder, chunk_tokens, exact=exact)
+    return store
+
+
+async def build_retriever(
+    settings: Settings,
+    store: PgVectorStore,
+    embedder: Embedder,
+    reranker: Reranker | None,
+) -> HybridRetriever:
+    sparse = FixedSparse(await build_sparse(store))
+    return make_retriever(settings, embedder, store, sparse, reranker)
 
 
 @dataclass(frozen=True)
@@ -383,7 +408,7 @@ def gate_table(answerable: list[float], off_topic: list[float], in_domain: list[
     return "\n".join(lines)
 
 
-def main() -> None:
+async def main() -> None:
     settings = Settings()
     questions = load_questions(EVAL_DIR / "questions.jsonl")
     entries = corpus_entries(settings.data_dir / "raw", eval_collections(questions))
@@ -400,56 +425,57 @@ def main() -> None:
     misses: list[str] = []
     gate_sections: list[str] = []
     latencies: list[str] = []
+    pool = await open_pool(settings.database_url)
     for chunk_tokens in CHUNK_SIZES:
-        with tempfile.TemporaryDirectory() as directory:
-            retriever, dense = build_retriever(
-                settings, entries, embedder, reranker, chunk_tokens, Path(directory)
+        dense = await eval_store(pool, settings, entries, embedder, chunk_tokens)
+        retriever = await build_retriever(settings, dense, embedder, reranker)
+        chunk_count = await dense.count_chunks()
+        ranks_by_mode: dict[str, list[int | None]] = {}
+        for mode in get_args(SearchMode):
+            found: list[EvidenceRanks] = []
+            seconds = []
+            for q in answerable:
+                started = time.perf_counter()
+                passages = await retriever.search(q.question, max(K_VALUES), mode=mode)
+                seconds.append(time.perf_counter() - started)
+                found.append(evidence_ranks(passages, q, keys))
+            ranks = [first_hit(evidence) for evidence in found]
+            ranks_by_mode[mode] = ranks
+            latencies.append(
+                f"| {chunk_tokens} | {mode} | {statistics.median(seconds) * 1000:.0f} "
+                f"| {max(seconds) * 1000:.0f} |"
             )
-            ranks_by_mode: dict[str, list[int | None]] = {}
-            for mode in get_args(SearchMode):
-                found: list[EvidenceRanks] = []
-                seconds = []
-                for q in answerable:
-                    started = time.perf_counter()
-                    passages = retriever.search(q.question, max(K_VALUES), mode=mode)
-                    seconds.append(time.perf_counter() - started)
-                    found.append(evidence_ranks(passages, q, keys))
-                ranks = [first_hit(evidence) for evidence in found]
-                ranks_by_mode[mode] = ranks
-                latencies.append(
-                    f"| {chunk_tokens} | {mode} | {statistics.median(seconds) * 1000:.0f} "
-                    f"| {max(seconds) * 1000:.0f} |"
-                )
-                for name, positions in sets.items():
-                    scores = score([found[p] for p in positions], K_VALUES)
-                    rows.append(Row(chunk_tokens, dense.count_chunks(), mode, name, scores))
-                for question, rank in zip(answerable, ranks, strict=True):
-                    if rank is None or rank > settings.top_k:
-                        misses.append(f"| {chunk_tokens} | {mode} | {question.id} | {rank} |")
             for name, positions in sets.items():
-                candidates = candidate_recall(
-                    [answerable[p].id for p in positions],
-                    {m: [r[p] for p in positions] for m, r in ranks_by_mode.items()},
-                    settings.retrieval_candidates,
-                    settings.top_k,
-                )
-                candidate_rows.append((chunk_tokens, name, candidates))
-
-            top: dict[str, float] = {
-                q.id: dense.search(embedder.embed_query(q.question), 1)[0].similarity
-                for q in questions
-            }
-            kept = [top[q.id] for q in answerable]
-            off_topic = [top[q.id] for q in questions if q.type == "unanswerable_off_topic"]
-            in_domain = [top[q.id] for q in questions if q.type == "unanswerable_in_domain"]
-            gate_sections.append(
-                f"### {chunk_tokens} tokens\n\n"
-                f"Best dense similarity: answerable min {min(kept):.3f}, "
-                f"median {statistics.median(kept):.3f}; off-topic max {max(off_topic):.3f}; "
-                f"in-domain unanswerable max {max(in_domain):.3f}.\n\n"
-                + gate_table(kept, off_topic, in_domain)
+                scores = score([found[p] for p in positions], K_VALUES)
+                rows.append(Row(chunk_tokens, chunk_count, mode, name, scores))
+            for question, rank in zip(answerable, ranks, strict=True):
+                if rank is None or rank > settings.top_k:
+                    misses.append(f"| {chunk_tokens} | {mode} | {question.id} | {rank} |")
+        for name, positions in sets.items():
+            candidates = candidate_recall(
+                [answerable[p].id for p in positions],
+                {m: [r[p] for p in positions] for m, r in ranks_by_mode.items()},
+                settings.retrieval_candidates,
+                settings.top_k,
             )
+            candidate_rows.append((chunk_tokens, name, candidates))
 
+        top: dict[str, float] = {}
+        for q in questions:
+            [hit] = await dense.search(embedder.embed_query(q.question), 1)
+            top[q.id] = hit.similarity
+        kept = [top[q.id] for q in answerable]
+        off_topic = [top[q.id] for q in questions if q.type == "unanswerable_off_topic"]
+        in_domain = [top[q.id] for q in questions if q.type == "unanswerable_in_domain"]
+        gate_sections.append(
+            f"### {chunk_tokens} tokens\n\n"
+            f"Best dense similarity: answerable min {min(kept):.3f}, "
+            f"median {statistics.median(kept):.3f}; off-topic max {max(off_topic):.3f}; "
+            f"in-domain unanswerable max {max(in_domain):.3f}.\n\n"
+            + gate_table(kept, off_topic, in_domain)
+        )
+
+    await pool.close()
     report = "\n\n".join(
         [
             "# Retrieval evaluation",
@@ -491,4 +517,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

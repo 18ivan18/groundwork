@@ -12,11 +12,18 @@ from groundwork.config import Settings
 from groundwork.llm.fake import FakeLLM
 from groundwork.main import create_app
 from groundwork.qa.service import QAService
+from groundwork.retrieval.embedder import FakeEmbedder
+from groundwork.retrieval.memory_store import MemoryStore, memory_index
 
 
 @pytest.fixture
-def app(tmp_path: Path) -> FastAPI:
-    return create_app(Settings(_env_file=None, data_dir=tmp_path))
+def store() -> MemoryStore:
+    return MemoryStore(memory_index(FakeEmbedder().dimension))
+
+
+@pytest.fixture
+def app(tmp_path: Path, store: MemoryStore) -> FastAPI:
+    return create_app(Settings(_env_file=None, data_dir=tmp_path), store=store)
 
 
 @pytest.fixture

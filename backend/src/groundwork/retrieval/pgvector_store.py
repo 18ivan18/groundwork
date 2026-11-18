@@ -23,6 +23,7 @@ from groundwork.domain.models import (
     make_chunk_id,
     parse_chunk_id,
 )
+from groundwork.retrieval import indexes
 from groundwork.retrieval.indexes import IndexInfo, vector_cast
 from groundwork.retrieval.store import DenseHit, normalized_groups
 
@@ -299,6 +300,12 @@ class PgVectorStore:
             f"SELECT count(*) FROM chunks WHERE index_id = {self._id} AND document_id = %s",
             (int(doc_id),),
         )
+
+    async def generation(self) -> int:
+        return await indexes.generation(self._pool, self._id)
+
+    async def bump_generation(self) -> int:
+        return await indexes.bump_generation(self._pool, self._id)
 
     async def _count(self, sql: str, params: tuple[Any, ...] = ()) -> int:
         async with self._pool.connection() as connection:
