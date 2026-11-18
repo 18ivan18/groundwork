@@ -20,3 +20,17 @@ Frontend (from `frontend/`, once it exists):
 - Ask before adding a dependency not listed in section 4 of the handoff.
 - No secrets in the repo. No invented facts in fixtures or the README.
 - If the handoff is wrong or blocks you, stop and say so.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues (18ivan18/novabridge-qa) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
