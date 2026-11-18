@@ -303,3 +303,15 @@ code was committed as `b1dd9ac` (same content).
 - **Latency:** the median answer went from 0.8 s to 1.5 s. Retrieval went from 26 ms to 585 ms
   (the re-ranker); generation stayed at about 0.8 s. All 8 unanswerable questions were still refused,
   3 by the gate and 5 by the model.
+
+## Short sections are kept (M1)
+
+Chunks under 30 tokens used to be dropped. In 10-K filings those are the ends of long sections and
+"Item 1B. None." pages, but runbooks and policies have whole sections of one or two sentences: the
+Northwind corpus lost 2.3% of its text, including the 2024 expense policy's rule on flights. Now
+only a tail fragment of a longer section is dropped below 30 tokens; a section that fits in one
+chunk is kept down to 8 tokens.
+
+The filings get 19 more chunks at 400 tokens (1,049). Re-ranked retrieval is unchanged (HTM MRR
+0.715, TXT 0.676). Without re-ranking, hybrid on HTM goes from 0.705 to 0.684 MRR: one question
+moves from rank 1 to rank 2, as it was before the table fix.

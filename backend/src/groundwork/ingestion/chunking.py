@@ -10,7 +10,13 @@ from groundwork.domain.models import Chunk, make_chunk_id
 from groundwork.ingestion.loaders.base import PageSpan
 from groundwork.ingestion.structure import Section
 
+# The last window of a long section is often a few words that only make sense with the window
+# before it, which the overlap already carries: below MIN_CHUNK_TOKENS it is dropped.
 MIN_CHUNK_TOKENS = 30
+# A short section that fits in one window is kept whole, down to MIN_SECTION_TOKENS: runbooks and
+# policies have sections of a sentence or two. Below that it is a heading with "None." or a page
+# footer.
+MIN_SECTION_TOKENS = 8
 
 # A period after these does not end a sentence. Without this check a chunk can end on "Mr.",
 # cutting the name away from what the passage says about that person.
@@ -118,8 +124,10 @@ def chunk_document(
     chunks: list[Chunk] = []
     for section in sections:
         units = _units(text, section, counter, chunk_tokens)
-        for window in _pack(units, chunk_tokens, chunk_overlap):
-            if sum(unit.tokens for unit in window) < MIN_CHUNK_TOKENS:
+        windows = _pack(units, chunk_tokens, chunk_overlap)
+        minimum = MIN_SECTION_TOKENS if len(windows) == 1 else MIN_CHUNK_TOKENS
+        for window in windows:
+            if sum(unit.tokens for unit in window) < minimum:
                 continue
             start, end = window[0].start, window[-1].end
             chunks.append(
