@@ -96,6 +96,19 @@ describe("describeItem", () => {
     });
   });
 
+  it("shows a job that ran out of retries as failed", () => {
+    expect(
+      describeItem(submitted, job({ status: "dead", error: "Indexing failed." }), false),
+    ).toEqual({ kind: "failed", error: "Indexing failed." });
+  });
+
+  it("shows a cancelled job as stopped", () => {
+    expect(describeItem(submitted, job({ status: "cancelled" }), false)).toEqual({
+      kind: "failed",
+      error: "Cancelled.",
+    });
+  });
+
   it("explains a job that disappeared", () => {
     const view = describeItem(submitted, undefined, true);
 
@@ -109,5 +122,7 @@ describe("isJobActive", () => {
     expect(isJobActive(job({ status: "embedding" }))).toBe(true);
     expect(isJobActive(job({ status: "indexed" }))).toBe(false);
     expect(isJobActive(job({ status: "failed" }))).toBe(false);
+    expect(isJobActive(job({ status: "dead" }))).toBe(false);
+    expect(isJobActive(job({ status: "cancelled" }))).toBe(false);
   });
 });

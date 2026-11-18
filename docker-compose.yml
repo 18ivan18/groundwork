@@ -40,8 +40,7 @@ services:
       db:
         condition: service_healthy
 
-  # Indexes data/raw/ and exits. Documents already indexed are skipped, so later starts take
-  # a few seconds.
+  # Queues data/raw/ for the worker and exits. Files already indexed or queued are skipped.
   ingest:
     <<: *backend
     pull_policy: never
@@ -49,6 +48,17 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+
+  # Indexes queued files: the corpus, and uploads. Its own service, so a job carries on while
+  # the API restarts; a job whose worker dies is taken back by the next one to start.
+  worker:
+    <<: *backend
+    pull_policy: never
+    command: ["python", "-m", "groundwork.ingestion.worker"]
+    depends_on:
+      ingest:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   api:
     <<: *backend

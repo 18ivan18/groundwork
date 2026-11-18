@@ -3,12 +3,13 @@
 import asyncio
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from groundwork.config import Settings
 from groundwork.db.pool import Pool, open_pool
 from groundwork.domain.users import User
+from groundwork.ingestion.jobs import JobQueue, MemoryJobQueue
 from groundwork.ingestion.uploads import UploadService
 from groundwork.llm.base import LLMClient
 from groundwork.llm.factory import build_llm
@@ -41,8 +42,10 @@ class EmbeddingModelMismatchError(ValueError):
 class Container:
     settings: Settings
     store: ChunkStore
-    # Loaded at startup so a broken file stops the server at once. Enforced from M3.
+    # Loaded at startup so a broken file stops the server at once.
     users: Mapping[str, User]
+    # Postgres's in the app; tests without a database get one in memory.
+    jobs: JobQueue = field(default_factory=MemoryJobQueue)
 
 
 @dataclass(frozen=True)
@@ -129,13 +132,15 @@ def build_services(
     embedder: Embedder | None = None,
     *,
     llm: LLMClient | None = None,
+    jobs: JobQueue | None = None,
 ) -> Services:
+    """`llm` when the caller built it already; `jobs` is where uploads are queued, and scripts
+    that only ask questions leave it out."""
     # The LLM comes first: a missing setting should fail before the embedder loads.
     llm = llm or build_llm(settings)
     embedder = embedder or build_embedder(settings)
     sparse = SparseCache(store, bm25_root(settings))
     retriever = make_retriever(settings, embedder, store, sparse, build_reranker(settings))
-    chunk_tokens, chunk_overlap = chunking(store.index, settings)
     return Services(
         qa=QAService(
             retriever,
@@ -145,12 +150,10 @@ def build_services(
             max_tokens=settings.llm_max_tokens,
         ),
         uploads=UploadService(
-            embedder,
             store,
-            uploads_dir=settings.data_dir / "uploads",
+            jobs if jobs is not None else MemoryJobQueue(),
+            data_dir=settings.data_dir,
             max_bytes=settings.max_upload_mb * 1024 * 1024,
-            chunk_tokens=chunk_tokens,
-            chunk_overlap=chunk_overlap,
         ),
     )
 

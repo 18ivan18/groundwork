@@ -4,7 +4,7 @@ from dataclasses import asdict
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from fastapi import Path as PathParam
 
 from groundwork.api.deps import ContainerDep, CurrentUser, UploadServiceDep
@@ -42,8 +42,8 @@ async def list_documents(container: ContainerDep, user: CurrentUser) -> list[Doc
     summary="Upload a document",
     description=(
         "Accepts one file of a type that `GET /api/config` lists, up to its size limit. "
-        "Indexing runs in the background: poll the returned job "
-        "for its progress. The uploader owns the document; by default only they can read it. "
+        "The ingestion worker indexes it: poll the returned job for its progress. "
+        "The uploader owns the document; by default only they can read it. "
         "A file this uploader already stored, in the same collection for the same groups, gets "
         "a job that is already `indexed`, and its original tags are kept."
     ),
@@ -59,7 +59,6 @@ async def upload_document(
     doc_type: Annotated[DocTypeText, Form(description="The kind of document, such as `runbook`.")],
     service: UploadServiceDep,
     user: CurrentUser,
-    background: BackgroundTasks,
     collection: Annotated[
         CollectionId, Form(description="The collection to add it to.")
     ] = UPLOADS_COLLECTION,
@@ -85,7 +84,6 @@ async def upload_document(
             doc_type=doc_type,
             doc_date=doc_date,
             access_groups=access_groups or (),
-            schedule=background.add_task,
         )
     except ForbiddenGroupsError as error:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(error)) from error
@@ -102,18 +100,17 @@ async def upload_document(
     "/jobs/{job_id}",
     summary="Check an upload's progress",
     description=(
-        "Only the user who uploaded the file sees its job. Jobs live in memory, so a job from "
-        "before a server restart returns 404."
+        "Only the user who started the job sees it; anyone else gets 404, as for a job that "
+        "does not exist."
     ),
     responses={404: {"model": ErrorResponse, "description": "No such job of this user's."}},
 )
 async def get_job(
     job_id: Annotated[str, PathParam(description="The `job_id` from the upload.")],
-    service: UploadServiceDep,
+    container: ContainerDep,
     user: CurrentUser,
 ) -> JobResponse:
-    job = service.job(job_id, user)
-    if job is None:
-        # Jobs live in memory, so this also covers a job from before a restart.
+    job = await container.jobs.get(job_id)
+    if job is None or job.owner_id != user.user_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No such job.")
     return JobResponse(status=job.status, progress=job.progress, error=job.error, chunks=job.chunks)

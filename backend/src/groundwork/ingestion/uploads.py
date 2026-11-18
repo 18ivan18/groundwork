@@ -1,29 +1,18 @@
-"""Accept an uploaded file, then index it in the background."""
+"""Accept an uploaded file and queue it for the ingestion worker (ingestion/worker.py)."""
 
 import asyncio
-import logging
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Sequence
 from datetime import date
-from functools import partial
 from pathlib import Path, PureWindowsPath
 
 from groundwork.domain.models import DocumentMeta, content_hash
 from groundwork.domain.users import User, private_group
-from groundwork.ingestion.jobs import Job, JobRegistry
-from groundwork.ingestion.loaders import LoadedDocument, NoTextError, loader_for
-from groundwork.ingestion.pipeline import prepare_document
-from groundwork.retrieval.embedder import Embedder
+from groundwork.ingestion.jobs import INGEST_DOCUMENT, Job, JobQueue
+from groundwork.ingestion.loaders import NoTextError, loader_for
+from groundwork.ingestion.worker import ingest_payload
 from groundwork.retrieval.store import ChunkStore
 
-logger = logging.getLogger(__name__)
-
-# Embedding is the slow step, so its batches drive the progress bar from 20 to 90.
-_EMBEDDING_START = 20
-_EMBEDDING_END = 90
-
-# Runs a coroutine function after the response is sent, such as FastAPI's
-# `BackgroundTasks.add_task`.
-Schedule = Callable[[Callable[[], Awaitable[None]]], None]
+UPLOADS_FOLDER = "uploads"
 
 
 class FileTooLargeError(ValueError):
@@ -49,31 +38,12 @@ def upload_groups(user: User, requested: Sequence[str]) -> tuple[str, ...]:
 
 class UploadService:
     def __init__(
-        self,
-        embedder: Embedder,
-        store: ChunkStore,
-        *,
-        uploads_dir: Path,
-        max_bytes: int,
-        chunk_tokens: int,
-        chunk_overlap: int,
+        self, store: ChunkStore, jobs: JobQueue, *, data_dir: Path, max_bytes: int
     ) -> None:
-        self._embedder = embedder
         self._store = store
-        self._uploads_dir = uploads_dir
+        self._jobs = jobs
+        self._data_dir = data_dir
         self._max_bytes = max_bytes
-        self._chunk_tokens = chunk_tokens
-        self._chunk_overlap = chunk_overlap
-        self._jobs = JobRegistry()
-        # One upload stored at a time in this worker, so two copies of one file racing through
-        # the pipeline are stored once.
-        self._write_lock = asyncio.Lock()
-
-    def job(self, job_id: str, user: User) -> Job | None:
-        """The job, if this user started it. Another user's job is None, as if it did not exist,
-        so its id reveals nothing."""
-        job = self._jobs.get(job_id)
-        return job if job is not None and job.owner_id == user.user_id else None
 
     async def accept(
         self,
@@ -85,12 +55,11 @@ class UploadService:
         doc_type: str,
         doc_date: date | None,
         access_groups: Sequence[str] = (),
-        schedule: Schedule,
     ) -> Job:
-        """Validate a file and schedule its indexing, owned by `owner` and readable by
+        """Validate a file and queue its indexing, owned by `owner` and readable by
         `access_groups` (only the owner when empty).
 
-        Loading happens here rather than in the job, so a file with no text gets an immediate
+        Loading happens here as well as in the worker, so a file with no text gets an immediate
         error. The same bytes already stored by this owner, in this collection, for these groups
         get a finished job and no new work. Anyone else's copy is never matched: deduplication
         must not reveal that a document exists.
@@ -115,60 +84,19 @@ class UploadService:
             owner_id=owner.user_id,
         )
         if doc_id := await self._store.find_document(digest, meta):
-            job = self._jobs.create(owner.user_id, doc_id)
             chunks = await self._store.count_document_chunks(doc_id)
-            return self._jobs.update(job.job_id, "indexed", 100, chunks=chunks)
+            return await self._jobs.record_done(
+                INGEST_DOCUMENT, owner_id=owner.user_id, doc_id=doc_id, chunks=chunks
+            )
 
         # Loaded from memory, so a file is written to disk only once it has passed every check.
         loaded = await asyncio.to_thread(load, raw)
         if not loaded.text.strip():
             raise NoTextError("No text was found in this file.")
-        self._uploads_dir.mkdir(parents=True, exist_ok=True)
-        (self._uploads_dir / f"{digest}{Path(name).suffix.lower()}").write_bytes(raw)
-
-        job = self._jobs.create(owner.user_id)
-        schedule(partial(self._index, job.job_id, digest, loaded, meta))
-        return job
-
-    async def _index(
-        self, job_id: str, digest: str, loaded: LoadedDocument, meta: DocumentMeta
-    ) -> None:
-        try:
-            await self._chunk_embed_store(job_id, digest, loaded, meta)
-        except Exception:
-            # The exception stays in the log: job errors are shown to users.
-            logger.exception("Indexing failed for job %s", job_id)
-            self._jobs.update(job_id, "failed", 0, error="Indexing failed. Please try again.")
-
-    async def _chunk_embed_store(
-        self, job_id: str, digest: str, loaded: LoadedDocument, meta: DocumentMeta
-    ) -> None:
-        self._jobs.update(job_id, "parsing", 10)
-
-        def report(share: float) -> None:
-            progress = _EMBEDDING_START + round((_EMBEDDING_END - _EMBEDDING_START) * share)
-            self._jobs.update(job_id, "embedding", progress)
-
-        prepared = await asyncio.to_thread(
-            prepare_document,
-            loaded,
-            meta,
-            digest,
-            self._embedder,
-            chunk_tokens=self._chunk_tokens,
-            chunk_overlap=self._chunk_overlap,
-            on_progress=report,
+        relative = f"{UPLOADS_FOLDER}/{digest}{Path(name).suffix.lower()}"
+        path = self._data_dir / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(path.write_bytes, raw)
+        return await self._jobs.enqueue(
+            INGEST_DOCUMENT, ingest_payload(relative, digest, meta), owner_id=owner.user_id
         )
-        if not prepared.chunks:
-            self._jobs.update(job_id, "failed", 0, error="This file has too little text to index.")
-            return
-
-        async with self._write_lock:
-            # Checked again: the same file may have been stored while this one was embedding.
-            doc_id = await self._store.find_document(digest, meta)
-            if doc_id is None:
-                document = await self._store.add(meta, digest, prepared.chunks, prepared.embeddings)
-                doc_id = document.doc_id
-                # One upload is one job, so the generation moves once per file.
-                await self._store.bump_generation()
-        self._jobs.update(job_id, "indexed", 100, chunks=len(prepared.chunks), doc_id=doc_id)

@@ -1,5 +1,6 @@
 import asyncio
-from collections.abc import Awaitable, Callable, Sequence
+import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ from groundwork.domain.users import load_users
 from groundwork.ingestion import pipeline
 from groundwork.ingestion.jobs import Job
 from groundwork.ingestion.uploads import UploadService
+from groundwork.ingestion.worker import FAILED_ERROR, IngestWorker
 from groundwork.retrieval.embedder import Embedder, FakeEmbedder
 from groundwork.retrieval.hybrid import HybridRetriever, SearchMode
 from groundwork.retrieval.sparse import SparseCache
@@ -30,22 +32,27 @@ FORM = {"doc_type": "notes"}
 
 
 class Harness:
-    """Drives uploads through the API and runs the background job before each response
-    returns, as TestClient does."""
+    """Drives uploads through the API, then runs the ingestion worker until the queue is empty,
+    retrying a failure at once."""
 
-    def __init__(self, app: FastAPI, embedder: Embedder) -> None:
+    def __init__(self, app: FastAPI, embedder: Embedder, heartbeat_seconds: float = 5) -> None:
         container: Container = app.state.container
         self.store = container.store
-        self.uploads_dir = container.settings.data_dir / "uploads"
-        sparse = SparseCache(self.store, container.settings.data_dir / "bm25", check_seconds=0)
+        self.jobs = container.jobs
+        data_dir = container.settings.data_dir
+        self.uploads_dir = data_dir / "uploads"
+        sparse = SparseCache(self.store, data_dir / "bm25", check_seconds=0)
         self.retriever = HybridRetriever(embedder, self.store, sparse, candidates=20, rrf_k=60)
-        self.service = UploadService(
-            embedder,
+        self.service = UploadService(self.store, self.jobs, data_dir=data_dir, max_bytes=MAX_BYTES)
+        self.worker = IngestWorker(
+            self.jobs,
             self.store,
-            uploads_dir=self.uploads_dir,
-            max_bytes=MAX_BYTES,
+            embedder,
+            data_dir=data_dir,
             chunk_tokens=40,
             chunk_overlap=5,
+            heartbeat_seconds=heartbeat_seconds,
+            backoff=lambda _: 0,
         )
         app.dependency_overrides[get_upload_service] = lambda: self.service
         self.app = app
@@ -80,9 +87,14 @@ class Harness:
         data: dict[str, Any] = {**FORM, **form}
         if groups:
             data["access_groups"] = list(groups)
-        return as_user(self.app, user).post(
+        response = as_user(self.app, user).post(
             "/api/documents", files={"file": (name, content)}, data=data
         )
+        self.work()
+        return response
+
+    def work(self) -> None:
+        asyncio.run(self.worker.drain())
 
     def documents(self, user: str) -> list[dict[str, Any]]:
         body: list[dict[str, Any]] = as_user(self.app, user).get("/api/documents").json()
@@ -189,8 +201,6 @@ def test_duplicate_returns_a_finished_job_and_adds_nothing(harness: Harness) -> 
 
 
 def test_identical_uploads_in_flight_index_once(harness: Harness) -> None:
-    scheduled: list[Callable[[], Awaitable[None]]] = []
-
     async def accept_both_then_index() -> list[Job]:
         jobs = [
             await harness.service.accept(
@@ -200,11 +210,10 @@ def test_identical_uploads_in_flight_index_once(harness: Harness) -> None:
                 collection_id="uploads",
                 doc_type="notes",
                 doc_date=None,
-                schedule=scheduled.append,
             )
             for _ in range(2)
         ]
-        await asyncio.gather(*(task() for task in scheduled))
+        await harness.worker.drain()
         return jobs
 
     jobs = asyncio.run(accept_both_then_index())
@@ -272,21 +281,24 @@ def test_file_too_short_to_chunk_fails_its_job(harness: Harness) -> None:
     assert harness.count_chunks() == 0
 
 
-def test_indexing_crash_fails_the_job_and_hides_the_cause(app: FastAPI) -> None:
+def test_an_indexing_crash_is_retried_then_dead_and_hides_the_cause(app: FastAPI) -> None:
     class BrokenEmbedder(FakeEmbedder):
         def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
             raise RuntimeError("secret-path /etc/key")
 
     harness = Harness(app, BrokenEmbedder())
 
-    job = harness.job(harness.upload().json()["job_id"])
+    job_id = harness.upload().json()["job_id"]
 
-    assert job["status"] == "failed"
-    assert job["error"] == "Indexing failed. Please try again."
+    job = harness.job(job_id)
+    assert job["status"] == "dead"
+    assert job["error"] == FAILED_ERROR
+    stored = asyncio.run(harness.jobs.get(job_id))
+    assert stored is not None and stored.attempts == stored.max_attempts == 3
     assert harness.client.get("/api/documents").json() == []
 
 
-def test_failed_upload_can_be_retried(app: FastAPI) -> None:
+def test_a_failed_attempt_is_retried(app: FastAPI) -> None:
     class FlakyEmbedder(FakeEmbedder):
         failed = False
 
@@ -297,11 +309,12 @@ def test_failed_upload_can_be_retried(app: FastAPI) -> None:
             return super().embed_documents(texts)
 
     harness = Harness(app, FlakyEmbedder())
-    harness.upload()
 
-    job = harness.job(harness.upload().json()["job_id"])
+    job_id = harness.upload().json()["job_id"]
 
-    assert job["status"] == "indexed"
+    assert harness.job(job_id)["status"] == "indexed"
+    stored = asyncio.run(harness.jobs.get(job_id))
+    assert stored is not None and stored.attempts == 2
 
 
 def test_progress_follows_the_embedding_batches(
@@ -311,12 +324,15 @@ def test_progress_follows_the_embedding_batches(
     seen: list[tuple[str, int]] = []
 
     class WatchingEmbedder(FakeEmbedder):
+        """Slow enough per batch for a heartbeat to record each one."""
+
         def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
-            for job in harness.service._jobs._jobs.values():
+            time.sleep(0.03)
+            for job in asyncio.run(harness.jobs.list()):
                 seen.append((job.status, job.progress))
             return super().embed_documents(texts)
 
-    harness = Harness(app, WatchingEmbedder())
+    harness = Harness(app, WatchingEmbedder(), heartbeat_seconds=0.01)
     harness.upload()
 
     assert len(seen) > 1

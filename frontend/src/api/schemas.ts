@@ -2,7 +2,15 @@
 // and the response types in types.ts are inferred from them, so the two cannot disagree.
 import { z } from "zod";
 
-export const JobStatusSchema = z.enum(["queued", "parsing", "embedding", "indexed", "failed"]);
+export const JobStatusSchema = z.enum([
+  "queued",
+  "parsing",
+  "embedding",
+  "indexed",
+  "failed",
+  "dead",
+  "cancelled",
+]);
 
 export const HealthSchema = z.object({
   status: z.literal("ok"),
