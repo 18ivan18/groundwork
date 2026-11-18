@@ -60,8 +60,8 @@ a change to `.env`, followed by a restart:
 flowchart TD
     subgraph Ingestion["Ingestion (CLI script or upload job)"]
         F[File] --> L[Loader] --> S[Section detection] --> C[Chunker] --> E[Embedder]
-        E --> V[(Chroma: text, metadata, vectors)]
-        V --> B[(BM25, rebuilt from Chroma)]
+        E --> V[(Postgres + pgvector: documents, chunks, vectors)]
+        V --> B[(BM25 per index, rebuilt when its generation moves)]
     end
     subgraph Question["Answering a question"]
         Q[Question] --> D[Dense search, top 20]
@@ -82,8 +82,8 @@ flowchart TD
 - `backend/src/groundwork/`: `ingestion/`, `retrieval/`, `llm/`, `qa/`, `api/`, with `domain/` for
   shared types. `container.py` does the wiring.
 - `frontend/src/`: React, with TanStack Query for server state.
-- Compose runs `ingest` once, then `api` (uvicorn), then `web` (nginx serving the build and
-  proxying `/api`).
+- Compose runs `db` (Postgres 16 with pgvector), `migrate` (Alembic) and `ingest` once, then `api`
+  (uvicorn), then `web` (nginx serving the build and proxying `/api`).
 
 ## Design decisions and trade-offs
 
@@ -95,7 +95,7 @@ flowchart TD
 | **`bge-small-en-v1.5` through fastembed** | Small ONNX model that is fast on CPU, local and free | 512-token limit, so chunks stay at 400 |
 | **Hybrid search with hand-written RRF** | Filings mix exact terms, where BM25 wins, with paraphrased questions, where dense wins. RRF needs no score calibration. | Two indexes to keep in step |
 | **Cross-encoder re-ranker** (`jina-reranker-v1-tiny-en`) on the top 20 after RRF | RRF ranks a passage found by both retrievers above any passage found by one, which dropped 6 of the 9 misses. Reading the question and passage together raised R@6 at 400 tokens from 0.83 to 0.92 (HTML) and 0.76 to 0.81 (TXT). Chosen from six fastembed models on recall, speed and license. | About 0.5 s more per question on CPU, and 129 MB more model in the image. `RERANKER_MODEL=` turns it off |
-| **Chroma as the source of truth** | Embedded with no operations work. BM25 is derived from it and can always be rebuilt. | One process at a time, which is why ingest runs before the API |
+| **Postgres with pgvector as the source of truth** (D16–D19) | Documents, chunks and vectors in one database, with transactions, filters in the vector query and room for the ACL, jobs and conversations. Each chunk index has its own partial HNSW index; BM25 is derived from it and rebuilt when the index's generation moves. | A database to run; Docker Compose starts it |
 | **Citations checked on the server** | The model's citations are parsed, invalid numbers dropped, the rest renumbered. No valid citation counts as no answer. | A correct answer with no parsable citation is discarded |
 | **Two no-evidence layers** | A similarity gate stops off-topic questions without calling the LLM, and the model can refuse the rest | The gate cannot catch in-domain questions (see below) |
 | **Title and section added to indexed text** | Filings say "the Company", so chunks had no link to the company a question names. Stored and cited text stays verbatim. | Slightly more text to embed |
