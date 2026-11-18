@@ -236,7 +236,7 @@ cd frontend && npm run lint && npm run typecheck && npm test
 
 Everything was built with AI assistance, and the full logs are in [ai-logs/](ai-logs/).
 
-- **Claude app:** planning, which produced [the handoff](docs/HANDOFF.md) and [the designs](docs/design/).
+- **Claude app:** planning, which produced [the handoff](docs/archive/HANDOFF-novabridge.md) and [the designs](docs/design/).
 - **Claude Code:** the implementation, milestone by milestone, with a review before each next one.
 
 Direction that changed the plan: starting with TXT files and adding other formats gradually, using

@@ -4,7 +4,7 @@ Work through these in order. Each task is written so an agent can start it cold.
 
 ## Rules for every task
 
-- Read `CLAUDE.md` and `docs/HANDOFF.md` first. Their rules apply: no LangChain or LlamaIndex, no
+- Read `CLAUDE.md` and `docs/archive/HANDOFF-novabridge.md` first. Their rules apply: no LangChain or LlamaIndex, no
   secrets in the repo, no invented facts in fixtures or docs, and ask Ivan before adding a dependency
   that section 4 of the handoff does not list.
 - One task per branch, with small conventional commits. Run both check commands from `CLAUDE.md`

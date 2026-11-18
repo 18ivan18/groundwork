@@ -1,500 +1,856 @@
-# HANDOFF — NovaBridge Financial Analyst Q&A Assistant
+# HANDOFF: turning NovaBridge into groundwork
 
-> For the Claude Code agent working in this repo. Read this file fully before writing code.
-> The owner is **Ivan**, a backend engineer (TypeScript/Node, Kafka, AWS) for whom Python is the weaker
-> production language. This repo is a **take-home task for an interview at EPAM (AI-Python role)**.
-> Ivan must be able to explain and defend **every line** in a follow-up technical interview.
+> For the Claude Code agent working in this repo. Read this file fully before writing code, then
+> `CLAUDE.md`, `docs/archive/HANDOFF-novabridge.md` (the original, for the decisions still in force) and
+> `backend/eval/decisions.md`.
+>
+> The owner is **Ivan**. The EPAM interview is over. This repo now becomes **groundwork**: a
+> generic, in-depth knowledge assistant with RAG, agents, access control, evaluation and
+> observability, built to learn every part properly. Nothing here is a time-boxed take-home any
+> more: full scope, done well, measured. Ivan must still be able to explain every line.
 
 ---
 
-## 1. What we are building
+## 1. Where we start and where we're going
 
-An internal prototype for a (fictional) boutique advisory firm, NovaBridge Finance. Analysts ask questions
-about financial documents and get a **short, synthesized answer backed by verifiable, numbered citations**
-to the passages the answer came from.
+### What exists (NovaBridge, `main` at `08989f4`)
 
-Required deliverables (from the brief, in `docs/BRIEF.md`):
+A working, measured RAG system over six SEC 10-K filings:
 
-1. A **Python backend** exposing an API that answers questions from ingested financial documents.
-2. A **web frontend** (we use **Vite + React + TypeScript**) to ask a question and see the answer with sources.
-3. A **README.md** explaining design choices, trade-offs, setup and how to run.
-4. **Full, unedited logs of every AI-assistant conversation** used (committed under `ai-logs/`).
+- **Ingestion:** loader registry (TXT, Markdown, inline-XBRL HTML), `Item N.` section detection,
+  400-token windows with 60 overlap on sentence boundaries, title + section header prepended for
+  indexing (`domain/models.py: indexed_text`), sha256 document IDs, background upload jobs in memory.
+- **Storage:** Chroma (embedded, single process) as the source of truth; bm25s rebuilt from it.
+- **Retrieval:** dense top 20 + BM25 top 20 → hand-written RRF (k = 60) → `jina-reranker-v1-tiny-en`
+  on the top 20 → top 6. Relevance gate on the best dense similarity (0.58).
+- **Generation:** sync `LLMClient` protocol (Groq/OpenAI-compatible, Anthropic, `FakeLLM`), numbered
+  passages in escaped delimiters, server-side citation validation and renumbering, three refusal
+  reasons (`gate`, `model`, `no_citations`), token counts.
+- **Evaluation:** 45 answerable + 8 unanswerable questions, evidence-pattern Success@k and MRR per
+  stage, candidate-recall diagnosis, resumable answer eval against the real model.
+- **Frontend:** Vite + React + TS, shadcn/ui, TanStack Query, zod; ask, answer with citation chips and
+  source cards, document library, upload queue with job polling.
+- **Quality:** strict mypy, ruff, 323 backend + 38 frontend tests, CI on every push.
 
-The brief explicitly says: *"This task tests your judgment and ability to verify AI-generated code"* and
-*"We value good design, clear reasoning, and a functional end-to-end system over complex, half-finished features."*
+### What groundwork adds
 
-### What the reviewers will look for
+Everything the `groundwork` brief planned (`docs/archive/groundwork-scaffold/BRIEF.md`) that NovaBridge lacks, plus
+the pending NovaBridge improvements, plus a chunking lab:
 
-- RAG done properly: loading, chunking, indexing, hybrid retrieval, grounded generation, **citations that are
-  checked server-side**.
-- **Honesty:** when the documents don't contain the answer, say so (no answer is written).
-- A system that runs end to end with one command (`docker compose up`) and has tests.
-- Clean, idiomatic, typed Python with a clear package layout.
-- A chat log showing the human reviewing, testing and pushing back, not just accepting generated code.
+| Area | Added |
+|---|---|
+| Domain | Generic documents and collections instead of tickers and 10-K types; structure detection chosen by format |
+| Corpora | Engineering docs (public), Northwind internal docs (fictional, with access groups and planted cases), public-domain books, and the existing 10-Ks |
+| Storage | PostgreSQL 16 + pgvector as the source of truth; **bm25s kept as a derived index** |
+| Access control | Users and groups; ACL enforced inside every retriever; uploads with owners |
+| Jobs | Persisted job queue in Postgres, a worker service, several API workers |
+| LLM layer | Async, streaming, tool calling, structured output, retries with backoff, provider fallback, model routing, cost accounting, prompt caching |
+| Prompts | Versioned files with a hash check in CI and a prompt test suite |
+| RAG | Conversations, query rewriting, SSE streaming, date-aware handling of contradicting documents, answer cache, supporting-sentence highlighting, PDF loader, table alignment fix |
+| Chunking lab | `Chunker` and `Contextualizer` strategies, semantic chunking, contextual chunking (LLM-written context), an index registry so strategies sit side by side, a UI to compare them |
+| Evaluation | Generic question schema, multi-hop and ACL questions, true recall for multi-evidence questions, claim-level faithfulness judge, held-out set, CI regression gate |
+| Agents | Hand-written agent loop, then LangGraph with a Postgres checkpointer and human approval, a supervisor variant, memory, an MCP server |
+| Operations | OpenTelemetry tracing, Prometheus metrics, cost and latency summary, rate limiting, PII redaction |
+| Security | OWASP Top 10 for LLM Applications mapping, red-team tests, documented residual risk |
+| UI | A routed app shell with Chat, Library, Jobs, Tickets, Lab, Observability and Settings screens, each designed in `docs/design/` before it is built |
+| Delivery | Docker images built in CI; optional Terraform for AWS |
+
+### Numbers to protect
+
+These come from `backend/eval/results.md` and `answer_results.md`. Every milestone up to M2 must
+reproduce them within noise (one question ≈ 0.04–0.05; HNSW builds differ slightly).
+
+| What | HTML (24 q) | TXT (21 q) |
+|---|---|---|
+| Candidate recall at 20 (either retriever) | 0.96 | 0.90 |
+| Success@6, re-ranked / hybrid / dense / BM25 | 0.92 / 0.83 / 0.75 / 0.75 | 0.81 / 0.76 / 0.71 / 0.52 |
+| Answer eval (gpt-oss-120b, re-ranked) | 23 answered, 23 correct | 19 answered, 17 correct |
+| Unanswerable | 8/8 refused (3 gate, 5 model) | |
 
 ---
 
 ## 2. Rules for the agent
 
-1. **One milestone at a time** (section 9). Finish it, run the checks, show Ivan the result, and wait for
-   approval before starting the next one. Make one commit per milestone (or smaller), using clear conventional
-   commit messages.
-2. **Before every commit:** `uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest`
-   in `backend/`, and `npm run lint && npm run typecheck && npm test` in `frontend/` once it exists.
-3. **No LangChain, no LlamaIndex.** The core is plain Python behind small interfaces (decision D1). Don't
-   add a framework to "save time".
-4. **Ask before adding any dependency** not listed in section 4. Give a one-line reason.
-5. **Prefer clarity over cleverness.** Small functions, explicit types, no metaprogramming, no global
-   mutable state except the app container built in `main.py`.
-6. **Explain non-obvious choices** in a short comment or docstring that says *why*, not *what*.
-7. **Never invent facts in fixtures or the README.** Test fixtures use obviously synthetic text
-   ("ACME Corp…"). Financial content only comes from the real filings in `backend/data/raw/`.
-8. **No secrets in the repo.** All keys come from `.env` (gitignored). Keep `.env.example` up to date.
-9. **Don't hard-code LLM model IDs as facts.** Put them in `.env.example` with a comment saying to check
-   the provider's current model list.
-10. If something in this handoff is wrong or blocks you, **stop and say so** instead of working around it.
+The rules in `CLAUDE.md` and section 2 of `docs/archive/HANDOFF-novabridge.md` still apply, with these changes:
+
+1. **One milestone at a time.** Each milestone is a branch (`gw/m3-acl`, …) and a pull request. Finish
+   it, run both check commands, show Ivan, and wait for approval before the next one. Commits stay
+   small and conventional.
+2. **Measure, don't assume.** Any change to ingestion, retrieval or prompts reports before-and-after
+   numbers from the eval scripts in its pull request. Every number in the docs comes from a script in
+   the repo.
+3. **Run the real flow, not only the tests.** Fakes have hidden real bugs here before (the `【1】`
+   citations, the table misalignment, the dialog focus).
+4. **Frameworks:** the core RAG pipeline stays plain Python: no LangChain or LlamaIndex. **Exception:**
+   LangGraph (and the `langchain-core` it depends on) is allowed **only** under `backend/src/groundwork/agent/graph/`
+   for the M9 comparison with the hand-written loop. RAGAS, which pulls LangChain, may only live in an
+   optional dependency group used by one eval script. Update `CLAUDE.md` to say this in M0.
+5. **Ask before adding any dependency** not in section 4 of this file.
+6. **The ACL is enforced inside every retriever, before results are ranked and cut**, never after
+   generation and never by the prompt. Every new way to reach document text (stream, cache, agent
+   tool, MCP, job status, document list) gets an ACL test.
+7. **No side effect without human approval.** In this system that means creating a ticket.
+8. **No existence leaks.** A user who cannot see a document must not learn it exists: not through
+   search, document lists, upload deduplication, job status, cache hits or error messages.
+9. **Prompts are versioned files** under `backend/prompts/`. Changing one without bumping its version
+   fails CI.
+10. **LLM budget:** set a spend limit on every provider account. Default to the small model wherever
+    the eval says quality holds. Pace real-model runs; Groq's free tier is about 8,000 tokens a minute.
+11. **No invented facts** in fixtures, corpora or docs. The fictional Northwind corpus is the one place
+    with invented content, and it names no real company or person.
+12. Model IDs and prices are configuration, never facts in code. `.env.example` and
+    `conf/models.yaml` say to check the provider's current list.
 
 ---
 
-## 3. Decisions already made (with the reasoning Ivan will defend)
+## 3. Decisions
+
+Decisions D1–D14 in `docs/archive/HANDOFF-novabridge.md` stay unless replaced here. New decisions continue from D15 and
+are copied into `docs/DECISIONS.md` (created in M0) as they're made.
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | Plain Python core, **no LlamaIndex/LangChain** | Every step (chunking, fusion, prompt, citation check) is visible, testable and explainable. LlamaIndex would duplicate our own LLM adapter layer and hide the citation logic in its templates. Trade-off: more code; the brief only *suggests* frameworks. |
-| D2 | **LLM behind an adapter interface**, provider chosen by env var | `LLM_PROVIDER=openai_compatible` (Groq, Ollama, OpenAI by changing `base_url`) or `anthropic`. Shows clean ports-and-adapters design, keeps the system runnable for free (Groq/Ollama), and lets tests use a `FakeLLM`. |
-| D3 | **Embedder is a separate interface** from the LLM | Anthropic has no embeddings API, so the embedding provider can't follow the LLM provider. |
-| D4 | Embeddings: **`BAAI/bge-small-en-v1.5` via `fastembed`** to start; selected by `EMBEDDING_PROVIDER` | Small ONNX model, fast on CPU, runs locally and free, so the system works end to end first. Limit: 512 input tokens, so `CHUNK_TOKENS` must stay below it. `sentence_transformers` remains a provider for **Qwen3-Embedding-0.6B** (Apache 2.0) and `microsoft/harrier-oss-v1-0.6b` (MIT). The final choice comes from **our own recall@k** in a later comparison, not the leaderboard. |
-| D5 | **Hybrid retrieval**: BM25 (`bm25s`) + dense (Chroma), merged with **Reciprocal Rank Fusion** written by hand | Financial text is full of exact terms (tickers, "Item 1A", product names, numbers) where BM25 wins, and paraphrased questions where dense wins. RRF needs no score calibration. `score(d) = Σ 1/(k + rank_i(d))`, k = 60 (Cormack et al., 2009). About 15 lines; unit-tested. |
-| D6 | **Vector store: ChromaDB** (persistent, embedded) | Zero ops, stores text + metadata, good enough for thousands of chunks. Chroma is the **single source of truth** for chunks; the BM25 index is derived from it and can be rebuilt. |
-| D7 | **Citations checked on the server** | Passages are numbered `[1]..[k]` in the prompt; the model must cite `[n]`. The server parses citations, drops numbers that don't exist, renumbers the rest in order of first appearance, and returns only cited passages as `sources`. Zero valid citations → treated as insufficient evidence. |
-| D8 | **"Not enough evidence" path** has two layers | (a) Retrieval gate: if the best dense cosine similarity < `MIN_RELEVANCE` (tuned on the eval set), the LLM is not called. (b) The model is told to reply exactly `INSUFFICIENT_EVIDENCE` if the passages don't answer the question. Either case returns `insufficient_evidence: true`. |
-| D9 | **Corpus: SEC EDGAR 10-K filings** for Apple, Microsoft and NVIDIA (latest annual report each) | Real, relevant, and US government filings are public domain, so they can be committed. EDGAR requires a descriptive `User-Agent` with contact info: read it from `SEC_USER_AGENT` in `.env`, never hard-code it. **First runs use their newest plain-text annual reports** (FY2000–2001, the last before EDGAR moved to HTML): real `.txt` filings needing no conversion. Since M8b part 1 the current HTML 10-Ks are indexed **beside** them, not instead: both generations stay, and answers name the period of each figure (see `backend/eval/decisions.md`). |
-| D10 | **Document upload** from the UI | `POST /api/documents` (multipart). Indexing runs as a background job; the UI polls job status. Formats arrive gradually: **TXT and Markdown first** (M2, M8), then HTML, then PDF (text layer only, **no OCR**) in M8b. Max 20 MB. |
-| D11 | **Frontend: Vite + React + TypeScript, shadcn/ui, TanStack Query** | shadcn/ui components are copied into the repo, so they stay readable and restylable to match `docs/design/` through the design tokens. TanStack Query handles request state and job polling, replacing hand-written loading/error/polling code. Trade-off: Tailwind and Radix become dependencies. |
-| D12 | **Python 3.12, uv, ruff, mypy, pytest** | Modern standard tooling; `uv.lock` makes installs reproducible. |
-| D13 | **Docker Compose**: `api` (FastAPI/uvicorn) + `web` (nginx serving the Vite build and proxying `/api`) | One command to run. Optional `ollama` service behind a compose profile for a fully local LLM. |
-| D14 | **Cross-encoder re-ranker** (`jinaai/jina-reranker-v1-tiny-en` via `fastembed`) on the top `RERANK_CANDIDATES` (20) after RRF; `RERANKER_MODEL=` turns it off | RRF ranks a passage found by both retrievers above any found by one, which dropped most misses. Chosen from six fastembed cross-encoders on recall, CPU latency and license (`backend/eval/decisions.md`, "Re-ranker"). The relevance gate still uses dense similarity, over all candidates before re-ranking. |
+| D15 | **Continue in this repo; rename the product and package to `groundwork`** (`novabridge_qa` → `groundwork`). The version EPAM saw is the existing tag **`v1.1.0`** (`83146fa`, already on `origin`); no new tag. The `~/repos/groundwork` scaffold is reference only: M0 copies the files still referenced to `docs/archive/groundwork-scaffold/` and deletes the scaffold; its `DECISIONS.md` is ported to `docs/DECISIONS.md`, and its migration is read for ideas but not copied (section 5). The GitHub repo and the local folder are renamed to `groundwork`. | This repo has the history, the measured evals and 361 tests; the scaffold has one commit. `v1.1.0` keeps the version EPAM saw. |
+| D16 | **PostgreSQL 16 + pgvector is the single source of truth** for documents, chunks, vectors, jobs, conversations, tickets and checkpoints. **Chroma is removed** once M2 shows eval parity. | ACL, transactions, a durable queue and several workers all need a real database. Keeping Chroma would mean writing every ACL filter twice. |
+| D17 | **bm25s stays, derived from Postgres**, one index per chunk index (D20), persisted on a shared volume and reloaded by each API worker when the index's `generation` changes. A Postgres full-text (`ts_rank`) retriever is added only as a measured comparison. | `ts_rank` has no IDF, so rare exact tokens ("Item 7A", figures, error codes) lose the weight that makes hybrid search work. BM25 found 0.90 of the TXT questions in its top 20 against dense's 0.81. |
+| D18 | **Plain SQL through psycopg 3** (async pool) in the app; **Alembic with hand-written SQL** (`op.execute`) for migrations. No ORM. | Every index, cast and filter is visible and explainable. Same choice as the scaffold (S4 in `docs/DECISIONS.md`). |
+| D19 | **Vectors in an untyped `vector` column, with one partial HNSW expression index per chunk index**: `USING hnsw ((embedding::vector(384)) vector_cosine_ops) WHERE index_id = 7`. Queries repeat the same cast and predicate, with **`index_id` and the dimension written into the SQL as literals** (both are integers from the `indexes` table, never user input), not passed as parameters. | Different embedders have different dimensions, and HNSW needs a fixed one. This keeps one `chunks` table for every experiment. Literals matter: psycopg 3 prepares a statement server-side after 5 runs, Postgres may then choose a generic plan, and a generic plan can't prove `index_id = $1` matches the partial index's predicate, so the query silently falls back to a sequential scan. |
+| D20 | **Chunk indexes are first-class:** an `indexes` table records chunker, contextualizer, embedder and their parameters; chunks belong to one index; one index is marked active (an alias). Experiments build new indexes beside the active one. | Chunking and embedder experiments become side-by-side comparisons, and switching models becomes the blue/green index swap from interview answer Q17. |
+| D21 | **Job queue in Postgres** (`SELECT … FOR UPDATE SKIP LOCKED`), consumed by a `worker` service. No Redis, no Celery. | One less service; transactional with the data it changes; a classic pattern worth knowing. Revisit if throughput demands it. |
+| D22 | **Async from the API to the store and the LLM, starting in M2.** In M2 endpoints become `async def`, `QAService` and the `ChunkStore` become async over the psycopg async pool, and CPU work (embedding, re-ranking, BM25) runs through `asyncio.to_thread`. The sync LLM client is called through `asyncio.to_thread` until M4 replaces it with async adapters. | Streaming, agent tool calls in parallel and SSE all want async. Doing it with the store in M2 means the async pool is never called from sync code. CPU work stays off the event loop (ONNX Runtime releases the GIL). |
+| D23 | **Authentication is a header (`X-User`)** against users and groups seeded from `conf/users.yaml`, behind an `Authenticator` interface. Real auth (OIDC) is out of scope and the README says so. | Lets the ACL be built and tested properly without building an identity provider. |
+| D24 | **Streaming (resolves improvement 6):** stream raw tokens as a preview, then send a final `answer` event with the validated, renumbered answer that replaces the preview. | Server-side citation checking (D7) needs the whole answer. Sentence buffering is the alternative; Ivan can switch later. |
+| D25 | **Primary LLM: Anthropic** (prompt caching makes contextual chunking cheap); **fallback: OpenAI-compatible** (Groq); **local:** Ollama profile. Small and large model per task, set in `conf/models.yaml`. | Groq's free tier can't carry contextual chunking or agent runs. |
+| D26 | **Faithfulness is our own claim-level judge** (a different model from the answer model), calibrated against hand labels. RAGAS runs as an optional comparison script only. | Keeps LangChain out of the main dependencies (rule 4), and a judge we wrote is one we can explain and calibrate. |
 
 ---
 
-## 4. Stack and dependencies
+## 4. Dependencies
 
-**Backend (`backend/pyproject.toml`)**
-- Runtime: `fastapi`, `uvicorn[standard]`, `pydantic>=2`, `pydantic-settings`, `python-multipart`
-- Retrieval: `chromadb`, `bm25s` (+ `PyStemmer`), `fastembed`; `sentence-transformers` (CPU `torch`, for the later embedder comparison) as the optional `sentence-transformers` extra, decided by Ivan to keep it out of the default install and the image
-- LLM: `openai` (OpenAI-compatible client), `anthropic`
-- Parsing: `beautifulsoup4` + `lxml` (EDGAR HTML), `pypdf` (PDF text layer)
-- Tokens for chunking: the embedder's own tokenizer, through `Embedder.count()`; no extra library
-- HTTP for the fetch script: `httpx`
-- Dev: `pytest`, `pytest-asyncio` (only if needed), `ruff`, `mypy`, `types-*` stubs as needed
+Already present stay. New, approved by this handoff (still say which milestone adds each):
 
-**Frontend (`frontend/package.json`)**
-- `react`, `react-dom`, `vite`, `typescript`, `@vitejs/plugin-react`
-- UI: `shadcn/ui` (with what it requires: `tailwindcss`, Radix primitives, `class-variance-authority`, `cn`, `lucide-react`)
-- Server state: `@tanstack/react-query`
-- Response checking: `zod` (schemas for every API response; a mismatch logs a console warning and the data is still used), approved by Ivan
-- Dev: `eslint` (+ TS plugin), `vitest`, `@testing-library/react`, `jsdom`
-- No axios (use `fetch` with a small typed client, called from TanStack Query). No other state library.
+**Backend runtime:** `psycopg[binary,pool]`, `pgvector` (Python adapter), `alembic` (+ its `sqlalchemy`
+dependency, migrations only), `pypdf`, `pyyaml`, `mcp` (official SDK), `opentelemetry-sdk`,
+`opentelemetry-exporter-otlp`, `prometheus-client`.
 
----
+**Backend, agent comparison only (M9):** `langgraph`, `langgraph-checkpoint-postgres`.
 
-## 5. Architecture
+**Optional group `ragas` (M7):** `ragas`. Never in the Docker image.
 
-```
-                   ┌─────────────── ingestion (CLI script or upload job) ───────────────┐
- raw file ──▶ loader (html/pdf/txt/md) ──▶ section detection ──▶ chunker ──▶ embedder ──▶ Chroma (text+metadata+vector)
-                                                                                     └──▶ rebuild BM25 index from Chroma
+**Dev (M2):** `pytest-asyncio`, `testcontainers[postgres]` *or* a CI Postgres service (choose one in M2
+and record it).
 
- question ──▶ HybridRetriever
-                ├─ dense: embed query ──▶ Chroma top-N   (N = 20)
-                ├─ sparse: bm25s top-N
-                └─ RRF fuse ──▶ top-k passages (k = 6)
-           ──▶ relevance gate (D8a) ──▶ prompt builder (numbered passages) ──▶ LLMClient
-           ──▶ citation validator (D7) ──▶ AnswerResponse {answer, sources, retrieved, insufficient_evidence}
-```
+**Frontend:** a router, added in M3b: **TanStack Router** by default (it pairs with TanStack Query
+and types route params and search params, which the library filters live in), or React Router if Ivan
+prefers. Confirm with Ivan before installing. Nothing else is needed. SSE is read with `fetch` and a stream
+reader (`EventSource` can't POST). Ask before adding a Markdown renderer; answers are rendered as
+text, never HTML (M11).
 
-### Core interfaces (sketch: implement with `typing.Protocol`)
-
-```python
-class LLMClient(Protocol):
-    # Completion(text, input_tokens, output_tokens); token counts are None if not reported
-    def complete(self, system: str, messages: Sequence[ChatMessage], *, max_tokens: int) -> Completion: ...
-
-class Embedder(Protocol):
-    dimension: int
-    def embed_documents(self, texts: Sequence[str]) -> list[list[float]]: ...
-    def embed_query(self, text: str) -> list[float]: ...   # Qwen3 uses a query instruction/prompt; documents don't
-
-class Retriever(Protocol):
-    def search(self, query: str, k: int, filters: SearchFilters | None = None) -> list[ScoredPassage]: ...
-```
-
-Implementations:
-- `llm/openai_compatible.py` → `OpenAICompatibleClient(base_url, api_key, model)`
-- `llm/anthropic_client.py` → `AnthropicClient(api_key, model)` (system prompt goes in the `system` parameter)
-- `llm/fake.py` → `FakeLLM` (scripted replies, used in tests)
-- `llm/factory.py` → `build_llm(settings) -> LLMClient` (match on `settings.llm_provider`)
-- `retrieval/embedder.py` → `SentenceTransformerEmbedder`, `FakeEmbedder` (deterministic hash vectors, for tests)
-- `retrieval/dense.py`, `retrieval/sparse.py`, `retrieval/fusion.py` (pure function `rrf(rankings, k=60)`), `retrieval/hybrid.py`
-- `retrieval/reranker.py` → `Reranker` protocol, `FastEmbedReranker`, `FakeReranker` (word overlap, for tests)
-
-### Domain models (`domain/models.py`, frozen dataclasses or Pydantic)
-
-- `Document`: `doc_id` (sha256 of file bytes, which also deduplicates uploads), `title`, `company`, `ticker`,
-  `doc_type` (`10-K`, `10-Q`, `8-K`, `earnings_call`, `news`, `other`), `period_end` (date | None),
-  `source` (`edgar` | `upload`), `filename`, `ingested_at`
-- `Chunk`: `chunk_id` (`{doc_id}:{index}`), `doc_id`, `text`, `section` (e.g. "Item 1A — Risk Factors"),
-  `page` (PDF only), `char_start`, `char_end`
-- `ScoredPassage`: `chunk`, `document`, `dense_rank`, `sparse_rank`, `rrf_score`, `dense_similarity`
-
-### Chunking
-
-- Split by detected section first (for 10-Ks: regex on `Item\s+\d+[A-C]?\.` headings), then into windows of about
-  **400 tokens with 60 overlap**, using the embedder's tokenizer and breaking on sentence/paragraph
-  boundaries where possible. Tune these numbers with the eval (M4) and record the results in the README.
-- Drop chunks with fewer than ~30 tokens (table-of-contents noise).
-- Keep metadata on every chunk; the UI shows filing · section and the citation links depend on it.
-
-### Prompt (`qa/prompt.py`)
-
-- System prompt: answer **only** from the numbered passages; cite every claim as `[n]`; no outside
-  knowledge; no investment advice; if the passages don't answer it, reply exactly `INSUFFICIENT_EVIDENCE`.
-- **Prompt-injection guard:** passages (uploads especially) are untrusted. Wrap each one in clear
-  delimiters (`<passage id="3" source="AAPL 10-K FY2025, Item 1A">…</passage>`) and state that passage text
-  is data, never instructions.
-- Low temperature (0–0.2) for `openai_compatible` and a `max_tokens` limit, both from settings. Anthropic gets no
-  temperature, because API version 2026-10-21 rejects it on every model.
-
-### Citation validation (`qa/citations.py`)
-
-Pure, heavily unit-tested function:
-`validate(answer_text, num_passages) -> ValidatedAnswer(text, cited_ids_in_order, dropped_ids)`
-- Parse `[n]` and `[n, m]` / `[n][m]` forms.
-- Drop ids outside `1..num_passages` (and strip them from the text).
-- Renumber the remaining ids consecutively in order of first appearance and rewrite the text to match.
-- No valid citations left → `insufficient_evidence`.
+**Services:** `pgvector/pgvector:pg16` (pgvector ≥ 0.8 for iterative index scans), optional
+`langfuse` behind a compose profile (M10).
 
 ---
 
-## 6. API contract (`/api` prefix)
+## 5. Target architecture
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/api/health` | `{status, llm_provider, embedder, documents, chunks}` |
-| GET | `/api/config` | `{upload_types, max_upload_mb}`: the upload limits, so the UI never hard-codes them |
-| POST | `/api/ask` | Ask a question |
-| GET | `/api/documents` | List documents in the library |
-| POST | `/api/documents` | Upload one file (multipart: `file`, `company`, `doc_type`, `period_end?`) → `202 {job_id, doc_id}` |
-| GET | `/api/jobs/{job_id}` | `{status: queued\|parsing\|embedding\|indexed\|failed, progress: 0-100, error?, chunks?}` |
-| DELETE | `/api/documents/{doc_id}` | Optional (stretch): remove a document and rebuild BM25 |
-
-`POST /api/ask` request:
-```json
-{ "question": "string (3–1000 chars)", "filters": { "tickers": ["AAPL"], "doc_types": ["10-K"], "sources": ["upload"] }, "top_k": 6 }
 ```
-Response:
-```json
-{
-  "answer": "Apple relies on outsourcing partners … [1]. …",
-  "insufficient_evidence": false,
-  "sources": [
-    { "id": 1, "doc_id": "…", "title": "Apple Inc. · Form 10-K", "ticker": "AAPL", "doc_type": "10-K",
-      "period_end": "2025-09-27", "section": "Item 1A — Risk Factors", "page": null,
-      "excerpt": "…", "chunk_id": "…",
-      "retrieval": { "dense_rank": 1, "sparse_rank": 3, "rrf_score": 0.0323 } }
-  ],
-  "retrieved": [ /* all top-k passages, same shape without id, for "retrieved but not cited" */ ],
-  "timings_ms": { "retrieval": 0, "generation": 0 }
-}
-```
-Errors: `422` for validation errors (FastAPI default); `413` file too large; `415` unsupported type;
-`422` with a clear message for a PDF with no text layer; `502` with a friendly message if the LLM provider fails
-(never leak stack traces or keys).
+                         ┌──────────────── worker service (jobs from Postgres) ─────────────────┐
+ upload / corpus ─▶ jobs ─▶ loader ─▶ structure detector ─▶ Chunker ─▶ Contextualizer ─▶ Embedder ─▶ chunks (Postgres)
+                                                                                                └─▶ bump index generation
+                                                                                                    └─▶ bm25s rebuilt per index
 
-Jobs: an in-memory registry plus FastAPI `BackgroundTasks`, with index writes behind a single `threading.Lock`,
-running **one uvicorn worker**. This is a deliberate prototype trade-off; the README must name the production
-alternative (a queue such as Celery/RQ/Arq plus a persisted job table).
+ user ─▶ Authenticator (X-User → groups)
+      ─▶ conversation ─▶ query rewrite (small model, follow-ups only)
+      ─▶ answer cache? (key includes groups + index generation + prompt version)
+      ─▶ Router (small model): RAG or agent
+           RAG:   HybridRetriever(index, groups, filters)
+                    ├─ dense: pgvector, ACL + filters in SQL WHERE, iterative HNSW scan
+                    ├─ sparse: bm25s, ACL + filters as a mask before top-n
+                    └─ RRF ─▶ cross-encoder re-rank ─▶ top k
+                  ─▶ relevance gate ─▶ prompt (versioned) ─▶ LLM (stream) ─▶ citation validator ─▶ SSE
+           agent: loop with tools (search_docs, get_passage, list_documents, calculate, create_ticket*)
+                  ─▶ evidence tracking ─▶ citation validator ─▶ SSE (steps + answer)
+                  * create_ticket pauses for human approval
+ every stage ─▶ OpenTelemetry span (tokens, cost, latency, prompt version, index id)
+```
+
+### Package layout after the rename
+
+```
+backend/src/groundwork/
+  domain/        models.py (Document, Chunk, Collection, User, SearchFilters, ScoredPassage)
+  auth/          users.py (Authenticator, HeaderAuthenticator)
+  db/            pool.py, migrations/ (Alembic), queries/ (one module per table group)
+  ingestion/     loaders/ (txt, md, html, pdf), structure/ (detectors by format),
+                 chunkers/ (window, semantic), contextualizers/ (none, header, llm),
+                 pipeline.py, jobs.py (queue), worker.py, corpus.py
+  retrieval/     store.py (ChunkStore protocol), pgvector_store.py, sparse.py, fusion.py,
+                 reranker.py, embedder.py, hybrid.py, indexes.py (registry, active alias)
+  llm/           base.py (messages, content blocks, tools, events), anthropic_client.py,
+                 openai_compatible.py, fake.py, resilient.py (retry, fallback, budget),
+                 routing.py, pricing.py, structured.py
+  prompts/       loader.py (front matter, version, hash)        (prompt files: backend/prompts/*.md)
+  qa/            service.py, rewrite.py, citations.py, highlight.py, cache.py, conversations.py
+  agent/         loop.py, tools.py, evidence.py, router.py, memory.py, graph/ (LangGraph, M9)
+  tickets/       service.py
+  mcp_server.py
+  observability/ tracing.py, metrics.py, redaction.py
+  api/           routes_*.py, sse.py, deps.py, ratelimit.py
+```
+
+### Data model (a new first migration)
+
+The scaffold's migration (`docs/archive/groundwork-scaffold/0001_initial.py`) is **reference only, not a
+port**: it has only `documents`, `chunks` and `tickets`, and one global HNSW index that D19 replaces.
+Write the migration from the schema below.
+
+```sql
+users        (id text PK, display_name text, groups text[] NOT NULL)     -- seeded from conf/users.yaml
+collections  (id text PK, name text, description text, default_access_groups text[])
+documents    (id bigserial PK, content_hash text NOT NULL, collection_id text REFERENCES collections,
+              title text, filename text, mime text, doc_type text, doc_date date,
+              metadata jsonb DEFAULT '{}', access_groups text[] NOT NULL, owner_id text REFERENCES users,
+              licence text, planted text,                 -- e.g. 'injection', 'contradiction-old'
+              created_at timestamptz DEFAULT now(),
+              UNIQUE NULLS NOT DISTINCT (content_hash, collection_id, access_groups, owner_id))
+              -- see rule 8. NULLS NOT DISTINCT (Postgres 15+): corpus documents have no owner, and
+              -- without it re-ingesting a corpus would insert duplicates. access_groups is stored
+              -- sorted and de-duplicated (a CHECK or the insert code), so {hr,everyone} = {everyone,hr}.
+indexes      (id serial PK, name text UNIQUE, chunker text, chunker_params jsonb,
+              contextualizer text, contextualizer_params jsonb, embedder_model text, dimension int,
+              status text CHECK (status IN ('building','ready','retired')),
+              generation bigint NOT NULL DEFAULT 0, is_active bool NOT NULL DEFAULT false,
+              created_at timestamptz DEFAULT now())
+              -- partial unique index: only one row with is_active
+chunks       (id bigserial PK, index_id int REFERENCES indexes ON DELETE CASCADE,
+              document_id bigint REFERENCES documents ON DELETE CASCADE, ordinal int,
+              text text NOT NULL,              -- verbatim, what users see and cite
+              context text,                    -- contextualizer output, indexed but never cited
+              section_path text[],             -- heading path, e.g. {'Item 7', 'Liquidity'}
+              page int, char_start int, char_end int, token_count int,
+              access_groups text[] NOT NULL,   -- denormalised from documents: the ACL runs in the same query
+              collection_id text, doc_date date,
+              embedding vector,                -- untyped: see D19
+              tsv tsvector GENERATED ALWAYS AS (to_tsvector('english', coalesce(context,'') || ' ' || text)) STORED,
+              UNIQUE (index_id, document_id, ordinal))
+              -- GIN on access_groups, GIN on tsv, btree on (index_id, collection_id, doc_date),
+              -- one partial HNSW expression index per index row (created by code when the index is built)
+chunk_contexts (cache_key text PK, context text, model text, prompt_version text,
+                input_tokens int, output_tokens int, created_at timestamptz)   -- key: hash(doc, chunk, prompt, model)
+jobs         (id uuid PK, kind text, payload jsonb, status text, progress int, attempts int,
+              max_attempts int, run_after timestamptz, locked_by text, locked_at timestamptz,
+              error text, created_by text, created_at, updated_at)
+conversations(id uuid PK, user_id text, title text, created_at)
+messages     (id bigserial PK, conversation_id uuid, role text, content text,
+              sources jsonb,                   -- a snapshot of each cited passage, so a deleted
+                                               -- document leaves "source deleted", not a broken answer
+              refusal text, usage jsonb, trace_id text, created_at)
+feedback     (id bigserial PK, message_id bigint REFERENCES messages ON DELETE CASCADE, user_id text,
+              rating smallint, reason text, promoted_to_eval bool DEFAULT false, created_at)
+eval_labels  (id bigserial PK, kind text,           -- 'claim' (judge calibration) | 'failure' (taxonomy)
+              run_id text, question_id text, claim text, passage_id text, label text,
+              note text, labelled_by text, created_at)
+answer_cache (key text PK, response jsonb, created_at, hits int)
+tickets      (id bigserial PK, title text, body text, priority text, status text,
+              created_by text, approved_by text, thread_id text, created_at)
+user_memories(id bigserial PK, user_id text, content text, source text, created_at)
+rate_limits  (user_id text, window_start timestamptz, route text, count int, PRIMARY KEY (...))
+-- LangGraph's checkpoint tables are created by its own setup() in M9.
+```
 
 ---
 
-## 7. Configuration (`config.py`, `pydantic-settings`; `.env.example` mirrors it)
+## 6. Milestones
 
-```
-LLM_PROVIDER=openai_compatible          # openai_compatible | anthropic
-LLM_BASE_URL=https://api.groq.com/openai/v1   # or http://ollama:11434/v1, https://api.openai.com/v1
-LLM_API_KEY=
-LLM_MODEL=                               # check the provider's current model list
-ANTHROPIC_API_KEY=
-ANTHROPIC_MODEL=                         # check Anthropic's current model list
-LLM_TEMPERATURE=0.1
-LLM_MAX_TOKENS=4096                      # thinking models spend this on reasoning too
-LLM_TIMEOUT_SECONDS=60
+Each milestone lists **Why**, **Scope**, **Files**, **Tests**, **Measure** and **Done when**. Order
+matters: each one gives the next a measured baseline.
 
-EMBEDDING_PROVIDER=fastembed             # fastembed | sentence_transformers
-EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
-EMBEDDING_DEVICE=cpu
+### M0: Freeze, rename, ground rules
 
-DATA_DIR=./data
-CHUNK_TOKENS=400
-CHUNK_OVERLAP=60
-RETRIEVAL_CANDIDATES=20
-TOP_K=6
-RRF_K=60
-MIN_RELEVANCE=0.58                       # tuned for bge-small in M4; retune for any other embedder
-MAX_UPLOAD_MB=20
-CORS_ORIGINS=http://localhost:5173
+**Why:** keep the submitted version reachable, then make every later diff about one thing.
 
-SEC_USER_AGENT=                          # e.g. "Your Name your@email" (required by SEC EDGAR)
-```
-Validate on startup: e.g. `anthropic` provider without `ANTHROPIC_API_KEY` → fail fast with a clear message.
+**Scope:**
+- The submitted version is the existing tag `v1.1.0` (D15), already on `origin`; nothing to tag.
+- Commit the untracked files: `books/` (a corpus in M1; check the Project Gutenberg licence header is
+  kept), `docs/design/` (the M3b–M12 mockups and `groundwork.css`) and this file.
+- **Absorb and delete the scaffold.** `~/repos/groundwork` has one commit and no remote, so deleting it
+  is permanent. First copy what this handoff still references into `docs/archive/groundwork-scaffold/`: `README.md` (the brief, as `BRIEF.md`),
+  `DECISIONS.md`, `CLAUDE.md`, `docker-compose.yml`, `conf/users.yaml`, `conf/app.yaml` and
+  `api/migrations/versions/0001_initial.py`, with a short `README` saying they are a frozen reference.
+  Ivan confirms the list, then the scaffold folder is deleted. Its code (`api/`, `web/`, tests) is not
+  kept: this repo supersedes it.
+- Rename the package `novabridge_qa` → `groundwork`, the Docker images, the compose project, the API
+  title and the UI name. Purely mechanical: no behaviour change.
+- **Rename the repository**, after the scaffold is gone and the rename above is merged: the GitHub repo
+  `novabridge-qa` → `groundwork` (`gh repo rename`; GitHub redirects the old URLs) and update `origin`;
+  the local folder `~/repos/epam` → `~/repos/groundwork`. Moving the folder resets Claude Code's
+  per-project memory, which is keyed by path: move `~/.claude/projects/-Users-…-repos-epam/memory/` to
+  the new project key.
+- Move `docs/HANDOFF.md` → `docs/archive/HANDOFF-novabridge.md` and `docs/IMPROVEMENTS.md` →
+  `docs/archive/`; this file becomes `docs/HANDOFF.md`. Create `docs/DECISIONS.md` with D1–D26.
+- Update `CLAUDE.md`: new rules from section 2 (LangGraph and RAGAS exceptions, ACL rule, no
+  existence leaks), and point the dependency rule at section 4 of the new `docs/HANDOFF.md` (this
+  file), not the archived one.
+- Add a CI job that builds both Docker images (open item from IMPROVEMENTS).
+
+**Tests:** all existing tests pass unchanged apart from import paths.
+**Measure:** `run_eval.py` output identical to `results.md` (same index, same code).
+**Done when:** untracked files committed, scaffold archived and deleted, package rename merged, repo and
+folder renamed, CI green including image builds.
+
+### M1: Generic domain, structure by format, new corpora, generic eval set
+
+**Why:** stop being a 10-K tool before changing storage, so the store change in M2 is measured on
+the final corpus.
+
+**Scope:**
+- **Domain:** replace `company`, `ticker`, `DocType` literals and `period_end` with `collection_id`,
+  free-text `doc_type`, `doc_date`, `metadata: dict`, `access_groups`, `owner_id`.
+  `SearchFilters` becomes `collections`, `doc_types`, `date_from`, `date_to`, `metadata` equality.
+  10-K manifests map ticker and form into `metadata` and `doc_type`, and the period into `doc_date`.
+- **Structure detection by format** (`ingestion/structure/`): a `StructureDetector` protocol returning
+  sections with a **heading path**; Markdown (ATX headings), HTML (`h1`–`h4`), SEC filings (the
+  existing `Item N.` rule, selected by `doc_type` 10-K/10-Q, not run on everything), books (chapter
+  headings: `CHAPTER`/`Chapter` + numeral), plain text fallback (one section). Chosen per document
+  from a registry; tests for each.
+- `Chunk.section` becomes `section_path: tuple[str, ...]`; the indexing header joins title and path.
+- **PDF loader** (improvement 8): `pypdf`, fills `page_spans`, chunks get page numbers, a PDF without a
+  text layer gets a 422.
+- **HTML table alignment** (improvement 11), as specified in `docs/archive/IMPROVEMENTS.md`. Its own
+  commit with before-and-after eval numbers.
+- **Corpora** (`backend/data/raw/<collection>/manifest.json`, each entry with source, licence,
+  access groups, date and `planted`):
+  - `sec-10k`: the existing six filings, access `everyone`.
+  - `engineering`: about 150 Markdown pages from the Kubernetes website docs (CC BY 4.0), pinned to
+    a commit hash recorded in the manifest, fetched by `scripts/fetch_engineering_docs.py`.
+  - `northwind`: about 30 short fictional documents for "Northwind Labs": runbooks and on-call guides
+    (`everyone`), HR policies (`hr`), finance runbooks (`finance`). **Planted:** an old and a new
+    expense policy with dates that contradict each other; one document with an indirect prompt
+    injection (hidden text telling the assistant to create a ticket and reveal HR content); one HR
+    document whose title alone would be sensitive (for the existence-leak tests). Ivan reviews the
+    texts before they're committed.
+  - `books`: the three Project Gutenberg books already in `books/` (Frankenstein, Pride and
+    Prejudice, Sherlock Holmes), public domain, `everyone`. Long, weakly structured prose: the best
+    test bed for semantic and contextual chunking.
+- **Users:** `conf/users.yaml` with `alice` (everyone), `hana` (everyone, hr), `filip` (everyone,
+  finance), `admin` (everyone, hr, finance, admin). Loaded now, enforced in M3.
+- **Eval schema** (`eval/questions.jsonl`): generic fields `id`, `collection`, `question`,
+  `documents` (manifest keys whose evidence counts), `evidence` (a list: one pattern per required
+  fact, so multi-hop questions need all of them), `expected`, `user` (default `alice`), `type`
+  (`single`, `multi_hop`, `unanswerable_off_topic`, `unanswerable_in_domain`, `restricted`,
+  `contradiction`, `injection`). Convert the 53 existing questions mechanically and check the
+  converted scores match. Add about 30 engineering, 25 Northwind (including restricted questions asked
+  by the wrong user, the contradiction and the injection) and 15 books questions. **Write them before
+  running anything on the new corpora**, and set aside 20 of them, untouched, as the held-out set
+  (`eval/heldout.jsonl`) used once per major milestone report.
+- **Metrics vocabulary:** rename the report's R@k to **Success@k** (any required evidence in the top
+  k) and add **Recall@k** (share of required evidence found) for multi-hop questions, plus MRR.
+  Report per collection and per question type.
+- **Prompt:** remove "financial analysts" and the investment-advice rule; the period rule becomes a
+  date rule ("when passages carry different dates, say which date each fact comes from"). A new
+  version, measured.
+- Frontend: replace ticker scopes (`lib/scopes.ts`) with collection filters; upload form asks for
+  collection, document type and date instead of company and period.
+
+**Tests:** structure detectors, PDF loader, table alignment, manifest validation, converted eval
+questions all validate against their texts (`run_eval.validate`).
+**Measure:** finance numbers unchanged within noise (except the table-alignment commit, reported
+separately); first baseline for the new collections.
+**Done when:** `run_eval.py` produces per-collection tables for four collections from one command,
+and Ivan has approved the new questions and the Northwind texts.
+
+### M2: Postgres as the source of truth, bm25s derived, CI regression gate
+
+**Why:** the store every later feature needs (D16–D19). Done before ACL so its effect is measured
+alone.
+
+**Scope:**
+- Compose: `db` (`pgvector/pgvector:pg16`, healthcheck, volume), `migrate` one-off job running
+  `alembic upgrade head`, then `ingest`, `api`, `web`. Ports from the scaffold's `docs/archive/groundwork-scaffold/docker-compose.yml`.
+- Migrations: the schema in section 5 (ACL columns included now, enforced in M3).
+- Extract a **`ChunkStore` protocol** from `retrieval/dense.py` (`add`, `search`, `get`,
+  `all_passages(index_id)`, `documents`, `has_document`), implement `PgVectorStore`, port the tests,
+  then delete Chroma and its dependency once parity is shown. The protocol is **async** (D22).
+- **Async from the API down** (D22): routes become `async def`, `QAService.ask` and the store async
+  over the psycopg async pool; embedding, re-ranking and BM25 run through `asyncio.to_thread`; the
+  still-sync LLM client is called through `asyncio.to_thread` until M4. `pytest-asyncio` added here.
+- **Index registry** (`retrieval/indexes.py`): create an index row, build its partial HNSW expression
+  index (`m = 16, ef_construction = 64`, written out), mark it active. The existing configuration
+  becomes index `window-400-header-bge-small`.
+- Writes are one transaction per document (replaces the reverse-batch trick from Chroma); upsert on
+  `(index_id, document_id, ordinal)`; the document row is the "fully indexed" marker.
+- **bm25s per index**, built from `chunks`, saved under `data/bm25/<index_id>/<generation>/`,
+  loaded lazily. Each API worker checks the index's `generation` (cached for a second) before a search
+  and reloads when it changed. Keep the in-memory side arrays (chunk id, collection, date, access
+  groups as a bitmask) aligned with bm25s positions so filters apply before the top-n cut. Check
+  whether the installed bm25s supports a mask on `retrieve` (`weight_mask`); otherwise keep today's
+  score-all-then-filter loop and note its cost. The group bitmask needs a **group → bit mapping built
+  per generation** from the groups present in the index, because M3 adds a `private:<user>` group per
+  uploader and the set of groups is not fixed.
+- **Generation bumps once per job, not per document:** a corpus ingest or bulk upload bumps the index
+  generation when the job finishes, so bm25s is rebuilt once rather than once per file.
+- **Comparison retriever:** `ts_rank` on `tsv` as a fourth sparse option in the eval only (D17).
+- `docs/RETRIEVAL.md`: `EXPLAIN ANALYZE` of a dense query showing the HNSW index used, the same query
+  with a selective filter, and what changes with `hnsw.ef_search`. Include the **sixth run of the same
+  query through the app's pool** to show the partial index is still used once psycopg prepares the
+  statement (D19).
+- **CI gate:** a Postgres service in CI, the fastembed model cached, `run_eval.py --ci` on the
+  `sec-10k` and `northwind` collections with **exact search** (`SET LOCAL enable_indexscan = off` for
+  the vector query) so CI is deterministic. Fails if Success@6 drops more than 3 points below
+  `eval/baseline.json`, per collection. Updating the baseline is a deliberate, reviewed commit.
+
+**Tests:** store contract tests run against Postgres (marked `db`; required in CI, skipped locally
+without a database, as in the scaffold (S11 in `docs/DECISIONS.md`)); idempotent re-ingest, including an ownerless
+corpus document (the `NULLS NOT DISTINCT` constraint); generation bump reloads BM25; a bulk ingest
+bumps the generation once; the dense query plan uses the partial HNSW index after six executions.
+**Measure:** every retrieval number from M1 within noise on Postgres; exact versus HNSW top-20
+differences per run (expect a few questions, as with Chroma); `ts_rank` versus bm25s table.
+**Done when:** Chroma is gone, the eval matches, and the CI gate fails a deliberately broken branch.
+
+### M3: Users, ACL, persisted jobs, several workers
+
+**Why:** the core promise of the groundwork scenario: a user never gets an answer built from a
+document they can't see.
+
+**Scope:**
+- `Authenticator` protocol and `HeaderAuthenticator` (`X-User`); unknown user → 401. Every route gets
+  the user through a dependency; the frontend sends `X-User` from a minimal user picker (the shell's
+  real switcher comes in M3b).
+- **Dense ACL in SQL:**
+  ```sql
+  SET LOCAL hnsw.iterative_scan = strict_order;   -- pgvector ≥ 0.8
+  SELECT c.id, 1 - ((c.embedding::vector(384)) <=> %(q)s) AS similarity
+  FROM chunks c
+  WHERE c.index_id = %(index_id)s
+    AND c.access_groups && %(groups)s
+    AND <filters>
+  ORDER BY (c.embedding::vector(384)) <=> %(q)s
+  LIMIT %(n)s;
+  ```
+  Without iterative scans, HNSW finds its `ef_search` nearest neighbours first and filters after, so a
+  restrictive filter can return fewer than n rows. Write the test that shows it, then the fix.
+- **Sparse ACL:** the group bitmask from M2, applied before the top-n cut.
+- **Fetching chunks by id** (for BM25-only hits) repeats the ACL `WHERE`: defence in depth.
+- **Documents and uploads:** uploads get `owner_id` and access groups chosen from the uploader's own
+  groups (default: owner only, a `private:<user>` group). Deduplication is scoped (rule 8): the same
+  bytes uploaded by alice when hana already has them as `hr` become a separate document; the job
+  never reports another user's document.
+- `GET /api/documents` and `/api/jobs/{id}` return only what the user may see; a job of another user
+  is a 404, not a 403.
+- **Job queue** (D21): `jobs` table, `SKIP LOCKED` claim, heartbeat (`locked_at`), retry with backoff
+  up to `max_attempts`, then `dead`. `ingestion/worker.py` as its own compose service; the corpus
+  ingest becomes jobs too. Job kinds: `ingest_document`, `build_index` (M6), `contextualize` (M6).
+- API runs with several uvicorn workers (`--workers 2` in compose) to prove no in-process state is
+  load-bearing.
+- **Library API** (the backend for the M3b Library screen):
+  - `GET /api/documents` with filters (collection, doc type, date range, owner, access group, status,
+    format), title search, sorting and pagination; only documents the user may see.
+  - `GET /api/documents/{id}`: metadata, the indexes containing it, its job history,
+    `GET /api/documents/{id}/file` to download the original.
+  - `PATCH /api/documents/{id}`: title, doc type, date, metadata and access groups (only groups the
+    editor belongs to). Changing groups updates the copied `chunks.access_groups` in one transaction
+    and bumps each affected index's generation; no re-embedding.
+  - `DELETE /api/documents/{id}` and `POST /api/documents/delete` (bulk): owner or admin only. Deletes
+    the document row, which cascades to its chunks in every index and to cached contexts; bumps each
+    affected index's generation (bm25s rebuilds, the answer cache misses); cancels a running ingestion
+    job for it; deletes the stored file. Collections marked `protected` (the demo corpora) need
+    `admin`. For a document the user can't see, both return 404 (rule 8).
+- **Jobs API:** `GET /api/jobs` (own jobs; all for admin) with status filter, `POST
+  /api/jobs/{id}/retry` for failed or dead jobs, `POST /api/jobs/{id}/cancel` for queued or running
+  ones (a running job checks a cancel flag between embedding batches).
+
+**Tests:** for every retrieval mode (`dense`, `sparse`, `hybrid`, `reranked`): alice never receives
+an `hr` or `finance` chunk; hana never receives `finance`; a filter that leaves fewer matching chunks
+than `n` still returns all of them; document list and job status hide others' documents; duplicate
+upload across users; job retry and dead-letter; a job survives an API restart; delete by a
+non-owner is a 404; after a delete, no retriever, cache or document list returns the document;
+deleting during ingestion cancels the job and leaves no chunks; changing access groups takes effect on
+the next search in every worker.
+**Measure:** the `restricted` questions in the eval: refused for the wrong user, answered for the
+right one; retrieval numbers for `alice` on everyone-visible questions unchanged.
+**Done when:** the ACL test matrix passes, two API workers serve requests, and an upload completes
+after the API container restarts mid-job.
+
+### M3b: App shell, Library, Upload and Jobs screens
+
+**Why:** the M3 APIs need a UI, and every later milestone (Chat in M5, Lab in M6–M7, Tickets in M9,
+Admin in M10, Settings in M12) needs a routed shell to add its screen to.
+
+**Design first:** the mockups in `docs/design/` (index `00-index.html`) are approved by Ivan before any
+screen is built; a screen that changes while built updates its mockup in the same pull request.
+Tokens come from `frontend/src/styles/tokens.css`.
+
+**Scope:**
+- **Router** (section 4): TanStack Router by default, confirmed with Ivan before installing. Routes for
+  every screen in `00-index.html`; screens of later milestones are placeholders until built.
+- **App shell:** the navigation from `00-index.html` (Chat, Library, Jobs, Tickets, Lab, Admin,
+  Settings; Lab and Admin shown only to `admin`), the active index name, and the **user switcher**
+  showing the user's groups. The switcher sets `X-User` for every request and clears the TanStack
+  Query cache on change, so no data from one user is shown to the next.
+- **Library** (`03-library.html`): table with filters, sort, title search and pagination held in the
+  URL search params (typed through the router); bulk select; access groups and status per document.
+- **Document drawer** (`04-library-drawer.html`): `/library/:documentId`; edit metadata and access
+  groups (only the editor's own groups offered), the indexes containing it, last job, download, delete.
+- **Delete** (`05-library-delete.html`): confirmation naming what is removed; bulk delete with mixed
+  ownership says which documents the user can't delete instead of failing the batch.
+- **Upload** (`06-upload.html`): several files, batch settings (collection, doc type, date), access
+  limited to the uploader's own groups, default owner only; replaces today's upload queue.
+- **Jobs** (`07-jobs.html`): own jobs (all for admin), progress, retry for failed and dead jobs with the
+  reason, cancel for queued and running ones.
+- **States** (`18-states.html`): empty, loading, no match, offline, not found and source deleted, as
+  shared components later screens reuse. A document the user can't see renders "not found", the same as
+  one that doesn't exist (rule 8).
+
+**Tests:** route search params round-trip for library filters; switching user clears cached data
+(alice's list never shows after switching to hana and back is refetched); drawer offers only the
+editor's groups; bulk delete with mixed ownership; job retry and cancel buttons per status; zod schemas
+for every new response.
+**Measure:** none beyond the checks; the real-flow run in the pull request covers upload → job →
+library → drawer edit → delete as two different users.
+**Done when:** Ivan has approved the mockups, every M3 API is reachable from the UI, and the real-flow
+run is written down in the pull request.
+
+### M4: LLM layer v2, versioned prompts, tracing skeleton
+
+**Why:** streaming, agents and cost control all depend on it.
+
+**Scope:**
+- **Messages with content blocks** (`llm/base.py`): `TextBlock`, `ToolUseBlock`, `ToolResultBlock`;
+  `ToolSpec(name, description, input_schema)`; `Completion(content, stop_reason, usage)`;
+  `Usage(input, output, cache_read, cache_write, cost_usd)`.
+- `LLMClient` (async): `complete(system, messages, *, model, max_tokens, tools=None)`, `stream(...)`
+  yielding `TextDelta | ToolCall | UsageEvent | Stop` events, `structured(system, messages,
+  output_model: type[BaseModel])` returning a validated object: native structured output where the
+  provider and model support it, otherwise a forced tool call; one retry on a validation error
+  (with the error fed back), then raise.
+- Adapters: Anthropic (system as parameter, `cache_control` on the system prompt and long shared
+  prefixes), OpenAI-compatible (Groq, Ollama, OpenAI; full-width citation quirk kept in mind),
+  `FakeLLM` scripted by a list of turns including tool calls and stream chunks.
+- **`ResilientLLM`** wrapper: our own retry with exponential backoff and jitter on 429 and 5xx
+  (honour `retry-after`), SDK retries set to 0 so retries aren't doubled; **fallback** to the next
+  provider in the chain on exhausted retries or 5xx; a per-request token budget that raises
+  `BudgetExceeded`; never falls back on 4xx other than 429.
+- **Model routing:** `conf/models.yaml` maps tasks (`rewrite`, `route`, `answer`, `contextualize`,
+  `judge`, `agent`) to provider and model size; prices per million tokens in the same file with a
+  "check the provider's pricing page" comment.
+- **Prompts as files:** `backend/prompts/<name>.md` with front matter (`name`, `version`,
+  `description`); `prompts/loader.py`; `prompts/versions.lock` stores each prompt's text hash; a test
+  fails if the text changed without a version bump. Every answer, trace and eval record carries the
+  prompt version.
+- **Prompt test suite** (`eval/prompts/answer_style.yaml`): 20 cases (cites every claim, refuses
+  without evidence, names dates, ignores instructions in passages, stays in scope, follows the format).
+  `eval/run_prompt_eval.py` scores a prompt version against the real model; record v1 → v3 in
+  `docs/PROMPTS.md`, one change at a time.
+- **Tracing skeleton:** request ID middleware, `observability/tracing.py` (`span(name, **attrs)`
+  context manager over OpenTelemetry), console/JSONL exporter by default. Spans for each LLM call with
+  tokens, cost and model. Exporters come in M10.
+- The API, `QAService` and the store are already async since M2 (D22); the new async adapters replace
+  the `asyncio.to_thread` calls around the old sync LLM client.
+
+**Tests:** retry and fallback with a fake failing provider (429 then success, 500 ×3 then fallback,
+401 never retried); budget exceeded; structured output retry; tool-call round trip with `FakeLLM`;
+prompt hash test; cost arithmetic.
+**Measure:** answer eval on Anthropic and on Groq: correctness, refusals, tokens and cost per answer,
+cache-read tokens with prompt caching on.
+**Done when:** the full answer eval runs on Anthropic with Groq as an automatic fallback, and
+`docs/PROMPTS.md` has measured v1 → v3.
+
+### M5: RAG pipeline v2 and the streaming chat UI
+
+**Why:** the user-facing features groundwork planned for `/ask`.
+
+**Scope:**
+- **Conversations:** tables from section 5; `POST /api/conversations`, `GET` list and messages.
+- **Query rewriting** (`qa/rewrite.py`, small model, structured output): only when there is history,
+  turn the follow-up into a standalone question; the rewrite is shown in the UI and stored. Retrieval
+  and the gate use the rewritten question. Measure on 10 follow-up eval items whether it helps;
+  rewriting first-turn questions too is a separate measured experiment.
+- **SSE endpoint** `POST /api/conversations/{id}/ask/stream` (keeps `POST /api/ask` for scripts):
+  events `rewrite`, `retrieval` (passages, gate outcome), `token`, `answer` (validated, D24),
+  `error` (safe message, never provider text), `done`. The gate answers immediately without the LLM.
+  nginx: `proxy_buffering off` for this location only.
+- **Contradicting documents:** passages carry `doc_date`; the prompt prefers the newest and says an
+  older version exists; tested with the planted expense policies.
+- **Answer cache** (`qa/cache.py`): key = hash of sorted user groups, normalised question, active
+  index id and generation, prompt version and model. Only first-turn questions are cached. **No
+  semantic cache**: "R&D in 2001" and "R&D in 2026" are nearly the same vector.
+- **Query-embedding cache:** in-process LRU, keyed by model and text.
+- **Supporting-sentence highlighting** (improvement 7): deterministic first (shared numbers and word
+  overlap), embedding similarity as the fallback; character ranges in the API; `SourceCard` scrolls to
+  and highlights them.
+- **Frontend:** chat layout with conversation list, streamed tokens, preview replaced by the checked
+  answer, citation chips scrolling to highlighted sources, the rewrite shown under the question, user
+  switcher, collection filter.
+
+**Tests:** SSE event order; an error mid-stream; the gate path streams no tokens; cache key includes
+groups (alice can't get hana's cached answer, the M8 red-team test starts here); cache invalidates on
+generation bump; highlight ranges.
+**Measure:** time to first token, total latency, cache hit rate on a repeated eval run, highlight
+accuracy on 30 real answers checked by hand.
+**Done when:** a follow-up question streams through nginx in the browser with highlighted sources,
+and the contradiction question answers from the new policy while mentioning the old one.
+
+### M6: The chunking lab: strategies, semantic and contextual chunking, embedder comparison
+
+**Why:** the experiments Ivan wants to play with, built so every result is comparable.
+
+**Scope:**
+- **`Chunker` protocol:** `chunk(text, sections, counter, params) -> list[Chunk]`, never across a
+  section boundary.
+  - `window`: today's packer (sentence/paragraph units, size and overlap).
+  - `semantic`: split each section into sentences (reuse `_BOUNDARY` and the abbreviation guard),
+    embed each sentence with its neighbours (`buffer` sentences either side), compute the cosine
+    distance between consecutive sentences, and cut where it exceeds a threshold. Parameters:
+    `breakpoint` (`percentile` with 90/95, or `std` with 1.0/1.5), `buffer` (0/1), `min_tokens`,
+    `max_tokens` (a hard cap below the embedder limit: semantic chunks vary a lot in size, and an
+    oversized one is split with the window packer). No overlap by default. Its embedding cost is one
+    vector per sentence at ingest: record it.
+- **`Contextualizer` protocol** (orthogonal to the chunker): what is prepended for indexing, stored in
+  `chunks.context` so cited text stays verbatim.
+  - `none`, `header` (today's title + heading path, the 0.76 → 0.86 gain), `llm`, `header+llm`.
+  - `llm` (Anthropic's Contextual Retrieval): the small model gets the document (or, if it exceeds a
+    configured size, the enclosing section plus the document's title and outline) and the chunk, and
+    writes 1–2 sentences situating the chunk. A versioned prompt (`prompts/contextualize.md`), the
+    document as a cached prefix so each extra chunk costs only its own tokens, results cached in
+    `chunk_contexts` so re-indexing is free, run as `contextualize` jobs and paced to the rate limit.
+    Anthropic reported large drops in retrieval failures with this method; we check on our corpora
+    rather than assume.
+  - **Token budget:** bge-small reads 512 tokens and the re-ranker saw up to 447 already. Header +
+    context + chunk must fit, so contextual indexes cap the context (e.g. 80 tokens) and use a smaller
+    chunk size. Compare strategies at the **same chunk size** (e.g. 320) plus the current 400/header
+    as the baseline, or the comparison mixes two changes.
+- **Late chunking** (stretch): needs a long-context embedder with token-level outputs; only after the
+  embedder comparison, and only if a candidate supports it.
+- **Embedder comparison** (improvement 5): bge-small (fastembed), Qwen3-Embedding-0.6B and harrier
+  (sentence-transformers extra), each as its own index; record indexing time, query latency, image
+  size impact and the retuned `MIN_RELEVANCE` per model.
+- **Experiment runner** (`eval/run_chunking_lab.py`): builds an index per configuration from a YAML
+  matrix (`eval/chunking_matrix.yaml`), runs the retrieval eval per collection and mode, writes
+  `eval/chunking_results.md` and keeps or drops the indexes. Suggested first matrix:
+  `window{200,320,400}` × `{header, header+llm}`, `semantic{p90,p95}×{buffer 0,1}` × `{header,
+  header+llm}`, on all four collections. Then the answer eval on the best three.
+- **Also sweep** RRF k (10, 30, 60, 100) with and without the re-ranker, and re-ranker candidates
+  (10, 20, 40), since both are free once indexes exist.
+- **Lab UI (admin only):** list indexes with their parameters and status; set the active index; a
+  **chunk viewer** showing a document's chunk boundaries and contexts under two strategies side by
+  side; a **compare** view that runs one question against two indexes and shows both rankings with
+  dense, sparse, RRF and re-rank positions.
+
+**Tests:** both chunkers respect sections and caps; semantic chunker on a synthetic text with a clear
+topic shift; contextualizer cache hit; the budget assertion (header + context + chunk ≤ embedder limit);
+building and activating an index bumps the generation; the eval never touches the active index.
+**Measure:** `eval/chunking_results.md` from one command, with ingest cost (time, tokens, dollars) per
+configuration beside the retrieval scores; held-out set run once for the chosen configuration.
+`docs/CHUNKING.md` explains the methods, the results, and what was chosen and why.
+**Done when:** the matrix runs end to end, Ivan has looked at the chunk viewer on each collection, and
+the active index is chosen from the numbers.
+
+### M7: Evaluation v2
+
+**Why:** to judge generation, not just retrieval, and to keep the numbers honest.
+
+**Scope:**
+- **Generic answer eval** (`run_answer_eval.py`): per collection and question type, run as the
+  question's `user`; resumable and paced as today; records prompt version, index id, model, tokens,
+  cost and refusal reason.
+- **Claim-level faithfulness judge** (D26, `eval/judge.py`): split the answer into claims (structured
+  output), check each claim against the passages it cites (`supported` / `partial` / `unsupported`
+  with a reason), using a different model family from the answer model. Report faithfulness (supported
+  claims / claims) and **citation precision** (citations that support their claim).
+- **Calibrate the judge:** Ivan labels about 30 claims by hand (`eval/judge_labels.jsonl`); report
+  agreement and the confusion matrix before using the judge's numbers anywhere.
+- **Context precision and recall** from our evidence patterns (deterministic) next to the judge.
+- **RAGAS comparison** (`eval/run_ragas.py`, optional `ragas` group): faithfulness, answer relevancy,
+  context precision and recall on the same answers; a section on where it agrees with ours.
+- **Failure taxonomy** in the report: corpus missing, bad chunking, retrieval miss, re-ranking miss,
+  context noise, generation error, unfaithful claim, bad citation, failed to abstain. Every wrong
+  answer gets one label, read by hand.
+- **CI:** retrieval gate from M2 stays on every pull request. A `workflow_dispatch` and nightly job
+  runs the answer eval and judge on a sample with repository secrets, posting the table as an artifact.
+- `docs/EVALUATION.md`: one results table per configuration, the judge calibration, one weakness
+  found, one change made, before and after.
+
+**Tests:** scoring functions, claim splitting with `FakeLLM`, label agreement arithmetic.
+**Done when:** `docs/EVALUATION.md` numbers match the scripts' output, and the judge's agreement with
+Ivan's labels is reported.
+
+### M8: The agent, by hand
+
+**Why:** the agent loop written explicitly, before any framework.
+
+**Scope:**
+- `agent/loop.py`, aim for under ~200 lines: model call → tool calls (run concurrently with
+  `asyncio.gather` when the model returns several) → tool results → repeat. Stops on an answer, the
+  **step limit**, the **token budget**, or a **timeout**. Every step recorded as a structured trace and
+  streamed as SSE events (`step`, `tool_call`, `tool_result`, `token`, `answer`).
+- **Tools** (`agent/tools.py`), each with a Pydantic input model that generates its JSON schema and
+  validates the arguments: `search_docs(query, collections?, date_from?, date_to?, k?)`,
+  `get_passage(chunk_id)`, `get_document_outline(document_id)`, `list_documents(collection?)`,
+  `calculate(expression)` (an `ast`-based evaluator of arithmetic only, never `eval`),
+  `create_ticket(title, body, priority)` which **only returns a draft** in this milestone. Every tool
+  runs **as the requesting user**. Tool errors (bad arguments, not found, empty results) go back to the
+  model as results, never as exceptions.
+- **Evidence tracking** (`agent/evidence.py`): every passage a tool returned gets a number; the final
+  answer may cite only those, checked by the existing citation validator.
+- **Router** (`agent/router.py`, small model, structured output): `rag` or `agent`, with a reason.
+  Comparison, trend, multi-hop and "do something" requests go to the agent.
+- **Memory:** short-term history trimmed to a token budget (system prompt and the last steps kept
+  verbatim, older tool results summarised); working state (retrieved passage numbers, intermediate
+  figures) kept by code, not left in the transcript.
+- **Frontend:** an agent mode showing each step and tool call live, collapsible, with the final answer
+  and its sources.
+
+**Tests:** a scripted `FakeLLM` multi-step run; parallel tool calls; the step limit stops a looping
+model; budget and timeout; malformed tool arguments return an error result; a tool can't return a
+restricted chunk; the final answer can't cite an unretrieved passage; `calculate` rejects anything but
+arithmetic.
+**Measure:** a trajectory eval on the multi-hop questions (right tools, steps, final correctness),
+agent versus plain RAG on the same questions, and the router's accuracy and its effect on simple
+questions' latency.
+**Done when:** the multi-hop eval shows where the agent wins, and simple questions aren't slower.
+
+### M9: LangGraph, human approval, tickets, supervisor, MCP, long-term memory
+
+**Why:** what a framework adds (checkpoints, interrupts, graphs) and what it costs, measured against
+M8.
+
+**Scope:**
+- **LangGraph agent** (`agent/graph/`, rule 4): the same tools and evidence tracking as a graph with
+  `AsyncPostgresSaver`. Before `create_ticket` runs, the graph **interrupts**; the UI shows an
+  **approval card** with the draft; `POST /api/agent/{thread_id}/approve` (optionally with edits) or
+  `/reject` resumes it. Only an approved ticket is written to `tickets`, with `approved_by`.
+- **Supervisor variant:** a supervisor routing to a `researcher` (retrieval-heavy tools) and a `writer`
+  (drafts the answer or ticket), passing structured results rather than whole transcripts.
+- **Long-term memory:** `user_memories` written only on explicit user request (a `remember` tool needing
+  approval) or by an approved summary; each memory has a source and can be listed and deleted in the UI;
+  retrieved by similarity and treated as data, like passages.
+- **MCP server** (`mcp_server.py`, official SDK): `search_documents`, `get_passage`, `list_documents`,
+  and optionally `ask` (the full pipeline with citation checking). stdio for local clients with the user
+  from an environment variable; streamable HTTP with a bearer token mapped to a user. Returns stable
+  chunk ids and verbatim text. `docs/MCP.md`: how to connect Claude Code and Claude Desktop.
+- `docs/AGENTS.md`: hand loop versus LangGraph (lines of code, what each makes easy, what each hides,
+  how each is tested), single agent versus supervisor (when each is worth it, with trajectory-eval
+  numbers), and the approval flow.
+
+**Tests:** a run pauses at approval, **survives an API restart** (the checkpoint) and resumes; a rejected
+ticket is never written; approval by another user is refused; the supervisor routes correctly on scripted
+turns; MCP tools enforce the ACL for the mapped user; memory deletion.
+**Done when:** the restart test passes in CI, a ticket goes draft → approved → written in the browser,
+and Claude Code can search the library through MCP as alice and not see HR documents.
+
+### M10: Observability, cost and limits
+
+**Scope:**
+- Spans for every stage: rewrite, route, embedding, dense, sparse, fusion, re-rank, gate, generation,
+  citation check, each agent step and tool call; attributes for tokens, cost, latency, model, prompt
+  version, index id, refusal reason. Exporters: JSONL (default), OTLP to a self-hosted **Langfuse**
+  under a compose profile.
+- `/metrics` (Prometheus): latency histograms per stage, tokens and cost counters per model, refusals
+  by reason, cache hits, job queue depth and failures.
+- `GET /api/metrics/summary` (admin): p50 and p95 latency, average cost per question, cache hit rate,
+  refusal mix, over a time window; a small admin page shows it.
+- **Rate limiting** per user and route, stricter on ask and agent routes, stored in Postgres so it holds
+  across workers; 429 with `retry-after`.
+- **PII redaction** in logs and traces (emails, phone numbers; Presidio optional); question text stays
+  out of production logs as today.
+- `docs/OPERATIONS.md`: how prompts, models and indexes are versioned and rolled out (index alias swap,
+  prompt version bump with eval), what is logged and what isn't, budgets and alerts worth setting.
+
+**Tests:** span tree for one request with `FakeLLM`; redaction; rate limit across two workers.
+**Done when:** one question's full trace shows in Langfuse with cost, and the summary page matches a
+script's computation from the JSONL traces.
+
+### M11: Security
+
+**Scope:**
+- `docs/SECURITY.md`: map each OWASP Top 10 for LLM Applications (2025) risk to this app: LLM01
+  prompt injection, LLM02 sensitive information disclosure, LLM03 supply chain, LLM04 data and model
+  poisoning, LLM05 improper output handling, LLM06 excessive agency, LLM07 system prompt leakage, LLM08
+  vector and embedding weaknesses, LLM09 misinformation, LLM10 unbounded consumption. For each: where
+  it applies, the defence in place, the test that covers it, and the residual risk.
+- **Red-team tests** (real model, marked and run in the nightly job; scripted versions with `FakeLLM`
+  in CI):
+  - the planted injection document doesn't cause a ticket to be drafted or approved, nor restricted
+    content to be revealed, through RAG, the agent or MCP;
+  - alice asking about the HR leave policy gets no HR content through `/ask`, the stream, the cache, the
+    agent, MCP, the document list or upload deduplication;
+  - a direct "ignore your instructions" message doesn't change tool permissions or the system prompt;
+  - a passage claiming a false fact with no instructions around it: recorded as what gets through
+    (the NovaBridge ACME test), with traceability as the defence.
+- Model output rendered as text in the UI, never HTML; upload limits; dependency audit in CI
+  (`pip-audit`, `npm audit` reported, not blocking at first).
+
+**Done when:** every OWASP row names a test or says honestly why there isn't one, and the residual-risk
+section lists what still gets through.
+
+### M12: Design document, README, polish
+
+**Scope:**
+- `docs/DESIGN.md`: one page as presented in a system-design interview: requirements, architecture
+  (Mermaid), data model, model choices, evaluation, security, cost, scaling to 1M documents (what
+  breaks first, OpenSearch versus pgvector + bm25s, embedding service, sharding bm25s), rollout.
+- `docs/AI_WORKFLOW.md`: how this was built with AI coding agents; `ai-logs/` continues with every
+  session.
+- README rewritten for groundwork: what it does, a short GIF of chat, agent approval and the chunking
+  lab, how to run it (`make demo` ingests the corpora and opens the app), results tables, links to docs.
+- Remaining open items from `docs/archive/IMPROVEMENTS.md` (disclaimer alignment, Anthropic and Ollama
+  real runs).
+
+**Done when:** a clean clone runs with `docker compose up --build` and `make demo`, and every number in
+the README matches the scripts.
+
+### M13 (optional): Cloud
+
+Terraform for AWS: ECS Fargate (api, worker, web), RDS Postgres with pgvector, S3 for raw files, EFS
+or S3 for bm25s indexes, Secrets Manager, CloudWatch or OTLP; GitHub Actions with `terraform plan`
+on pull requests and apply on merge; remote state in S3 with locking. Bedrock as an LLM provider is
+one more adapter.
 
 ---
 
-## 8. Repository structure
+## 7. Configuration
 
-```
-novabridge-qa/
-├── README.md                     # final deliverable (outline in section 11)
-├── CLAUDE.md                     # short: "read docs/HANDOFF.md; commands; rules"
-├── .env.example
-├── .gitignore                    # .env, data/index/, data/uploads/, node_modules/, dist/, .venv/
-├── docker-compose.yml            # api, web, optional ollama (profile: local-llm)
-├── docs/
-│   ├── BRIEF.md                  # the original task text
-│   ├── HANDOFF.md                # this file
-│   └── design/                   # static HTML designs: the UI reference
-│       ├── 01-ask.html
-│       ├── 02-answer.html
-│       ├── 03-upload.html
-│       └── 04-no-evidence.html
-├── ai-logs/                      # unedited AI chat exports + README index of what each was used for
-├── backend/
-│   ├── pyproject.toml
-│   ├── uv.lock
-│   ├── Dockerfile
-│   ├── src/novabridge_qa/
-│   │   ├── __init__.py
-│   │   ├── main.py               # create_app(): builds the container, routers, CORS
-│   │   ├── config.py
-│   │   ├── container.py          # wires settings → embedder, stores, retriever, llm, services
-│   │   ├── domain/models.py
-│   │   ├── api/
-│   │   │   ├── schemas.py        # Pydantic request/response models (API layer only)
-│   │   │   ├── deps.py           # FastAPI dependencies → container
-│   │   │   ├── routes_ask.py
-│   │   │   ├── routes_config.py  # client limits (upload types and size)
-│   │   │   ├── routes_documents.py
-│   │   │   └── routes_health.py
-│   │   ├── ingestion/
-│   │   │   ├── loaders/          # one module per format (text, html; pdf next) + suffix registry
-│   │   │   ├── sections.py       # 10-K "Item X" section detection
-│   │   │   ├── chunking.py
-│   │   │   ├── pipeline.py       # prepare_document (chunk + embed), shared by ingest_file and uploads
-│   │   │   └── jobs.py           # in-memory job registry
-│   │   ├── retrieval/
-│   │   │   ├── embedder.py
-│   │   │   ├── dense.py          # Chroma wrapper
-│   │   │   ├── sparse.py         # bm25s wrapper (build from Chroma, save/load)
-│   │   │   ├── fusion.py         # rrf()
-│   │   │   ├── hybrid.py
-│   │   │   └── reranker.py       # cross-encoder after fusion
-│   │   ├── llm/
-│   │   │   ├── base.py           # LLMClient Protocol, ChatMessage, LLMError
-│   │   │   ├── openai_compatible.py
-│   │   │   ├── anthropic_client.py
-│   │   │   ├── fake.py
-│   │   │   └── factory.py
-│   │   └── qa/
-│   │       ├── prompt.py
-│   │       ├── citations.py
-│   │       └── service.py        # QAService.ask(question, filters) -> Answer
-│   ├── scripts/
-│   │   ├── fetch_filings.py      # download the 10-Ks from EDGAR into data/raw/
-│   │   └── ingest.py             # (re)build the index from data/raw/
-│   ├── eval/
-│   │   ├── questions.jsonl       # ~15–20 hand-written Q → company, section, evidence pattern (+ "unanswerable")
-│   │   └── run_eval.py           # recall@k / MRR for bm25 vs dense vs hybrid; gate thresholds
-│   ├── data/
-│   │   ├── raw/                  # committed EDGAR filings + manifest.json (metadata)
-│   │   ├── index/                # gitignored: chroma + bm25
-│   │   └── uploads/              # gitignored
-│   └── tests/
-│       ├── conftest.py           # FakeEmbedder, FakeLLM, tmp data dir, TestClient
-│       ├── unit/                 # chunking, sections, fusion, citations, prompt, factory, loaders
-│       └── api/                  # ask, documents/upload/jobs, health (with fakes)
-└── frontend/
-    ├── package.json
-    ├── vite.config.ts            # dev proxy /api → http://localhost:8000
-    ├── tsconfig.json
-    ├── Dockerfile                # build → nginx
-    ├── nginx.conf                # serve dist/, proxy /api → api:8000, client_max_body_size 20m
-    └── src/
-        ├── main.tsx
-        ├── App.tsx
-        ├── api/{client.ts,schemas.ts,types.ts}   # zod schemas mirror backend schemas; response types are inferred from them
-        ├── styles/{tokens.css,global.css}   # tokens feed the shadcn/Tailwind theme variables
-        └── components/
-            ├── ui/                    # generated shadcn/ui components
-            ├── AppShell.tsx
-            ├── DocumentLibrary.tsx
-            ├── AskForm.tsx
-            ├── ExampleQuestions.tsx
-            ├── AnswerCard.tsx         # renders [n] as CitationChip links
-            ├── CitationChip.tsx
-            ├── SourceCard.tsx
-            ├── NoEvidenceCard.tsx
-            ├── UploadDialog.tsx
-            └── UploadQueueItem.tsx
-```
+`config.py` keeps `pydantic-settings` for secrets and environment-specific values. Behaviour that is
+reviewed in pull requests moves to YAML under `conf/`:
 
-### Design reference
+- `conf/users.yaml`: users and groups (M1).
+- `conf/models.yaml`: providers, fallback chain, models per task, prices (M4).
+- `conf/retrieval.yaml`: candidates, RRF k, re-rank candidates, top k, gate threshold per embedder (M2).
+- `eval/chunking_matrix.yaml`: lab configurations (M6).
 
-`docs/design/*.html` are static mockups. Match them closely:
-- Font: **IBM Plex Sans** (UI), **IBM Plex Mono** (tickers, retrieval scores, citation numbers).
-- Tokens: background `#F5F4EF`, surface `#FFFFFF`, border `#E2E0D8`, input border `#C9C6BC`, text `#15171C`,
-  muted text `#555B66`, accent `#1E3A8A`, citation chip bg `#E8ECF7`, success `#E3F1E7`/`#1F5A33`,
-  warning `#FBF1DC`/`#5C3800`, error `#FDF4F2`/`#8A2A1A`, excerpt bg `#F7F6F2`.
-- Layout: header, then document library sidebar (stacks above content on narrow screens), then main content.
-- Accessibility: real `<button>`/`<a>`/`<label>`, 44 px touch targets, `role="dialog" aria-modal` on upload,
-  focus moves into the dialog and returns on close, Escape closes it, citation chips have `aria-label="Source n"`.
-- States the UI must handle: empty library, loading (skeleton or spinner on Ask), answer, not enough evidence,
-  LLM/network error, upload queue (queued/parsing/embedding with progress/indexed/failed).
+`.env.example` stays in sync with `Settings` (the existing test enforces it) and gains `DATABASE_URL`,
+`ANTHROPIC_API_KEY`, `LLM_FALLBACK_*`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `LANGFUSE_*`.
 
 ---
 
-## 9. Milestones
+## 8. Testing strategy
 
-Each milestone ends with: checks passing, a short summary to Ivan, and his approval.
-
-**M0 — Skeleton & tooling**
-`backend/` with uv project, ruff + mypy (strict on `src`) + pytest configured; `config.py`; `main.py` with
-`/api/health`; `.env.example`; `.gitignore`; `CLAUDE.md`; `docs/BRIEF.md`; `docs/design/` copied in;
-`ai-logs/README.md`. GitHub Actions CI running lint + types + tests.
-✅ `uv run uvicorn novabridge_qa.main:create_app --factory` serves `/api/health`; CI is green.
-
-**M1 — Corpus**
-`scripts/fetch_filings.py` downloads the latest 10-K and the newest plain-text annual report for AAPL, MSFT, NVDA
-from EDGAR (respect `SEC_USER_AGENT`, rate-limit politely), saves the primary documents and writes `data/raw/manifest.json` with metadata.
-✅ Files committed; manifest lists company, ticker, form, period end, filing date and source URL.
-
-**M2 — Loading, sections, chunking (TXT first)**
-`loaders.py` for TXT/MD only, `sections.py`, `chunking.py`, all unit-tested with synthetic fixtures. The TXT loader
-strips EDGAR's SGML markup (`<DOCUMENT>`, `<PAGE>`, `<S>`, `<C>`…); section detection skips table-of-contents
-entries. HTML and PDF loaders come later (M8b); keep the loader interface ready for them.
-*(Done: `ingestion/loaders/` is a package with one `bytes -> LoadedDocument` function per format,
-registered by suffix in `LOADERS`.)*
-✅ Running the pipeline on the three plain-text filings prints a stats table (chunks per doc and section, token distribution);
-Ivan spot-checks 5 random chunks.
-
-**M3 — Embedding & dense index**
-`Embedder` protocol, `SentenceTransformerEmbedder` (query instruction for Qwen3), `FakeEmbedder`; Chroma wrapper;
-`scripts/ingest.py` builds the index idempotently (skip `doc_id`s already indexed).
-✅ Ingest is idempotent; a dense-only search for a sample query returns sensible passages.
-
-**M4 — Sparse, fusion, evaluation**
-bm25s wrapper (stemming + English stopwords, persisted, rebuildable from Chroma), `rrf()`, `HybridRetriever`
-with metadata filters. `eval/questions.jsonl` (Ivan writes or approves every question) and `run_eval.py`
-reporting recall@k and MRR for bm25 vs dense vs hybrid with the fastembed embedder.
-Tune `CHUNK_TOKENS`, `TOP_K` and `MIN_RELEVANCE`; record the reasoning in `eval/decisions.md`.
-✅ Results table saved to `eval/results.md` and later copied into the README.
-
-**M5 — LLM adapters**
-`LLMClient` protocol, `OpenAICompatibleClient`, `AnthropicClient`, `FakeLLM`, `build_llm()` factory;
-timeouts, one retry on transient errors, normalized `LLMError`.
-✅ Unit tests for the factory and for error normalization (mock the SDK clients); a manual smoke test against
-both real providers.
-
-**M6 — QA service: prompt, gate, citations**
-`prompt.py`, `citations.py`, `QAService.ask()` implementing D7 and D8.
-✅ Extensive unit tests for citation parsing and renumbering; service tests with `FakeLLM` covering:
-normal answer, invalid citations dropped, no valid citations → insufficient, retrieval gate → LLM not called,
-`INSUFFICIENT_EVIDENCE` reply.
-
-**M7 — API**
-`/api/ask`, `/api/documents` (GET), schemas, error handling, CORS, request logging (no question text at INFO
-level in production mode).
-✅ API tests through `TestClient` with fakes injected via `app.dependency_overrides`; OpenAPI docs look clean.
-
-**M8 — Upload**
-`POST /api/documents`, `GET /api/jobs/{id}`, job registry, background ingestion, BM25 rebuild under the
-lock, dedup by `doc_id`, size/type validation, a clear error for files with no text. Accepts TXT and Markdown
-(D10); PDFs get `415` until M8b.
-✅ API tests for success, duplicate, too large, unsupported type and no-text file; a manual upload of a real TXT
-file answers a question about it.
-
-**M8b — HTML and PDF loaders (gradual, one commit each)** — *moved by Ivan to the end, after M11, with M8c*
-First HTML (BeautifulSoup with scripts/styles/hidden XBRL removed), then PDF (pypdf with page numbers). Add each
-to ingestion and to the upload's accepted types. Ingest the current HTML 10-Ks and re-run the eval on them.
-✅ Loader unit tests with synthetic fixtures; an API test for a no-text PDF (`422`); a real file of each format
-answers a question.
-
-**M8c — Embedder comparison** — *moved by Ivan to the end, after M8b*
-Compare fastembed, Qwen3-0.6B and harrier-0.6b with `run_eval.py`, using a separate index per model. Retune
-`MIN_RELEVANCE` for the winner.
-✅ Comparison table added to `eval/results.md`; D4 updated with the final choice.
-
-**M9 — Frontend**
-Vite + React + TS app with shadcn/ui and TanStack Query (mutations for ask and upload, `refetchInterval` for job
-polling), implementing the four designs: library sidebar, ask form with company filter, example
-questions, answer with citation chips that scroll to and highlight the source card, "retrieved but not cited"
-list, retrieval details toggle, no-evidence card, upload dialog with queue and polling, error states.
-✅ `npm run lint && npm run typecheck && npm test` pass (tests at least for `AnswerCard` citation rendering and
-`api/client` error handling); manual run of the full flow.
-
-**M10 — Docker & one-command run**
-Backend Dockerfile (multi-stage, no torch (optional extra), non-root user, embedding model downloaded at build time or cached
-in a volume, with the trade-off noted); frontend Dockerfile (build → nginx); `docker-compose.yml` with
-healthchecks, a `data` volume, an ingest-on-first-start step, and an optional `ollama` profile.
-✅ On a clean clone: `cp .env.example .env`, set a key and a model, `docker compose up --build`, open
-`http://localhost:8080`, ask a question, get a cited answer.
-
-**M11 — README, Swagger docs, logs, final pass**
-Finish the Swagger/OpenAPI documentation: summaries, descriptions, request/response examples and documented error
-responses on every route. Serve it at `/api/docs` (not FastAPI's default `/docs`) so it works through the nginx
-`/api` proxy. Write the README (section 11), export every AI conversation into `ai-logs/` with an index, delete dead code,
-make sure no secrets are committed, and do one final clean-clone run.
-✅ `/api/docs` is complete and works through nginx; Ivan reviews the README and the whole diff.
-
-**Stretch (only after M11, and only if Ivan asks):** streaming answers (SSE), delete document, a cross-encoder
-re-ranker, LLM-as-judge faithfulness eval, filters by period.
+- **Unit:** pure logic with fakes (`FakeLLM`, `FakeEmbedder`, `FakeReranker`), as today.
+- **DB:** marked `db`, against real Postgres + pgvector; skipped locally without a database, required
+  in CI.
+- **API:** FastAPI test client with dependency overrides; SSE parsed into events.
+- **ACL matrix:** one parametrised suite over users × retrieval modes × access paths (ask, stream,
+  cache, agent tool, MCP, documents, jobs, uploads). It grows with every milestone.
+- **Evals:** retrieval (deterministic, CI gate), answer and judge (nightly, secrets), prompt suite,
+  trajectory eval, red-team.
+- **Real flow:** each milestone ends with a manual run in the browser, written down in the pull request.
 
 ---
 
-## 10. Testing strategy
+## 9. Out of scope
 
-- **Unit:** pure functions (chunking, sections, `rrf`, citation validation, prompt building, settings validation).
-- **Service:** `QAService` with `FakeEmbedder` + `FakeLLM` and a tiny in-memory corpus.
-- **API:** `TestClient`, dependencies overridden; no network in tests (CI must pass without API keys).
-- **Retrieval quality:** `eval/run_eval.py`, run manually; results committed.
-- **Frontend:** Vitest + Testing Library for components with logic (citation chips, upload queue state).
+Real authentication (OIDC/SSO), OCR, multi-tenant billing, fine-tuning models, a mobile client.
 
 ---
 
-## 11. README outline (final deliverable)
+## 10. Open questions for Ivan
 
-1. What it is (2–3 sentences) + screenshot
-2. Quick start (Docker), then local dev (uv + npm)
-3. Configuration (the providers; how to switch between Groq / Ollama / OpenAI / Anthropic)
-4. Architecture diagram + request flow
-5. Design decisions & trade-offs (D1–D13, condensed), including **why no LlamaIndex**
-6. Retrieval evaluation results (the table from M4) and what was tuned
-7. How hallucination is limited (prompt, gate, citation validation) and what it still can't guarantee,
-   including the false-claim limitation in `backend/eval/decisions.md`
-8. Limitations and what I'd do next for production (queue, auth, persistence, OCR, re-ranking, monitoring)
-9. Testing (how to run; what's covered)
-10. **AI assistance:** which tools were used for which parts, where the logs are, and notable places where
-    generated code was corrected or rejected
+Defaults are chosen above; change them before the milestone that depends on them.
 
----
-
-## 12. Out of scope
-
-Authentication, multi-user data, live market data APIs, agents/tool calling, chat history, OCR,
-fine-tuning, cloud deployment.
-
-## 13. AI log requirement (don't forget)
-
-The brief requires the **full, unedited** log of every AI assistant used. At the end of each Claude Code
-session, Ivan exports it (`/export`) into `ai-logs/` (e.g. `ai-logs/2026-11-07-claude-code-M0-M2.md`).
-The planning conversation in the Claude app (where this handoff and the designs were made) is exported too.
-`ai-logs/README.md` lists each log with one line on what it covered.
+1. ~~Rename to `groundwork` in this repo, or move into `~/repos/groundwork`?~~ Decided: rename this repo and its folder; the scaffold is archived and deleted in M0.
+2. **Chroma removed** after parity (D16), or kept as a second `ChunkStore` for local runs without Docker?
+3. **Streaming** with a preview replaced by the checked answer (D24), or sentence-buffered?
+4. **Northwind texts:** written by the agent and reviewed by Ivan, or drafted by Ivan?
+5. **Corpus size for the engineering docs:** 150 pages keeps CI fast; more makes scaling visible.
+6. **Contextual chunking budget:** which provider account and spend limit for the `llm` contextualizer
+   runs over four collections.
