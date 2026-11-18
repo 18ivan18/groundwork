@@ -110,7 +110,7 @@ are copied into `docs/DECISIONS.md` (created in M0) as they're made.
 
 | # | Decision | Why |
 |---|---|---|
-| D15 | **Continue in this repo; rename the product and package to `groundwork`** (`novabridge_qa` → `groundwork`). The version EPAM saw is the existing tag **`v1.1.0`** (`83146fa`, already on `origin`); no new tag. The `~/repos/groundwork` scaffold is reference only: M0 copies the files still referenced to `docs/archive/groundwork-scaffold/` and deletes the scaffold; its `DECISIONS.md` is ported to `docs/DECISIONS.md`, and its migration is read for ideas but not copied (section 5). The GitHub repo and the local folder are renamed to `groundwork`. | This repo has the history, the measured evals and 361 tests; the scaffold has one commit. `v1.1.0` keeps the version EPAM saw. |
+| D15 | **Continue in this repo; rename the product and package to `groundwork`** (`novabridge_qa` → `groundwork`). The version EPAM saw is tagged **`v1-submission`** (`12e8ea7`, the last `main` before M0). The `~/repos/groundwork` scaffold is reference only: M0 copies the files still referenced to `docs/archive/groundwork-scaffold/` and deletes the scaffold; its `DECISIONS.md` is ported to `docs/DECISIONS.md`, and its migration is read for ideas but not copied (section 5). The GitHub repo and the local folder are renamed to `groundwork`. | This repo has the history, the measured evals and 361 tests; the scaffold has one commit. The tag keeps the version EPAM saw. |
 | D16 | **PostgreSQL 16 + pgvector is the single source of truth** for documents, chunks, vectors, jobs, conversations, tickets and checkpoints. **Chroma is removed** once M2 shows eval parity. | ACL, transactions, a durable queue and several workers all need a real database. Keeping Chroma would mean writing every ACL filter twice. |
 | D17 | **bm25s stays, derived from Postgres**, one index per chunk index (D20), persisted on a shared volume and reloaded by each API worker when the index's `generation` changes. A Postgres full-text (`ts_rank`) retriever is added only as a measured comparison. | `ts_rank` has no IDF, so rare exact tokens ("Item 7A", figures, error codes) lose the weight that makes hybrid search work. BM25 found 0.90 of the TXT questions in its top 20 against dense's 0.81. |
 | D18 | **Plain SQL through psycopg 3** (async pool) in the app; **Alembic with hand-written SQL** (`op.execute`) for migrations. No ORM. | Every index, cast and filter is visible and explainable. Same choice as the scaffold (S4 in `docs/DECISIONS.md`). |
@@ -270,7 +270,9 @@ matters: each one gives the next a measured baseline.
 **Why:** keep the submitted version reachable, then make every later diff about one thing.
 
 **Scope:**
-- The submitted version is the existing tag `v1.1.0` (D15), already on `origin`; nothing to tag.
+- Tag the last `main` before M0 as `v1-submission` (D15) and push the tag. Done: `12e8ea7`.
+- Delete the NovaBridge mockups (`docs/design/01-ask.html` … `04-no-evidence.html`) and `ai-logs/`; both
+  stay reachable at `v1-submission`.
 - Commit the untracked files: `books/` (a corpus in M1; check the Project Gutenberg licence header is
   kept), `docs/design/` (the M3b–M12 mockups and `groundwork.css`) and this file.
 - **Absorb and delete the scaffold.** `~/repos/groundwork` has one commit and no remote, so deleting it
@@ -295,7 +297,7 @@ matters: each one gives the next a measured baseline.
 
 **Tests:** all existing tests pass unchanged apart from import paths.
 **Measure:** `run_eval.py` output identical to `results.md` (same index, same code).
-**Done when:** untracked files committed, scaffold archived and deleted, package rename merged, repo and
+**Done when:** `v1-submission` pushed, untracked files committed, scaffold archived and deleted, package rename merged, repo and
 folder renamed, CI green including image builds.
 
 ### M1: Generic domain, structure by format, new corpora, generic eval set
@@ -789,8 +791,8 @@ section lists what still gets through.
 - `docs/DESIGN.md`: one page as presented in a system-design interview: requirements, architecture
   (Mermaid), data model, model choices, evaluation, security, cost, scaling to 1M documents (what
   breaks first, OpenSearch versus pgvector + bm25s, embedding service, sharding bm25s), rollout.
-- `docs/AI_WORKFLOW.md`: how this was built with AI coding agents; `ai-logs/` continues with every
-  session.
+- `docs/AI_WORKFLOW.md`: how this was built with AI coding agents. The NovaBridge session logs are at tag
+  `v1-submission` (`ai-logs/` was removed in M0).
 - README rewritten for groundwork: what it does, a short GIF of chat, agent approval and the chunking
   lab, how to run it (`make demo` ingests the corpora and opens the app), results tables, links to docs.
 - Remaining open items from `docs/archive/IMPROVEMENTS.md` (disclaimer alignment, Anthropic and Ollama
