@@ -348,3 +348,27 @@ is the baseline for M5's date-aware handling (#68).
 
 Median latency with an LLM call was 1.8 s (1.5 s on 2026-11-08). The rate-limit pauses inflate it:
 Groq's tokens-per-minute limit held the run to about two questions a minute.
+
+## First four-collection baseline (M1)
+
+`results.md` now scores 111 answerable questions over 205 documents in four collections, with every
+search unfiltered across all of them (18 minutes on this machine for three chunk sizes). At 400
+tokens, re-ranked:
+
+| Collection | S@1 | S@6 | Recall@6 | MRR |
+|---|---|---|---|---|
+| sec-10k (45) | 0.62 | 0.87 | 0.87 | 0.724 |
+| engineering (27) | 0.70 | 0.96 | 0.91 | 0.820 |
+| northwind (26) | 0.88 | 1.00 | 0.98 | 0.933 |
+| books (13) | 0.38 | 0.54 | 0.46 | 0.484 |
+
+- **Filings:** HTM S@6 0.92 → 0.83, TXT 0.81 → 0.90 against the filings-only run. `m21` (rank 10)
+  and `n24` (rank 7) left the top 6; `m01` and `m02` entered it. The answer eval, filtered to
+  sec-10k, loses `m21` too, so this is reordering among the filings' own chunks rather than the
+  other collections crowding them out.
+- **Books are the weak collection**, as expected of long, weakly structured prose: the chunking
+  lab (M6) starts from here.
+- **Northwind's restricted questions** count as found because nothing enforces groups yet; from M3
+  they must be misses for `alice`.
+- **The relevance gate** still separates at 0.58, narrowly: the lowest answerable question scores
+  0.589 and the highest off-topic one 0.574.
