@@ -37,8 +37,14 @@ class _UsersFile(BaseModel):
     users: dict[_Slug, _UserEntry]
 
 
+def private_group(user_id: str) -> str:
+    """The group only this user is in: the default for what they upload."""
+    return f"private:{user_id}"
+
+
 def load_users(path: Path) -> Mapping[str, User]:
-    """Users by id. Each user is in `everyone`, whether or not the file lists it."""
+    """Users by id. Each user is in `everyone` and their own private group, whether or not the
+    file lists them."""
     try:
         parsed = _UsersFile.model_validate(yaml.safe_load(path.read_text()))
     except (OSError, yaml.YAMLError, ValidationError) as error:
@@ -46,7 +52,11 @@ def load_users(path: Path) -> Mapping[str, User]:
     if not parsed.users:
         raise UsersConfigError(f"{path}: no users")
     return {
-        user_id: User(user_id, entry.display_name, frozenset({EVERYONE, *entry.groups}))
+        user_id: User(
+            user_id,
+            entry.display_name,
+            frozenset({EVERYONE, private_group(user_id), *entry.groups}),
+        )
         for user_id, entry in parsed.users.items()
     }
 

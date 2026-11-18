@@ -24,6 +24,7 @@ from groundwork.auth import USER_HEADER, HeaderAuthenticator
 from groundwork.config import Settings
 from groundwork.container import Container, app_index, build_embedder, build_services
 from groundwork.db.pool import open_pool
+from groundwork.db.users import sync_users
 from groundwork.domain.users import load_users
 from groundwork.llm.base import LLMClient, LLMError
 from groundwork.llm.factory import build_llm
@@ -54,6 +55,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             llm = build_llm(settings)
             pool = await open_pool(settings.database_url)
             embedder = await asyncio.to_thread(build_embedder, settings)
+            # Before anything is stored: uploads reference their owner.
+            await sync_users(pool, app.state.users)
             index = await app_index(pool, settings, embedder.dimension)
             app.state.container = Container(settings, PgVectorStore(pool, index), app.state.users)
         container: Container = app.state.container

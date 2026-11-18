@@ -48,4 +48,8 @@ def test_the_open_routes_need_no_user(app: FastAPI) -> None:
 def test_me_is_the_user_the_header_names(app: FastAPI) -> None:
     body = as_user(app, "hana").get("/api/me").json()
 
-    assert body == {"user_id": "hana", "display_name": "Hana (HR)", "groups": ["everyone", "hr"]}
+    assert body == {
+        "user_id": "hana",
+        "display_name": "Hana (HR)",
+        "groups": ["everyone", "hr", "private:hana"],
+    }

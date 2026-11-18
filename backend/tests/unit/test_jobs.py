@@ -6,7 +6,7 @@ from groundwork.ingestion.jobs import JobRegistry
 def test_new_job_is_queued() -> None:
     registry = JobRegistry()
 
-    job = registry.create("doc")
+    job = registry.create("alice", "doc")
 
     assert (job.doc_id, job.status, job.progress) == ("doc", "queued", 0)
     assert registry.get(job.job_id) == job
@@ -14,7 +14,7 @@ def test_new_job_is_queued() -> None:
 
 def test_update_replaces_the_stored_job() -> None:
     registry = JobRegistry()
-    job = registry.create("doc")
+    job = registry.create("alice", "doc")
 
     registry.update(job.job_id, "indexed", 100, chunks=3)
 
@@ -36,4 +36,4 @@ def test_updating_an_unknown_job_fails() -> None:
 def test_job_ids_are_unique() -> None:
     registry = JobRegistry()
 
-    assert registry.create("doc").job_id != registry.create("doc").job_id
+    assert registry.create("alice", "doc").job_id != registry.create("alice", "doc").job_id

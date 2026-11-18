@@ -12,6 +12,7 @@ from pdf_builder import make_pdf
 from groundwork.api.deps import get_upload_service
 from groundwork.container import Container
 from groundwork.domain.models import UNRESTRICTED, Access, ScoredPassage, SearchFilters
+from groundwork.domain.users import load_users
 from groundwork.ingestion import pipeline
 from groundwork.ingestion.jobs import Job
 from groundwork.ingestion.uploads import UploadService
@@ -19,6 +20,8 @@ from groundwork.retrieval.embedder import Embedder, FakeEmbedder
 from groundwork.retrieval.hybrid import HybridRetriever, SearchMode
 from groundwork.retrieval.sparse import SparseCache
 
+USERS = load_users(Path(__file__).parents[2] / "conf" / "users.yaml")
+ALICE = USERS["alice"]
 MAX_BYTES = 5000
 TEXT = (
     "Anvils are heavy steel blocks that ACME Corp sells to blacksmiths everywhere. " * 8
@@ -45,6 +48,7 @@ class Harness:
             chunk_overlap=5,
         )
         app.dependency_overrides[get_upload_service] = lambda: self.service
+        self.app = app
         self.client = as_user(app)
 
     def search(
@@ -64,13 +68,28 @@ class Harness:
     def generation(self) -> int:
         return asyncio.run(self.store.generation())
 
-    def upload(self, content: bytes = TEXT, name: str = "notes.txt", **form: str) -> Response:
-        return self.client.post(
-            "/api/documents", files={"file": (name, content)}, data={**FORM, **form}
+    def upload(
+        self,
+        content: bytes = TEXT,
+        name: str = "notes.txt",
+        *,
+        user: str = "alice",
+        groups: Sequence[str] = (),
+        **form: str,
+    ) -> Response:
+        data: dict[str, Any] = {**FORM, **form}
+        if groups:
+            data["access_groups"] = list(groups)
+        return as_user(self.app, user).post(
+            "/api/documents", files={"file": (name, content)}, data=data
         )
 
-    def job(self, job_id: str) -> dict[str, Any]:
-        response = self.client.get(f"/api/jobs/{job_id}")
+    def documents(self, user: str) -> list[dict[str, Any]]:
+        body: list[dict[str, Any]] = as_user(self.app, user).get("/api/documents").json()
+        return body
+
+    def job(self, job_id: str, user: str = "alice") -> dict[str, Any]:
+        response = as_user(self.app, user).get(f"/api/jobs/{job_id}")
         assert response.status_code == 200
         body: dict[str, Any] = response.json()
         return body
@@ -177,6 +196,7 @@ def test_identical_uploads_in_flight_index_once(harness: Harness) -> None:
             await harness.service.accept(
                 "notes.txt",
                 TEXT,
+                owner=ALICE,
                 collection_id="uploads",
                 doc_type="notes",
                 doc_date=None,
@@ -342,3 +362,62 @@ def test_unknown_job_is_a_404(harness: Harness) -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "No such job."}
+
+
+def test_an_upload_is_private_to_its_owner_by_default(harness: Harness) -> None:
+    """#41."""
+    job = harness.job(harness.upload(user="hana").json()["job_id"], user="hana")
+
+    [document] = harness.documents("hana")
+    assert document["access_groups"] == ["private:hana"]
+    assert document["owner_id"] == "hana"
+    assert harness.documents("admin") == []
+    assert harness.search("blacksmiths", 5, access=Access.of(USERS["admin"].groups)) == []
+    assert job["status"] == "indexed"
+
+
+def test_an_upload_can_be_shared_with_the_uploaders_groups(harness: Harness) -> None:
+    harness.upload(user="hana", groups=["hr"])
+
+    assert [d["access_groups"] for d in harness.documents("admin")] == [["hr"]]
+    assert harness.documents("filip") == []
+
+
+def test_sharing_with_a_group_the_uploader_is_not_in_is_refused(harness: Harness) -> None:
+    response = harness.upload(user="alice", groups=["everyone", "hr"])
+
+    assert response.status_code == 403
+    assert "not hr" in response.json()["detail"]
+    assert harness.count_chunks() == 0
+
+
+def test_the_same_file_from_another_user_is_a_separate_document(harness: Harness) -> None:
+    """Deduplication is scoped: alice's upload must not reveal that hana has the file."""
+    hana_job = harness.upload(user="hana", groups=["hr"]).json()
+    alice_job = harness.upload(user="alice").json()
+
+    # Not answered from hana's copy: a new job, indexed separately.
+    assert alice_job["doc_id"] is None
+    assert harness.job(alice_job["job_id"])["status"] == "indexed"
+    [alices] = harness.documents("alice")
+    assert alices["owner_id"] == "alice"
+    assert [d["owner_id"] for d in harness.documents("hana")] == ["hana"]
+    assert asyncio.run(harness.store.count_documents()) == 2
+    assert hana_job["job_id"] != alice_job["job_id"]
+
+
+def test_the_same_file_from_the_same_user_is_stored_once(harness: Harness) -> None:
+    harness.upload(user="hana", groups=["hr"])
+
+    again = harness.upload(user="hana", groups=["hr"]).json()
+
+    assert again["doc_id"] is not None
+    assert len(harness.documents("hana")) == 1
+
+
+def test_another_users_job_is_not_found(harness: Harness) -> None:
+    job_id = harness.upload(user="hana").json()["job_id"]
+
+    response = as_user(harness.app, "alice").get(f"/api/jobs/{job_id}")
+
+    assert response.status_code == 404

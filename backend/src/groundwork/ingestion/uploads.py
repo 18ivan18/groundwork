@@ -2,12 +2,13 @@
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import date
 from functools import partial
 from pathlib import Path, PureWindowsPath
 
 from groundwork.domain.models import DocumentMeta, content_hash
+from groundwork.domain.users import User, private_group
 from groundwork.ingestion.jobs import Job, JobRegistry
 from groundwork.ingestion.loaders import LoadedDocument, NoTextError, loader_for
 from groundwork.ingestion.pipeline import prepare_document
@@ -27,6 +28,23 @@ Schedule = Callable[[Callable[[], Awaitable[None]]], None]
 
 class FileTooLargeError(ValueError):
     """The file is over the upload limit."""
+
+
+class ForbiddenGroupsError(ValueError):
+    """The uploader asked to share with a group they are not in."""
+
+
+def upload_groups(user: User, requested: Sequence[str]) -> tuple[str, ...]:
+    """The groups an upload is shared with: the uploader's choice from their own groups, or only
+    themselves when they choose none."""
+    if not requested:
+        return (private_group(user.user_id),)
+    foreign = sorted(set(requested) - user.groups)
+    if foreign:
+        raise ForbiddenGroupsError(
+            f"You can share only with your own groups, not {', '.join(foreign)}."
+        )
+    return tuple(sorted(set(requested)))
 
 
 class UploadService:
@@ -51,24 +69,33 @@ class UploadService:
         # the pipeline are stored once.
         self._write_lock = asyncio.Lock()
 
-    def job(self, job_id: str) -> Job | None:
-        return self._jobs.get(job_id)
+    def job(self, job_id: str, user: User) -> Job | None:
+        """The job, if this user started it. Another user's job is None, as if it did not exist,
+        so its id reveals nothing."""
+        job = self._jobs.get(job_id)
+        return job if job is not None and job.owner_id == user.user_id else None
 
     async def accept(
         self,
         filename: str,
         raw: bytes,
         *,
+        owner: User,
         collection_id: str,
         doc_type: str,
         doc_date: date | None,
+        access_groups: Sequence[str] = (),
         schedule: Schedule,
     ) -> Job:
-        """Validate a file and schedule its indexing.
+        """Validate a file and schedule its indexing, owned by `owner` and readable by
+        `access_groups` (only the owner when empty).
 
         Loading happens here rather than in the job, so a file with no text gets an immediate
-        error. A file already in this collection gets a finished job and no new work.
+        error. The same bytes already stored by this owner, in this collection, for these groups
+        get a finished job and no new work. Anyone else's copy is never matched: deduplication
+        must not reveal that a document exists.
         """
+        groups = upload_groups(owner, access_groups)
         # PureWindowsPath splits on both kinds of slash. The name is only ever metadata: the file
         # on disk is named by its hash, so a name like "../../x.txt" cannot choose where it lands.
         name = PureWindowsPath(filename).name
@@ -84,9 +111,11 @@ class UploadService:
             doc_type=doc_type,
             doc_date=doc_date,
             filename=name,
+            access_groups=groups,
+            owner_id=owner.user_id,
         )
         if doc_id := await self._store.find_document(digest, meta):
-            job = self._jobs.create(doc_id)
+            job = self._jobs.create(owner.user_id, doc_id)
             chunks = await self._store.count_document_chunks(doc_id)
             return self._jobs.update(job.job_id, "indexed", 100, chunks=chunks)
 
@@ -97,7 +126,7 @@ class UploadService:
         self._uploads_dir.mkdir(parents=True, exist_ok=True)
         (self._uploads_dir / f"{digest}{Path(name).suffix.lower()}").write_bytes(raw)
 
-        job = self._jobs.create()
+        job = self._jobs.create(owner.user_id)
         schedule(partial(self._index, job.job_id, digest, loaded, meta))
         return job
 

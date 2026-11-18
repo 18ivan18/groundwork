@@ -18,7 +18,7 @@ from groundwork.api.schemas import (
 )
 from groundwork.domain.models import Access
 from groundwork.ingestion.loaders import NoTextError, UnsupportedFormatError
-from groundwork.ingestion.uploads import FileTooLargeError
+from groundwork.ingestion.uploads import FileTooLargeError, ForbiddenGroupsError
 
 router = APIRouter(tags=["documents"])
 
@@ -43,12 +43,14 @@ async def list_documents(container: ContainerDep, user: CurrentUser) -> list[Doc
     description=(
         "Accepts one file of a type that `GET /api/config` lists, up to its size limit. "
         "Indexing runs in the background: poll the returned job "
-        "for its progress. A file already in the library gets a job that is already `indexed`, "
-        "and its original tags are kept."
+        "for its progress. The uploader owns the document; by default only they can read it. "
+        "A file this uploader already stored, in the same collection for the same groups, gets "
+        "a job that is already `indexed`, and its original tags are kept."
     ),
     responses={
         413: {"model": ErrorResponse, "description": "The file is too large."},
         415: {"model": ErrorResponse, "description": "The file type is not supported."},
+        403: {"model": ErrorResponse, "description": "A group the uploader is not in."},
         422: {"description": "A field is invalid, or the file has no text (`detail` is a string)."},
     },
 )
@@ -56,6 +58,7 @@ async def upload_document(
     file: Annotated[UploadFile, File(description="The document to index.")],
     doc_type: Annotated[DocTypeText, Form(description="The kind of document, such as `runbook`.")],
     service: UploadServiceDep,
+    user: CurrentUser,
     background: BackgroundTasks,
     collection: Annotated[
         CollectionId, Form(description="The collection to add it to.")
@@ -63,16 +66,29 @@ async def upload_document(
     doc_date: Annotated[
         date | None, Form(description="The date the document is about, if known.")
     ] = None,
+    access_groups: Annotated[
+        list[str] | None,
+        Form(
+            description=(
+                "Groups that may read the document, from the uploader's own (`GET /api/me`). "
+                "Repeat the field for several. None: only the uploader."
+            )
+        ),
+    ] = None,
 ) -> UploadResponse:
     try:
         job = await service.accept(
             file.filename or "",
             await file.read(),
+            owner=user,
             collection_id=collection,
             doc_type=doc_type,
             doc_date=doc_date,
+            access_groups=access_groups or (),
             schedule=background.add_task,
         )
+    except ForbiddenGroupsError as error:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(error)) from error
     except FileTooLargeError as error:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, str(error)) from error
     except UnsupportedFormatError as error:
@@ -85,14 +101,18 @@ async def upload_document(
 @router.get(
     "/jobs/{job_id}",
     summary="Check an upload's progress",
-    description="Jobs live in memory, so a job from before a server restart returns 404.",
-    responses={404: {"model": ErrorResponse, "description": "No such job."}},
+    description=(
+        "Only the user who uploaded the file sees its job. Jobs live in memory, so a job from "
+        "before a server restart returns 404."
+    ),
+    responses={404: {"model": ErrorResponse, "description": "No such job of this user's."}},
 )
 async def get_job(
     job_id: Annotated[str, PathParam(description="The `job_id` from the upload.")],
     service: UploadServiceDep,
+    user: CurrentUser,
 ) -> JobResponse:
-    job = service.job(job_id)
+    job = service.job(job_id, user)
     if job is None:
         # Jobs live in memory, so this also covers a job from before a restart.
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No such job.")

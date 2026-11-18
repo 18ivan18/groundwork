@@ -185,6 +185,8 @@ class DocumentResponse(BaseModel):
                     "doc_date": "2025-09-27",
                     "metadata": {"company": "ACME Corp", "ticker": "ACME", "form": "10-K"},
                     "filename": "ACME-10-K-2025-09-27.txt",
+                    "access_groups": ["everyone"],
+                    "owner_id": None,
                     "ingested_at": "2025-11-01T09:30:00Z",
                     "chunks": 193,
                 }
@@ -199,6 +201,8 @@ class DocumentResponse(BaseModel):
     doc_date: date | None = Field(description="The date the document is about, if known.")
     metadata: dict[str, str] = Field(description="Fields only some collections have.")
     filename: str = Field(description="The original file name.")
+    access_groups: list[str] = Field(description="Groups whose members may read it.")
+    owner_id: str | None = Field(description="Who uploaded it; none for the demo corpora.")
     ingested_at: datetime = Field(description="When it was indexed.")
     chunks: int = Field(description="Passages indexed from this document.")
 

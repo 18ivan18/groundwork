@@ -11,6 +11,8 @@ JobStatus = Literal["queued", "parsing", "embedding", "indexed", "failed"]
 @dataclass(frozen=True)
 class Job:
     job_id: str
+    # Who uploaded the file: only they see the job.
+    owner_id: str
     # The stored document's id: known at once for a file already indexed, else once it is.
     doc_id: str | None
     status: JobStatus = "queued"
@@ -26,8 +28,8 @@ class JobRegistry:
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
 
-    def create(self, doc_id: str | None = None) -> Job:
-        job = Job(job_id=uuid.uuid4().hex, doc_id=doc_id)
+    def create(self, owner_id: str, doc_id: str | None = None) -> Job:
+        job = Job(job_id=uuid.uuid4().hex, owner_id=owner_id, doc_id=doc_id)
         with self._lock:
             self._jobs[job.job_id] = job
         return job

@@ -30,5 +30,7 @@ def test_documents_are_listed_with_chunk_counts_by_title(app: FastAPI, store: Me
         "doc_date": "2025-09-27",
         "metadata": {"company": "ACME Corp", "ticker": "ACME"},
         "filename": "acme.txt",
+        "access_groups": ["everyone"],
+        "owner_id": None,
         "chunks": 3,
     }
