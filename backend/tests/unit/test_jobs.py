@@ -1,6 +1,6 @@
 import pytest
 
-from novabridge_qa.ingestion.jobs import JobRegistry
+from groundwork.ingestion.jobs import JobRegistry
 
 
 def test_new_job_is_queued() -> None:

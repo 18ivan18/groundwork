@@ -1,6 +1,6 @@
 import pytest
 
-from novabridge_qa.qa.citations import ValidatedAnswer, validate
+from groundwork.qa.citations import ValidatedAnswer, validate
 
 
 def test_valid_citations_in_order_are_unchanged() -> None:

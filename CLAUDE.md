@@ -8,7 +8,7 @@ Read `docs/HANDOFF.md` fully before writing code. It holds the milestones, rules
 Backend (from `backend/`):
 
     uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest
-    uv run uvicorn novabridge_qa.main:create_app --factory
+    uv run uvicorn groundwork.main:create_app --factory
 
 Frontend (from `frontend/`):
 

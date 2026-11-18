@@ -7,11 +7,11 @@ from api_helpers import ClientFactory, StubRetriever, make_passage
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from novabridge_qa.api.deps import get_qa_service
-from novabridge_qa.config import Settings
-from novabridge_qa.llm.fake import FakeLLM
-from novabridge_qa.main import create_app
-from novabridge_qa.qa.service import QAService
+from groundwork.api.deps import get_qa_service
+from groundwork.config import Settings
+from groundwork.llm.fake import FakeLLM
+from groundwork.main import create_app
+from groundwork.qa.service import QAService
 
 
 @pytest.fixture

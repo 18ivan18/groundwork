@@ -2,7 +2,7 @@
 
 import pytest
 
-from novabridge_qa.config import Settings
+from groundwork.config import Settings
 
 
 @pytest.fixture(autouse=True)

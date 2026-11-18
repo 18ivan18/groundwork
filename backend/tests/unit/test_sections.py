@@ -1,6 +1,6 @@
 from itertools import pairwise
 
-from novabridge_qa.ingestion.sections import FRONT_MATTER, Section, detect_sections
+from groundwork.ingestion.sections import FRONT_MATTER, Section, detect_sections
 
 
 def titles(text: str) -> list[str | None]:

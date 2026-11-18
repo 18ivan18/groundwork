@@ -1,4 +1,8 @@
-# NovaBridge Analyst Q&A
+# groundwork
+
+> Formerly **NovaBridge Analyst Q&A**, the EPAM take-home (tag `v1.1.0`). It is becoming groundwork, a
+> generic knowledge assistant: see `docs/HANDOFF.md`. Until M12 rewrites it, this README describes the
+> NovaBridge system.
 
 An internal prototype for a fictional advisory firm. Analysts ask questions about financial filings
 and get a short answer with numbered citations they can open and check. When the documents do not
@@ -31,7 +35,7 @@ and Node 22.
 cd backend
 uv sync
 uv run python scripts/ingest.py
-uv run uvicorn novabridge_qa.main:create_app --factory
+uv run uvicorn groundwork.main:create_app --factory
 
 cd frontend          # in a second terminal
 npm install
@@ -75,7 +79,7 @@ flowchart TD
     end
 ```
 
-- `backend/src/novabridge_qa/`: `ingestion/`, `retrieval/`, `llm/`, `qa/`, `api/`, with `domain/` for
+- `backend/src/groundwork/`: `ingestion/`, `retrieval/`, `llm/`, `qa/`, `api/`, with `domain/` for
   shared types. `container.py` does the wiring.
 - `frontend/src/`: React, with TanStack Query for server state.
 - Compose runs `ingest` once, then `api` (uvicorn), then `web` (nginx serving the build and

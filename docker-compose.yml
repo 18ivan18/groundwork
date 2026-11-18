@@ -1,5 +1,9 @@
+# Compose project name: fixed so volumes and containers keep their names whatever the folder is called.
+name: groundwork
+
+
 x-backend: &backend
-  image: novabridge-qa-api
+  image: groundwork-api
   env_file: .env
   environment:
     # Overrides .env, whose ./data is the path for running outside Docker.
@@ -36,7 +40,7 @@ services:
 
   web:
     build: ./frontend
-    image: novabridge-qa-web
+    image: groundwork-web
     # Local only: the app has no authentication.
     ports:
       - "127.0.0.1:8080:8080"

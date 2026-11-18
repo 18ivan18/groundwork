@@ -18,7 +18,7 @@ from typing import Any
 
 import httpx
 
-from novabridge_qa.config import Settings
+from groundwork.config import Settings
 
 # Ticker -> SEC Central Index Key. CIKs are permanent, while ticker lookups need another request.
 COMPANIES = {

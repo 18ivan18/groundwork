@@ -8,11 +8,11 @@ import random
 import statistics
 from collections import Counter
 
-from novabridge_qa.config import Settings
-from novabridge_qa.container import build_embedder
-from novabridge_qa.domain.models import Chunk
-from novabridge_qa.ingestion.corpus import load_corpus
-from novabridge_qa.ingestion.pipeline import chunk_file
+from groundwork.config import Settings
+from groundwork.container import build_embedder
+from groundwork.domain.models import Chunk
+from groundwork.ingestion.corpus import load_corpus
+from groundwork.ingestion.pipeline import chunk_file
 
 
 def print_distribution(label: str, sizes: list[int]) -> None:

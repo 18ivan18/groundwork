@@ -13,7 +13,7 @@ from run_eval import (
     validate,
 )
 
-from novabridge_qa.domain.models import Chunk, Document, ScoredPassage
+from groundwork.domain.models import Chunk, Document, ScoredPassage
 
 
 def passage(text: str, ticker: str = "ACME", period_end: str = "2025-01-31") -> ScoredPassage:

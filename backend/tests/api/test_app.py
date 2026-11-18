@@ -4,8 +4,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from novabridge_qa.config import Settings
-from novabridge_qa.main import create_app
+from groundwork.config import Settings
+from groundwork.main import create_app
 
 ORIGIN = "http://localhost:5173"
 

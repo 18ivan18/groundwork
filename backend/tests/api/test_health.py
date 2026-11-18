@@ -3,11 +3,11 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from novabridge_qa.config import Settings
-from novabridge_qa.container import Container
-from novabridge_qa.domain.models import Chunk, Document
-from novabridge_qa.main import create_app
-from novabridge_qa.retrieval.embedder import FakeEmbedder
+from groundwork.config import Settings
+from groundwork.container import Container
+from groundwork.domain.models import Chunk, Document
+from groundwork.main import create_app
+from groundwork.retrieval.embedder import FakeEmbedder
 
 
 def make_client(tmp_path: Path) -> TestClient:

@@ -5,10 +5,10 @@ Run from backend/: uv run python scripts/ingest.py
 
 import time
 
-from novabridge_qa.config import Settings
-from novabridge_qa.container import build_dense_index, build_embedder, rebuild_sparse_index
-from novabridge_qa.ingestion.corpus import load_corpus
-from novabridge_qa.ingestion.pipeline import ingest_file
+from groundwork.config import Settings
+from groundwork.container import build_dense_index, build_embedder, rebuild_sparse_index
+from groundwork.ingestion.corpus import load_corpus
+from groundwork.ingestion.pipeline import ingest_file
 
 
 def main() -> None:

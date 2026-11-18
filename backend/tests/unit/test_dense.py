@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from novabridge_qa.domain.models import Chunk, Document
-from novabridge_qa.retrieval.dense import DenseIndex, EmbeddingModelMismatchError
-from novabridge_qa.retrieval.embedder import FakeEmbedder
+from groundwork.domain.models import Chunk, Document
+from groundwork.retrieval.dense import DenseIndex, EmbeddingModelMismatchError
+from groundwork.retrieval.embedder import FakeEmbedder
 
 DOCUMENT = Document(
     title="ACME Corp · Form 10-K",

@@ -4,15 +4,15 @@ from pathlib import Path
 
 import pytest
 
-from novabridge_qa.domain.models import Chunk, Document, ScoredPassage, SearchFilters
-from novabridge_qa.llm.base import Completion, LLMError
-from novabridge_qa.llm.fake import FakeLLM
-from novabridge_qa.qa.prompt import SYSTEM_PROMPT
-from novabridge_qa.qa.service import Answer, QAService
-from novabridge_qa.retrieval.dense import DenseIndex
-from novabridge_qa.retrieval.embedder import FakeEmbedder
-from novabridge_qa.retrieval.hybrid import HybridRetriever, SearchResult
-from novabridge_qa.retrieval.sparse import SparseIndex
+from groundwork.domain.models import Chunk, Document, ScoredPassage, SearchFilters
+from groundwork.llm.base import Completion, LLMError
+from groundwork.llm.fake import FakeLLM
+from groundwork.qa.prompt import SYSTEM_PROMPT
+from groundwork.qa.service import Answer, QAService
+from groundwork.retrieval.dense import DenseIndex
+from groundwork.retrieval.embedder import FakeEmbedder
+from groundwork.retrieval.hybrid import HybridRetriever, SearchResult
+from groundwork.retrieval.sparse import SparseIndex
 
 DOCUMENT = Document(
     title="ACME Corp · Form 10-K",

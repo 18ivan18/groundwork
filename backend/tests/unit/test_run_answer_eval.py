@@ -15,11 +15,11 @@ from run_answer_eval import (
 )
 from run_eval import Question
 
-from novabridge_qa.domain.models import Chunk, Document, ScoredPassage, SearchFilters
-from novabridge_qa.llm.base import Completion, LLMError, RateLimitError
-from novabridge_qa.llm.fake import FakeLLM
-from novabridge_qa.qa.service import QAService
-from novabridge_qa.retrieval.hybrid import SearchResult
+from groundwork.domain.models import Chunk, Document, ScoredPassage, SearchFilters
+from groundwork.llm.base import Completion, LLMError, RateLimitError
+from groundwork.llm.fake import FakeLLM
+from groundwork.qa.service import QAService
+from groundwork.retrieval.hybrid import SearchResult
 
 NEW = Question(
     id="q1",

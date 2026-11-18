@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from novabridge_qa.config import Settings
-from novabridge_qa.container import load_sparse_index
-from novabridge_qa.domain.models import Chunk, Document, SearchFilters
-from novabridge_qa.retrieval.dense import DenseIndex
-from novabridge_qa.retrieval.embedder import FakeEmbedder
-from novabridge_qa.retrieval.hybrid import HybridRetriever
-from novabridge_qa.retrieval.sparse import SparseIndex
+from groundwork.config import Settings
+from groundwork.container import load_sparse_index
+from groundwork.domain.models import Chunk, Document, SearchFilters
+from groundwork.retrieval.dense import DenseIndex
+from groundwork.retrieval.embedder import FakeEmbedder
+from groundwork.retrieval.hybrid import HybridRetriever
+from groundwork.retrieval.sparse import SparseIndex
 
 
 def make_document(doc_id: str, ticker: str, doc_type: str = "10-K") -> Document:

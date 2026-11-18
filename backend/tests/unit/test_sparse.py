@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from novabridge_qa.domain.models import Chunk, Document
-from novabridge_qa.retrieval.sparse import SparseIndex
+from groundwork.domain.models import Chunk, Document
+from groundwork.retrieval.sparse import SparseIndex
 
 DOCUMENT = Document(
     title="Report",

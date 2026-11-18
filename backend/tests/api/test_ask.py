@@ -4,8 +4,8 @@ from typing import Any
 import pytest
 from api_helpers import ClientFactory, StubRetriever, make_passage
 
-from novabridge_qa.domain.models import SearchFilters
-from novabridge_qa.llm.base import LLMError
+from groundwork.domain.models import SearchFilters
+from groundwork.llm.base import LLMError
 
 QUESTION = {"question": "Who sells anvils?"}
 
@@ -134,7 +134,7 @@ def test_question_text_stays_out_of_info_logs(
 def test_question_text_is_available_at_debug_level(
     make_client: ClientFactory, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.DEBUG, logger="novabridge_qa"):
+    with caplog.at_level(logging.DEBUG, logger="groundwork"):
         make_client("Anvils [1].").post("/api/ask", json={"question": "visible question"})
 
     assert "visible question" in caplog.text

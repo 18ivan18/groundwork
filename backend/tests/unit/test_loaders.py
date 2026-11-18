@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from novabridge_qa.ingestion.loaders import (
+from groundwork.ingestion.loaders import (
     LOADERS,
     SUPPORTED_SUFFIXES,
     UnsupportedFormatError,
