@@ -21,7 +21,7 @@ MAX_BYTES = 5000
 TEXT = (
     "Anvils are heavy steel blocks that ACME Corp sells to blacksmiths everywhere. " * 8
 ).encode()
-FORM = {"company": "ACME Corp", "doc_type": "other"}
+FORM = {"doc_type": "notes"}
 
 
 class Harness:
@@ -79,16 +79,24 @@ def test_upload_is_indexed_in_the_background(harness: Harness) -> None:
 
 
 def test_uploaded_document_joins_the_library_with_its_tags(harness: Harness) -> None:
-    harness.upload(doc_type="10-Q", period_end="2025-06-30")
+    harness.upload(collection="team-notes", doc_type="runbook", doc_date="2025-06-30")
 
     [document] = harness.client.get("/api/documents").json()
 
     assert document["title"] == "notes.txt"
-    assert document["company"] == "ACME Corp"
-    assert document["ticker"] is None
-    assert document["doc_type"] == "10-Q"
-    assert document["period_end"] == "2025-06-30"
-    assert document["source"] == "upload"
+    assert document["collection_id"] == "team-notes"
+    assert document["doc_type"] == "runbook"
+    assert document["doc_date"] == "2025-06-30"
+    assert document["metadata"] == {}
+
+
+def test_uploads_go_to_the_uploads_collection_by_default(harness: Harness) -> None:
+    harness.upload()
+
+    [document] = harness.client.get("/api/documents").json()
+
+    assert document["collection_id"] == "uploads"
+    assert document["doc_date"] is None
 
 
 def test_uploaded_document_is_searchable_by_both_retrievers(harness: Harness) -> None:
@@ -100,8 +108,8 @@ def test_uploaded_document_is_searchable_by_both_retrievers(harness: Harness) ->
 
 def test_uploads_can_be_searched_on_their_own(harness: Harness) -> None:
     harness.upload()
-    uploads_only = SearchFilters(sources=("upload",))
-    filings_only = SearchFilters(sources=("edgar",))
+    uploads_only = SearchFilters(collections=("uploads",))
+    filings_only = SearchFilters(collections=("sec-10k",))
 
     assert harness.retriever.search("blacksmiths", 3, uploads_only)
     assert harness.retriever.search("blacksmiths", 3, filings_only) == []
@@ -154,9 +162,9 @@ def test_identical_uploads_in_flight_index_once(harness: Harness) -> None:
         harness.service.accept(
             "notes.txt",
             TEXT,
-            company="ACME Corp",
-            doc_type="other",
-            period_end=None,
+            collection_id="uploads",
+            doc_type="notes",
+            doc_date=None,
             schedule=schedule,
         )
         for _ in range(2)
@@ -274,10 +282,12 @@ def test_path_in_the_filename_cannot_escape_the_uploads_folder(
 @pytest.mark.parametrize(
     "form",
     [
-        {"company": ""},
-        {"company": "   "},
-        {"doc_type": "novel"},
-        {"period_end": "last year"},
+        {"doc_type": ""},
+        {"doc_type": "   "},
+        {"doc_type": "x" * 51},
+        {"collection": "Team Notes"},
+        {"collection": "../etc"},
+        {"doc_date": "last year"},
     ],
 )
 def test_invalid_tags_are_rejected(harness: Harness, form: dict[str, str]) -> None:

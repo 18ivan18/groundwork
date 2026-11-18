@@ -6,11 +6,10 @@ from groundwork.retrieval.sparse import SparseIndex
 
 DOCUMENT = Document(
     title="Report",
-    company="ACME Corp",
-    ticker="ACME",
+    collection_id="uploads",
     doc_type="10-K",
-    period_end=None,
-    source="upload",
+    doc_date=None,
+    metadata={"company": "ACME Corp", "ticker": "ACME"},
     filename="acme.txt",
     doc_id="doc",
     ingested_at=datetime(2025, 1, 1, tzinfo=UTC),

@@ -80,8 +80,8 @@ def filing_key(ticker: str | None, period_end: str | None) -> str:
 
 
 def document_key(document: DocumentMeta) -> str:
-    period_end = document.period_end.isoformat() if document.period_end else None
-    return filing_key(document.ticker, period_end)
+    doc_date = document.doc_date.isoformat() if document.doc_date else None
+    return filing_key(document.metadata.get("ticker"), doc_date)
 
 
 def first_hit_rank(passages: Sequence[ScoredPassage], question: Question) -> int | None:

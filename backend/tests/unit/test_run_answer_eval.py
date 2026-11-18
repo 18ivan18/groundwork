@@ -93,11 +93,10 @@ def test_pacer_counts_unknown_usage_as_its_estimate() -> None:
 
 DOCUMENT = Document(
     title="ACME Corp · Form 10-K",
-    company="ACME Corp",
-    ticker="ACME",
+    collection_id="sec-10k",
     doc_type="10-K",
-    period_end=date(2025, 1, 31),
-    source="edgar",
+    doc_date=date(2025, 1, 31),
+    metadata={"company": "ACME Corp", "ticker": "ACME"},
     filename="acme.htm",
     doc_id="doc",
     ingested_at=datetime(2025, 1, 1, tzinfo=UTC),

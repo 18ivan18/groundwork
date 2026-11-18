@@ -27,9 +27,12 @@ _PASSAGE_TAG = re.compile(r"<(/?passage)", re.IGNORECASE)
 
 def passage_source(passage: ScoredPassage) -> str:
     document = passage.document
-    parts = [f"{document.ticker or document.company} {document.doc_type}"]
-    if document.period_end:
-        parts.append(f"period ending {document.period_end.isoformat()}")
+    # Kept word for word from the 10-K version so the answer eval stays comparable; the
+    # domain-neutral prompt (M1) replaces this label and is measured on its own.
+    name = document.metadata.get("ticker") or document.metadata.get("company") or document.title
+    parts = [f"{name} {document.doc_type}"]
+    if document.doc_date:
+        parts.append(f"period ending {document.doc_date.isoformat()}")
     if passage.chunk.section:
         parts.append(passage.chunk.section)
     return ", ".join(parts)

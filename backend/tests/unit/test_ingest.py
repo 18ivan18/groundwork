@@ -15,11 +15,10 @@ from groundwork.retrieval.embedder import FakeEmbedder
 
 META = DocumentMeta(
     title="ACME Corp · Form 10-K",
-    company="ACME Corp",
-    ticker="ACME",
+    collection_id="sec-10k",
     doc_type="10-K",
-    period_end=None,
-    source="edgar",
+    doc_date=None,
+    metadata={"company": "ACME Corp", "ticker": "ACME"},
     filename="acme.txt",
 )
 TEXT = "Item 1. Business\n\n" + "ACME Corp sells anvils to coyotes in the desert. " * 40
@@ -121,7 +120,9 @@ def test_document_meta_maps_10k405_to_10k() -> None:
 
     assert meta.doc_type == "10-K"
     assert meta.title == "ACME Corp · Form 10-K"
-    assert meta.period_end == date(2001, 1, 28)
+    assert meta.collection_id == "sec-10k"
+    assert meta.doc_date == date(2001, 1, 28)
+    assert meta.metadata == {"company": "ACME Corp", "ticker": "ACME", "form": "10-K405"}
 
 
 def test_doc_id_is_the_sha256_of_the_bytes_and_chunk_0_marks_a_document() -> None:

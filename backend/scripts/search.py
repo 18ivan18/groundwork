@@ -27,7 +27,7 @@ def main() -> None:
         print(
             f"{rank}. rerank={passage.rerank_rank} rrf={passage.rrf_score:.4f} "
             f"dense={passage.dense_rank} "
-            f"sparse={passage.sparse_rank}  {passage.document.ticker} | {passage.chunk.section}"
+            f"sparse={passage.sparse_rank}  {passage.document.title} | {passage.chunk.section}"
         )
         print(f"   {excerpt}")
 

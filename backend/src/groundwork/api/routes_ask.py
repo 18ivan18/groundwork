@@ -27,9 +27,10 @@ def _to_passage(passage: ScoredPassage) -> PassageResponse:
     return PassageResponse(
         doc_id=document.doc_id,
         title=document.title,
-        ticker=document.ticker,
+        collection_id=document.collection_id,
         doc_type=document.doc_type,
-        period_end=document.period_end,
+        doc_date=document.doc_date,
+        metadata=dict(document.metadata),
         section=chunk.section,
         page=chunk.page,
         excerpt=chunk.text,
@@ -51,9 +52,11 @@ def _to_filters(request: AskRequest) -> SearchFilters | None:
     if request.filters is None:
         return None
     return SearchFilters(
-        tickers=tuple(request.filters.tickers),
+        collections=tuple(request.filters.collections),
         doc_types=tuple(request.filters.doc_types),
-        sources=tuple(request.filters.sources),
+        date_from=request.filters.date_from,
+        date_to=request.filters.date_to,
+        metadata=dict(request.filters.metadata),
     )
 
 

@@ -3,25 +3,27 @@
 import json
 from datetime import date
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
-from groundwork.domain.models import DocType, DocumentMeta
+from groundwork.domain.models import DocumentMeta
 from groundwork.ingestion.loaders import is_supported
 
-# 10-K405 was a variant of the 10-K, so analysts should find it under the same filter.
+SEC_COLLECTION = "sec-10k"
+
+# 10-K405 was a variant of the 10-K, so it is found under the same document type. The original
+# form stays in the metadata.
 _DOC_TYPE_BY_FORM = {"10-K405": "10-K"}
 
 
 def document_meta(entry: dict[str, Any]) -> DocumentMeta:
-    doc_type = cast(DocType, _DOC_TYPE_BY_FORM.get(entry["form"], entry["form"]))
+    doc_type = _DOC_TYPE_BY_FORM.get(entry["form"], entry["form"])
     return DocumentMeta(
         title=f"{entry['company']} · Form {doc_type}",
-        company=entry["company"],
-        ticker=entry["ticker"],
+        collection_id=SEC_COLLECTION,
         doc_type=doc_type,
-        period_end=date.fromisoformat(entry["period_end"]),
-        source="edgar",
+        doc_date=date.fromisoformat(entry["period_end"]),
         filename=entry["filename"],
+        metadata={"company": entry["company"], "ticker": entry["ticker"], "form": entry["form"]},
     )
 
 

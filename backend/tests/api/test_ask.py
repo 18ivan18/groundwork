@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import Any
 
 import pytest
@@ -22,9 +23,10 @@ def test_answer_has_the_documented_shape(make_client: ClientFactory) -> None:
             "id": 1,
             "doc_id": "doc",
             "title": "ACME Corp · Form 10-K",
-            "ticker": "ACME",
+            "collection_id": "sec-10k",
             "doc_type": "10-K",
-            "period_end": "2025-09-27",
+            "doc_date": "2025-09-27",
+            "metadata": {"company": "ACME Corp", "ticker": "ACME"},
             "section": "Item 1 — Business",
             "page": None,
             "excerpt": "Anvil fact 2.",
@@ -67,12 +69,24 @@ def test_relevance_gate_answers_without_the_llm(
 def test_filters_and_top_k_reach_the_retriever(
     make_client: ClientFactory, retriever: StubRetriever
 ) -> None:
-    filters = {"tickers": ["ACME"], "doc_types": ["10-K"], "sources": ["upload"]}
+    filters = {
+        "collections": ["sec-10k"],
+        "doc_types": ["10-K"],
+        "date_from": "2025-01-01",
+        "date_to": "2025-12-31",
+        "metadata": {"ticker": "ACME"},
+    }
     payload = {**QUESTION, "filters": filters, "top_k": 2}
 
     make_client("Anvils [1].").post("/api/ask", json=payload)
 
-    expected = SearchFilters(tickers=("ACME",), doc_types=("10-K",), sources=("upload",))
+    expected = SearchFilters(
+        collections=("sec-10k",),
+        doc_types=("10-K",),
+        date_from=date(2025, 1, 1),
+        date_to=date(2025, 12, 31),
+        metadata={"ticker": "ACME"},
+    )
     assert retriever.calls == [(2, expected)]
 
 
@@ -91,7 +105,10 @@ def test_filters_are_optional(make_client: ClientFactory, retriever: StubRetriev
         {"question": "x" * 1001},
         {"question": "Who sells anvils?", "top_k": 0},
         {"question": "Who sells anvils?", "top_k": 21},
-        {"question": "Who sells anvils?", "filters": {"doc_types": ["novel"]}},
+        {"question": "Who sells anvils?", "filters": {"collections": ["Not A Collection"]}},
+        {"question": "Who sells anvils?", "filters": {"doc_types": ["   "]}},
+        {"question": "Who sells anvils?", "filters": {"date_from": "last year"}},
+        {"question": "Who sells anvils?", "filters": {"metadata": {"ticker": 1}}},
     ],
 )
 def test_invalid_requests_are_rejected(make_client: ClientFactory, payload: dict[str, Any]) -> None:

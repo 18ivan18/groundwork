@@ -19,11 +19,10 @@ from groundwork.domain.models import Chunk, Document, ScoredPassage
 def passage(text: str, ticker: str = "ACME", period_end: str = "2025-01-31") -> ScoredPassage:
     document = Document(
         title="t",
-        company="c",
-        ticker=ticker,
+        collection_id="sec-10k",
         doc_type="10-K",
-        period_end=date.fromisoformat(period_end),
-        source="edgar",
+        doc_date=date.fromisoformat(period_end),
+        metadata={"company": "c", "ticker": ticker},
         filename="f",
         doc_id="d",
         ingested_at=datetime(2025, 1, 1, tzinfo=UTC),

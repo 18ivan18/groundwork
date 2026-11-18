@@ -118,8 +118,9 @@ def passage_record(passage: ScoredPassage) -> Record:
     document = passage.document
     return {
         "chunk_id": passage.chunk.chunk_id,
-        "ticker": document.ticker,
-        "period_end": document.period_end.isoformat() if document.period_end else None,
+        # Named as in the runs recorded before M1, so they can still be scored.
+        "ticker": document.metadata.get("ticker"),
+        "period_end": document.doc_date.isoformat() if document.doc_date else None,
         "section": passage.chunk.section,
         "dense_rank": passage.dense_rank,
         "sparse_rank": passage.sparse_rank,

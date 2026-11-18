@@ -43,7 +43,7 @@ def main() -> None:
             chunk_overlap=settings.chunk_overlap,
         )
         sizes = [embedder.count(chunk.text) for chunk in chunks]
-        ticker = meta.ticker or path.stem
+        ticker = meta.metadata.get("ticker", path.stem)
         all_chunks.extend((ticker, chunk) for chunk in chunks)
         all_sizes.extend(sizes)
 

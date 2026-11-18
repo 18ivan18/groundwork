@@ -10,11 +10,10 @@ from groundwork.retrieval.hybrid import SearchResult
 
 DOCUMENT = Document(
     title="ACME Corp · Form 10-K",
-    company="ACME Corp",
-    ticker="ACME",
+    collection_id="sec-10k",
     doc_type="10-K",
-    period_end=date(2025, 9, 27),
-    source="edgar",
+    doc_date=date(2025, 9, 27),
+    metadata={"company": "ACME Corp", "ticker": "ACME"},
     filename="acme.txt",
     doc_id="doc",
     ingested_at=datetime(2025, 11, 1, tzinfo=UTC),
