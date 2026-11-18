@@ -252,6 +252,11 @@ On the three HTML filings 206 of 1,927 table rows changed (AAPL 47, MSFT 93, NVD
 rows that had lost every separator now show their empty label column. Layout tables on cover pages
 and in tables of contents gain a leading empty cell too: correct, and a little noise.
 
+Retrieval at 400 tokens with re-ranking is unchanged (HTM MRR 0.715, TXT 0.676; 1,030 chunks
+instead of 1,028). Without re-ranking, hybrid on HTM rises from 0.684 to 0.705 MRR. `a25` asked
+again (`answer_runs/2026-11-18-m1-tables.jsonl`) is still correct, citing its evidence: it is
+answered from the text passage, as before, so the eval could not show the old error.
+
 ## Answer evaluation
 
 `run_answer_eval.py` asks each question through `QAService` and saves the raw answers, then scores
