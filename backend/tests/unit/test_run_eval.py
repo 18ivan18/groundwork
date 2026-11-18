@@ -10,10 +10,12 @@ from run_eval import (
     Question,
     candidate_recall,
     eval_collections,
+    evidence_ranks,
     first_hit_rank,
     load_questions,
     normalize,
     question_sets,
+    report_groups,
     score,
     share_at_or_above,
     validate,
@@ -122,15 +124,31 @@ def test_the_committed_questions_load_and_ask_as_alice() -> None:
     assert all(q.answerable == bool(q.documents) for q in questions)
 
 
-def test_score_computes_recall_and_mrr() -> None:
-    scores = score([1, 4, None, 2], [1, 3])
+def test_score_computes_success_and_mrr() -> None:
+    scores = score([(1,), (4,), (None,), (2,)], [1, 3])
 
-    assert scores.recall == {1: 0.25, 3: 0.5}
+    assert scores.success == {1: 0.25, 3: 0.5}
     assert scores.mrr == pytest.approx((1 + 1 / 4 + 1 / 2) / 4)
 
 
 def test_mrr_ignores_ranks_past_its_depth() -> None:
-    assert score([2, 20], [1], mrr_depth=10).mrr == pytest.approx(0.5 / 2)
+    assert score([(2,), (20,)], [1], mrr_depth=10).mrr == pytest.approx(0.5 / 2)
+
+
+def test_success_needs_any_evidence_and_recall_counts_each() -> None:
+    # A two-fact question with one fact at rank 2, the other not found; a one-fact question.
+    scores = score([(2, None), (1,)], [3], recall_k=[3])
+
+    assert scores.success == {3: 1.0}
+    assert scores.recall == {3: pytest.approx((0.5 + 1.0) / 2)}
+    assert scores.mrr == pytest.approx((1 / 2 + 1) / 2)
+
+
+def test_evidence_ranks_finds_each_pattern_separately() -> None:
+    question = QUESTION.model_copy(update={"evidence": ("sold 10 anvils", "hired 5", "zebra")})
+    passages = [passage("hired 5"), passage("nothing"), passage("sold 10 anvils")]
+
+    assert evidence_ranks(passages, question, KEYS) == (3, 1, None)
 
 
 def test_candidate_recall_separates_what_each_retriever_found_from_what_fusion_kept() -> None:
@@ -205,10 +223,27 @@ def test_validate_accepts_true_ground_truth() -> None:
     validate([QUESTION, unanswerable("zebra")], {FILING: normalize("sold 10\nanvils")})
 
 
-def test_question_sets_group_by_document_format() -> None:
-    old = QUESTION.model_copy(update={"id": "o", "documents": ("acme-2001",)})
-    formats = {FILING: ".htm", ("sec-10k", "acme-2001"): ".txt"}
+FORMATS = {FILING: ".htm", ("sec-10k", "acme-2001"): ".txt", ("books", "moby-dick"): ".txt"}
+OLD = QUESTION.model_copy(update={"id": "o", "documents": ("acme-2001",)})
+BOOK = QUESTION.model_copy(update={"id": "b", "collection": "books", "documents": ("moby-dick",)})
 
-    sets = question_sets([QUESTION, old, QUESTION], formats)
 
-    assert sets == {"HTM filings (2)": [0, 2], "TXT filings (1)": [1]}
+def test_question_sets_put_each_question_under_its_collection_and_format() -> None:
+    sets = question_sets([QUESTION, OLD, QUESTION, BOOK], FORMATS)
+
+    assert sets == {"books · TXT (1)": [3], "sec-10k · HTM (2)": [0, 2], "sec-10k · TXT (1)": [1]}
+
+
+def test_report_groups_split_a_collection_only_where_it_varies() -> None:
+    multi = QUESTION.model_copy(update={"id": "m", "type": "multi_hop"})
+
+    groups = report_groups([QUESTION, OLD, multi, BOOK], FORMATS)
+
+    assert groups == {
+        "books (1)": [3],
+        "sec-10k (3)": [0, 1, 2],
+        "sec-10k · HTM (2)": [0, 2],
+        "sec-10k · TXT (1)": [1],
+        "sec-10k · multi_hop (1)": [2],
+        "sec-10k · single (2)": [0, 1],
+    }

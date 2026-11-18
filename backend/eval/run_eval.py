@@ -41,6 +41,8 @@ from groundwork.retrieval.sparse import SparseIndex
 EVAL_DIR = Path(__file__).parent
 CHUNK_SIZES = (200, 300, 400)
 K_VALUES = (1, 3, 6, 8, 10, 20)
+# Recall@k is reported at the answer's depth (top_k) and at the candidates' depth.
+RECALL_K = (6, 20)
 # MRR stops at rank 10, so it stays comparable with the runs recorded in decisions.md.
 MRR_DEPTH = 10
 THRESHOLDS = (0.50, 0.55, 0.60, 0.65, 0.70, 0.75)
@@ -89,6 +91,10 @@ DocumentKey = tuple[str, str]
 
 @dataclass(frozen=True)
 class Scores:
+    # Share of questions with any of their evidence in the top k.
+    success: dict[int, float]
+    # Mean share of each question's evidence patterns found in the top k: below Success@k only
+    # for multi-hop questions that found some of their facts but not all.
     recall: dict[int, float]
     mrr: float
 
@@ -128,26 +134,53 @@ def targets(question: Question) -> frozenset[DocumentKey]:
     return frozenset((question.collection, key) for key in question.documents)
 
 
+# For each evidence pattern of a question, the rank of the first passage that holds it.
+EvidenceRanks = tuple[int | None, ...]
+
+
+def evidence_ranks(
+    passages: Sequence[ScoredPassage], question: Question, keys: DocumentKeys
+) -> EvidenceRanks:
+    """Per evidence pattern, the rank of the first passage from one of the question's documents
+    that holds it, or None."""
+    wanted = targets(question)
+    texts = [
+        (rank, normalize(passage.chunk.text))
+        for rank, passage in enumerate(passages, start=1)
+        if keys(passage.document) in wanted
+    ]
+    return tuple(
+        next((rank for rank, text in texts if re.search(pattern, text)), None)
+        for pattern in question.evidence
+    )
+
+
+def first_hit(ranks: EvidenceRanks) -> int | None:
+    """The rank at which any of the evidence was first found."""
+    return min((rank for rank in ranks if rank is not None), default=None)
+
+
 def first_hit_rank(
     passages: Sequence[ScoredPassage], question: Question, keys: DocumentKeys
 ) -> int | None:
-    """The rank of the first passage from one of the question's documents that holds any of its
-    evidence."""
-    wanted = targets(question)
-    for rank, passage in enumerate(passages, start=1):
-        if keys(passage.document) in wanted:
-            text = normalize(passage.chunk.text)
-            if any(re.search(pattern, text) for pattern in question.evidence):
-                return rank
-    return None
+    return first_hit(evidence_ranks(passages, question, keys))
 
 
 def score(
-    ranks: Sequence[int | None], k_values: Sequence[int], mrr_depth: int = MRR_DEPTH
+    questions: Sequence[EvidenceRanks],
+    k_values: Sequence[int],
+    recall_k: Sequence[int] = RECALL_K,
+    mrr_depth: int = MRR_DEPTH,
 ) -> Scores:
-    recall = {k: sum(r is not None and r <= k for r in ranks) / len(ranks) for k in k_values}
-    mrr = sum(1 / r for r in ranks if r is not None and r <= mrr_depth) / len(ranks)
-    return Scores(recall=recall, mrr=mrr)
+    n = len(questions)
+    firsts = [first_hit(ranks) for ranks in questions]
+    success = {k: sum(r is not None and r <= k for r in firsts) / n for k in k_values}
+    recall = {
+        k: sum(sum(r is not None and r <= k for r in ranks) / len(ranks) for ranks in questions) / n
+        for k in recall_k
+    }
+    mrr = sum(1 / r for r in firsts if r is not None and r <= mrr_depth) / n
+    return Scores(success=success, recall=recall, mrr=mrr)
 
 
 @dataclass(frozen=True)
@@ -256,16 +289,19 @@ class Row:
 
 
 def retrieval_table(rows: Sequence[Row]) -> str:
-    recall_headers = " | ".join(f"R@{k}" for k in K_VALUES)
+    headers = [f"S@{k}" for k in K_VALUES] + [f"Recall@{k}" for k in RECALL_K]
     lines = [
-        f"| Chunk tokens | Chunks | Mode | Questions | {recall_headers} | MRR |",
-        "|---|---|---|---|" + "---|" * (len(K_VALUES) + 1),
+        f"| Chunk tokens | Chunks | Mode | Questions | {' | '.join(headers)} | MRR |",
+        "|---|---|---|---|" + "---|" * (len(headers) + 1),
     ]
     for row in rows:
-        recalls = " | ".join(f"{row.scores.recall[k]:.2f}" for k in K_VALUES)
+        values = [row.scores.success[k] for k in K_VALUES] + [
+            row.scores.recall[k] for k in RECALL_K
+        ]
+        cells = " | ".join(f"{value:.2f}" for value in values)
         lines.append(
             f"| {row.chunk_tokens} | {row.chunks} | {row.mode} | {row.question_set} "
-            f"| {recalls} | {row.scores.mrr:.3f} |"
+            f"| {cells} | {row.scores.mrr:.3f} |"
         )
     return "\n".join(lines)
 
@@ -280,8 +316,8 @@ def candidate_table(
         return ", ".join(sorted(found)) or "none"
 
     lines = [
-        f"| Chunk tokens | Questions | Dense R@{candidates} | BM25 R@{candidates} "
-        f"| Either R@{candidates} | Hybrid R@{top_k} | Only dense | Only BM25 | Lost by fusion |",
+        f"| Chunk tokens | Questions | Dense S@{candidates} | BM25 S@{candidates} "
+        f"| Either S@{candidates} | Hybrid S@{top_k} | Only dense | Only BM25 | Lost by fusion |",
         "|---|---|---|---|---|---|---|---|---|",
     ]
     for chunk_tokens, name, c in rows:
@@ -293,16 +329,42 @@ def candidate_table(
     return "\n".join(lines)
 
 
+def _labelled(groups: dict[str, list[int]]) -> dict[str, list[int]]:
+    return {f"{name} ({len(group)})": group for name, group in sorted(groups.items())}
+
+
 def question_sets(
     answerable: Sequence[Question], formats: dict[DocumentKey, str]
 ) -> dict[str, list[int]]:
-    """Group question positions by the format of their first document, such as
-    "TXT filings (21)"."""
+    """Each question's position under its collection and the format of its first document, such
+    as "sec-10k · TXT (21)". Every question is in exactly one set."""
     groups: dict[str, list[int]] = {}
     for position, question in enumerate(answerable):
-        suffix = formats[(question.collection, question.documents[0])]
-        groups.setdefault(suffix.lstrip(".").upper(), []).append(position)
-    return {f"{name} filings ({len(group)})": group for name, group in sorted(groups.items())}
+        suffix = formats[(question.collection, question.documents[0])].lstrip(".").upper()
+        groups.setdefault(f"{question.collection} · {suffix}", []).append(position)
+    return _labelled(groups)
+
+
+def report_groups(
+    answerable: Sequence[Question], formats: dict[DocumentKey, str]
+) -> dict[str, list[int]]:
+    """The groups the retrieval report scores: each collection, then its formats and question
+    types when it has more than one of either. A question appears in several groups."""
+    by_collection: dict[str, list[int]] = {}
+    by_type: dict[str, list[int]] = {}
+    for position, question in enumerate(answerable):
+        by_collection.setdefault(question.collection, []).append(position)
+        by_type.setdefault(f"{question.collection} · {question.type}", []).append(position)
+    by_format = question_sets(answerable, formats)
+    groups: dict[str, list[int]] = {}
+    for collection, positions in _labelled(by_collection).items():
+        groups[collection] = positions
+        name = collection.rsplit(" (", 1)[0]
+        for subgroups in (by_format, _labelled(by_type)):
+            mine = {label: p for label, p in subgroups.items() if label.startswith(f"{name} · ")}
+            if len(mine) > 1:
+                groups.update(mine)
+    return groups
 
 
 def gate_table(answerable: list[float], off_topic: list[float], in_domain: list[float]) -> str:
@@ -329,7 +391,7 @@ def main() -> None:
     by_key = {(e.meta.collection_id, e.key): e for e in entries}
     validate(questions, {key: normalize(load_file(e.path).text) for key, e in by_key.items()})
     answerable = [q for q in questions if q.answerable]
-    sets = question_sets(answerable, {key: e.path.suffix.lower() for key, e in by_key.items()})
+    sets = report_groups(answerable, {key: e.path.suffix.lower() for key, e in by_key.items()})
     embedder = build_embedder(settings)
     reranker = build_reranker(settings)
 
@@ -345,31 +407,33 @@ def main() -> None:
             )
             ranks_by_mode: dict[str, list[int | None]] = {}
             for mode in get_args(SearchMode):
-                ranks, seconds = [], []
+                found: list[EvidenceRanks] = []
+                seconds = []
                 for q in answerable:
                     started = time.perf_counter()
                     passages = retriever.search(q.question, max(K_VALUES), mode=mode)
                     seconds.append(time.perf_counter() - started)
-                    ranks.append(first_hit_rank(passages, q, keys))
+                    found.append(evidence_ranks(passages, q, keys))
+                ranks = [first_hit(evidence) for evidence in found]
                 ranks_by_mode[mode] = ranks
                 latencies.append(
                     f"| {chunk_tokens} | {mode} | {statistics.median(seconds) * 1000:.0f} "
                     f"| {max(seconds) * 1000:.0f} |"
                 )
                 for name, positions in sets.items():
-                    scores = score([ranks[p] for p in positions], K_VALUES)
+                    scores = score([found[p] for p in positions], K_VALUES)
                     rows.append(Row(chunk_tokens, dense.count_chunks(), mode, name, scores))
                 for question, rank in zip(answerable, ranks, strict=True):
                     if rank is None or rank > settings.top_k:
                         misses.append(f"| {chunk_tokens} | {mode} | {question.id} | {rank} |")
             for name, positions in sets.items():
-                found = candidate_recall(
+                candidates = candidate_recall(
                     [answerable[p].id for p in positions],
                     {m: [r[p] for p in positions] for m, r in ranks_by_mode.items()},
                     settings.retrieval_candidates,
                     settings.top_k,
                 )
-                candidate_rows.append((chunk_tokens, name, found))
+                candidate_rows.append((chunk_tokens, name, candidates))
 
             top: dict[str, float] = {
                 q.id: dense.search(embedder.embed_query(q.question), 1)[0].similarity
@@ -393,10 +457,15 @@ def main() -> None:
             f"Candidates per retriever: {settings.retrieval_candidates}. RRF k: {settings.rrf_k}. "
             f"Re-ranker: `{settings.reranker_model or 'off'}` on the top "
             f"{settings.rerank_candidates} after fusion. "
-            f"Filings indexed: {len(entries)}. Questions: {len(answerable)} answerable, "
-            f"{len(questions) - len(answerable)} unanswerable. Unfiltered searches over all "
-            "filings; a question counts as found only in the filing it names.",
-            "## Recall and MRR",
+            f"Documents indexed: {len(entries)} in "
+            f"{', '.join(sorted(eval_collections(questions)))}. "
+            f"Questions: {len(answerable)} answerable, "
+            f"{len(questions) - len(answerable)} unanswerable. Unfiltered searches over every "
+            "indexed collection; a question counts as found only in the documents it names.",
+            "## Success, recall and MRR",
+            "**S@k** (Success@k): share of questions with any of their evidence in the top k "
+            "(called R@k before M1). **Recall@k**: mean share of each question's evidence found "
+            "in the top k; it differs from S@k only for questions that need several facts. "
             f"MRR counts ranks up to {MRR_DEPTH}.\n\n" + retrieval_table(rows),
             "## Candidates before fusion",
             f"Each retriever passes its top {settings.retrieval_candidates} passages to RRF. "

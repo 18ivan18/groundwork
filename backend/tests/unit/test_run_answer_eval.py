@@ -309,7 +309,7 @@ def test_score_run_groups_by_filing_format_then_unanswerable_kind() -> None:
     results = score_run([NEW, OLD, OFF], FORMATS, [], KEYS)
 
     assert [(r.id, r.question_set) for r in results] == [
-        ("q1", "HTM filings (1)"),
-        ("q2", "TXT filings (1)"),
+        ("q1", "sec-10k · HTM (1)"),
+        ("q2", "sec-10k · TXT (1)"),
         ("u1", "Off-topic (1)"),
     ]
