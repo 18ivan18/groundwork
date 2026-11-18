@@ -9,6 +9,7 @@ readers know it is bait.
 
 import hashlib
 import json
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Annotated
@@ -125,9 +126,15 @@ def document_meta(collection: str, document: ManifestDocument) -> DocumentMeta:
     )
 
 
-def load_corpus(
-    raw_dir: Path, collections: frozenset[str] | None = None
-) -> list[tuple[Path, DocumentMeta]]:
+@dataclass(frozen=True)
+class CorpusEntry:
+    path: Path
+    # The manifest key, unique within the collection.
+    key: str
+    meta: DocumentMeta
+
+
+def corpus_entries(raw_dir: Path, collections: frozenset[str] | None = None) -> list[CorpusEntry]:
     """The documents of every collection under raw_dir, or of the named ones, that have a loader.
     Files in other formats wait until their format has one."""
     folders = sorted(path.parent for path in raw_dir.glob(f"*/{MANIFEST}"))
@@ -135,12 +142,23 @@ def load_corpus(
         if unknown := collections - {folder.name for folder in folders}:
             raise ManifestError(f"No manifest for {', '.join(sorted(unknown))} in {raw_dir}")
         folders = [folder for folder in folders if folder.name in collections]
-    corpus = []
+    entries = []
     for folder in folders:
         manifest = read_manifest(folder)
-        corpus += [
-            (folder / document.filename, document_meta(manifest.collection, document))
+        entries += [
+            CorpusEntry(
+                folder / document.filename,
+                document.key,
+                document_meta(manifest.collection, document),
+            )
             for document in manifest.documents
             if is_supported(document.filename)
         ]
-    return corpus
+    return entries
+
+
+def load_corpus(
+    raw_dir: Path, collections: frozenset[str] | None = None
+) -> list[tuple[Path, DocumentMeta]]:
+    """(path, metadata) of each document `corpus_entries` lists."""
+    return [(entry.path, entry.meta) for entry in corpus_entries(raw_dir, collections)]

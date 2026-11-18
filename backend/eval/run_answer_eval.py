@@ -30,20 +30,21 @@ from pathlib import Path
 from typing import Any
 
 from run_eval import (
-    EVAL_COLLECTIONS,
+    UNANSWERABLE_TYPES,
+    DocumentKey,
     Question,
-    document_key,
-    filing_key,
+    eval_collections,
     load_questions,
     normalize,
     question_sets,
+    targets,
     validate,
 )
 
 from groundwork.config import Settings
 from groundwork.container import build_dense_index, build_services
 from groundwork.domain.models import ScoredPassage, SearchFilters, section_label
-from groundwork.ingestion.corpus import load_corpus
+from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.llm.base import LLMError, RateLimitError
 from groundwork.qa.service import Answer, QAService
@@ -119,7 +120,9 @@ def passage_record(passage: ScoredPassage) -> Record:
     document = passage.document
     return {
         "chunk_id": passage.chunk.chunk_id,
-        # Named as in the runs recorded before M1, so they can still be scored.
+        "collection": document.collection_id,
+        "filename": document.filename,
+        # Kept as in the runs recorded before M1, which name a filing by these two only.
         "ticker": document.metadata.get("ticker"),
         "period_end": document.doc_date.isoformat() if document.doc_date else None,
         "section": section_label(passage.chunk),
@@ -173,9 +176,6 @@ def append(path: Path, record: Record) -> None:
         file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
-EVAL_FILTERS = SearchFilters(collections=tuple(sorted(EVAL_COLLECTIONS)))
-
-
 def ask_all(
     questions: Sequence[Question],
     qa: QAService,
@@ -191,8 +191,8 @@ def ask_all(
     for number, question in enumerate(pending, start=1):
         waited = pacer.wait()
         try:
-            # Only the collections the questions are about, as in the retrieval eval.
-            answer = qa.ask(question.question, EVAL_FILTERS)
+            # Searched within the question's collection, as in the retrieval eval.
+            answer = qa.ask(question.question, SearchFilters(collections=(question.collection,)))
         except RateLimitError as error:
             log(f"Stopped at {question.id}: {error} Run `ask` again later to resume.")
             return False
@@ -234,13 +234,40 @@ class Result:
     cited_filings: tuple[str, ...]
 
 
-def source_key(source: Record) -> str:
-    return filing_key(source["ticker"], source["period_end"])
+class SourceKeys:
+    """Maps the sources recorded in a run to manifest keys. Runs recorded before M1 name a filing
+    by ticker and period only."""
+
+    def __init__(self, entries: Sequence[CorpusEntry]) -> None:
+        self._by_file = {(e.meta.collection_id, e.meta.filename): e.key for e in entries}
+        self._by_filing = {
+            (e.meta.metadata["ticker"], e.meta.doc_date.isoformat()): (e.meta.collection_id, e.key)
+            for e in entries
+            if "ticker" in e.meta.metadata and e.meta.doc_date
+        }
+        self.tickers = {
+            (e.meta.collection_id, e.key): e.meta.metadata.get("ticker") for e in entries
+        }
+
+    def __call__(self, source: Record) -> DocumentKey:
+        if "filename" in source:
+            collection = source["collection"]
+            return collection, self._by_file.get((collection, source["filename"]), "")
+        return self._by_filing.get((source["ticker"], source["period_end"]), ("", ""))
 
 
-def score_record(question: Question, question_set: str, record: Record | None) -> Result:
-    target = filing_key(question.ticker, question.period_end)
-    answerable = question.evidence is not None
+def source_label(source: Record) -> str:
+    """How the report names a cited document: "AAPL 2026-09-26" for a filing, else its file."""
+    if source.get("ticker"):
+        return f"{source['ticker']} {source['period_end']}"
+    return str(source.get("filename", "?"))
+
+
+def score_record(
+    question: Question, question_set: str, record: Record | None, keys: SourceKeys
+) -> Result:
+    target = targets(question)
+    answerable = question.answerable
     empty = Result(
         question.id, question_set, answerable, True, False, None, None, None, None, None, (),
         None, None, None, "", (),
@@ -253,7 +280,7 @@ def score_record(question: Question, question_set: str, record: Record | None) -
     sources: list[Record] = record["sources"]
     answered = record["refusal"] is None
     text = normalize_answer(record["answer"])
-    cited = tuple(dict.fromkeys(source_key(s) for s in sources))
+    cited = tuple(dict.fromkeys(source_label(s) for s in sources))
     latency = record["retrieval_ms"] + record["generation_ms"]
     common = {
         "answered": answered,
@@ -267,17 +294,17 @@ def score_record(question: Question, question_set: str, record: Record | None) -
     if not answerable:
         return Result(**{**empty.__dict__, **common})
 
-    assert question.evidence is not None
-    missing = tuple(
-        fact for fact in question.expected or [] if not re.search(fact, text, re.IGNORECASE)
-    )
+    missing = tuple(fact for fact in question.expected if not re.search(fact, text, re.IGNORECASE))
     evidence_cited = any(
-        source_key(s) == target and re.search(question.evidence, normalize(s["text"]))
+        keys(s) in target
+        and any(re.search(pattern, normalize(s["text"])) for pattern in question.evidence)
         for s in sources
     )
-    same_company = [s for s in sources if s["ticker"] == question.ticker]
+    # Filings only: cited the same company, but only its other generation of filings.
+    ticker = next((keys.tickers.get(key) for key in sorted(target)), None)
+    same_company = [s for s in sources if ticker and s.get("ticker") == ticker]
     other_only = (
-        answered and bool(same_company) and all(source_key(s) != target for s in same_company)
+        answered and bool(same_company) and all(keys(s) not in target for s in same_company)
     )
     return Result(
         **{
@@ -293,26 +320,32 @@ def score_record(question: Question, question_set: str, record: Record | None) -
 
 def unanswerable_sets(questions: Sequence[Question]) -> dict[str, list[Question]]:
     groups: dict[str, list[Question]] = {}
-    labels = {"off_topic": "Off-topic", "in_domain": "In-domain unanswerable"}
+    labels = {
+        "unanswerable_off_topic": "Off-topic",
+        "unanswerable_in_domain": "In-domain unanswerable",
+    }
     for question in questions:
-        label = labels.get(question.unanswerable or "", question.unanswerable or "Unanswerable")
+        label = labels.get(question.type, question.type)
         groups.setdefault(label, []).append(question)
     return {f"{label} ({len(group)})": group for label, group in groups.items()}
 
 
 def score_run(
-    questions: Sequence[Question], formats: dict[str, str], records: Iterable[Record]
+    questions: Sequence[Question],
+    formats: dict[DocumentKey, str],
+    records: Iterable[Record],
+    keys: SourceKeys,
 ) -> list[Result]:
     latest = latest_records(records)
-    answerable = [q for q in questions if q.evidence]
+    answerable = [q for q in questions if q.answerable]
     results = []
     for name, positions in question_sets(answerable, formats).items():
         for position in positions:
             question = answerable[position]
-            results.append(score_record(question, name, latest.get(question.id)))
-    unanswerable = [q for q in questions if not q.evidence]
+            results.append(score_record(question, name, latest.get(question.id), keys))
+    unanswerable = [q for q in questions if q.type in UNANSWERABLE_TYPES]
     for name, group in unanswerable_sets(unanswerable).items():
-        results.extend(score_record(q, name, latest.get(q.id)) for q in group)
+        results.extend(score_record(q, name, latest.get(q.id), keys) for q in group)
     return results
 
 
@@ -514,10 +547,10 @@ def main() -> None:
 
     settings = Settings()
     questions = load_questions(EVAL_DIR / "questions.jsonl")
-    corpus = load_corpus(settings.data_dir / "raw", EVAL_COLLECTIONS)
-    keys = [(path, document_key(meta)) for path, meta in corpus]
-    validate(questions, {key: normalize(load_file(path).text) for path, key in keys})
-    formats = {key: path.suffix.lower() for path, key in keys}
+    entries = corpus_entries(settings.data_dir / "raw", eval_collections(questions))
+    by_key = {(e.meta.collection_id, e.key): e for e in entries}
+    validate(questions, {key: normalize(load_file(e.path).text) for key, e in by_key.items()})
+    formats = {key: e.path.suffix.lower() for key, e in by_key.items()}
 
     if args.command == "ask":
         dense = build_dense_index(settings)
@@ -542,7 +575,7 @@ def main() -> None:
     if name is None:
         sys.exit("No runs yet. Run `ask` first.")
     records = read_run(RUNS_DIR / f"{name}.jsonl")
-    results = score_run(questions, formats, records)
+    results = score_run(questions, formats, records, SourceKeys(entries))
     text = report(name, records[0], results, questions)
     (EVAL_DIR / "answer_results.md").write_text(text + "\n")
     print(text.split("## Per question")[0])

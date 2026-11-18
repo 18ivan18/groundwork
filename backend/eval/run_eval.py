@@ -2,13 +2,12 @@
 
 Run from backend/: uv run python eval/run_eval.py
 
-For each chunk size the corpus is indexed into a temporary directory, so the real index is
-untouched. A question counts as found when a passage from the right company contains its
-`evidence` pattern. That is stricter than matching a section, which can span dozens of chunks.
+For each chunk size the collections the questions are about are indexed into a temporary
+directory, so the real index is untouched. A question counts as found when a passage from one of
+its `documents` (manifest keys) contains one of its `evidence` patterns. That is stricter than
+matching a section, which can span dozens of chunks.
 
-Both generations of filings are indexed, so each answerable question names its filing by
-`ticker` and `period_end`, and only a passage from that filing counts. Scores are reported per
-filing format, which separates the TXT filings from the HTML ones.
+Scores are reported per document format, which separates the TXT filings from the HTML ones.
 
 Each retriever hands its top `retrieval_candidates` passages to fusion, so recall at that depth
 is the most hybrid search can find. The candidate table compares it with what survives fusion
@@ -23,12 +22,14 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import get_args
+from typing import Literal, get_args
+
+from pydantic import BaseModel, ConfigDict
 
 from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
-from groundwork.domain.models import DocumentMeta, ScoredPassage
-from groundwork.ingestion.corpus import SEC_COLLECTION, load_corpus
+from groundwork.domain.models import Document, ScoredPassage
+from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.ingestion.pipeline import ingest_file
 from groundwork.retrieval.dense import DenseIndex
@@ -38,9 +39,6 @@ from groundwork.retrieval.reranker import Reranker
 from groundwork.retrieval.sparse import SparseIndex
 
 EVAL_DIR = Path(__file__).parent
-# The collections the questions are about. Until the question set covers more (M1, #23), other
-# collections stay out, so the numbers compare with earlier runs.
-EVAL_COLLECTIONS = frozenset({SEC_COLLECTION})
 CHUNK_SIZES = (200, 300, 400)
 K_VALUES = (1, 3, 6, 8, 10, 20)
 # MRR stops at rank 10, so it stays comparable with the runs recorded in decisions.md.
@@ -48,19 +46,45 @@ MRR_DEPTH = 10
 THRESHOLDS = (0.50, 0.55, 0.60, 0.65, 0.70, 0.75)
 
 
-@dataclass(frozen=True)
-class Question:
+QuestionType = Literal[
+    "single",
+    "multi_hop",
+    "unanswerable_off_topic",
+    "unanswerable_in_domain",
+    "restricted",
+    "contradiction",
+    "injection",
+]
+UNANSWERABLE_TYPES = frozenset({"unanswerable_off_topic", "unanswerable_in_domain"})
+
+
+class Question(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     id: str
+    collection: str
     question: str
-    ticker: str | None = None
-    period_end: str | None = None
-    section: str | None = None
-    evidence: str | None = None
+    type: QuestionType
+    # Manifest keys, within `collection`, of the documents whose evidence counts.
+    documents: tuple[str, ...] = ()
+    # One pattern per fact the answer needs: a multi-hop question needs all of them.
+    evidence: tuple[str, ...] = ()
     # Facts the answer must state, each a case-insensitive pattern whose alternatives are
     # accepted ways of writing it. Used by run_answer_eval.py.
-    expected: list[str] | None = None
-    unanswerable: str | None = None
+    expected: tuple[str, ...] = ()
+    # Who asks: a user from conf/users.yaml. Access is enforced from M3.
+    user: str = "alice"
+    # For unanswerable questions: a pattern that must not occur anywhere in the collection, which
+    # proves the answer is not there.
     absent: str | None = None
+
+    @property
+    def answerable(self) -> bool:
+        return bool(self.evidence)
+
+
+# (collection, manifest key)
+DocumentKey = tuple[str, str]
 
 
 @dataclass(frozen=True)
@@ -75,26 +99,46 @@ def normalize(text: str) -> str:
 
 
 def load_questions(path: Path) -> list[Question]:
-    return [Question(**json.loads(line)) for line in path.read_text().splitlines()]
+    questions = [
+        Question.model_validate(json.loads(line)) for line in path.read_text().splitlines()
+    ]
+    ids = [question.id for question in questions]
+    if duplicates := sorted({i for i in ids if ids.count(i) > 1}):
+        raise ValueError(f"Question ids used twice: {', '.join(duplicates)}")
+    return questions
 
 
-def filing_key(ticker: str | None, period_end: str | None) -> str:
-    return f"{ticker} {period_end}"
+def eval_collections(questions: Sequence[Question]) -> frozenset[str]:
+    """The collections to index: those the questions are about."""
+    return frozenset(question.collection for question in questions)
 
 
-def document_key(document: DocumentMeta) -> str:
-    doc_date = document.doc_date.isoformat() if document.doc_date else None
-    return filing_key(document.metadata.get("ticker"), doc_date)
+class DocumentKeys:
+    """Maps indexed documents back to their manifest keys."""
+
+    def __init__(self, entries: Sequence[CorpusEntry]) -> None:
+        self._by_file = {(e.meta.collection_id, e.meta.filename): e.key for e in entries}
+
+    def __call__(self, document: Document) -> DocumentKey:
+        collection = document.collection_id
+        return collection, self._by_file.get((collection, document.filename), "")
 
 
-def first_hit_rank(passages: Sequence[ScoredPassage], question: Question) -> int | None:
-    assert question.evidence is not None
-    target = filing_key(question.ticker, question.period_end)
+def targets(question: Question) -> frozenset[DocumentKey]:
+    return frozenset((question.collection, key) for key in question.documents)
+
+
+def first_hit_rank(
+    passages: Sequence[ScoredPassage], question: Question, keys: DocumentKeys
+) -> int | None:
+    """The rank of the first passage from one of the question's documents that holds any of its
+    evidence."""
+    wanted = targets(question)
     for rank, passage in enumerate(passages, start=1):
-        if document_key(passage.document) == target and re.search(
-            question.evidence, normalize(passage.chunk.text)
-        ):
-            return rank
+        if keys(passage.document) in wanted:
+            text = normalize(passage.chunk.text)
+            if any(re.search(pattern, text) for pattern in question.evidence):
+                return rank
     return None
 
 
@@ -154,40 +198,45 @@ def share_at_or_above(similarities: Sequence[float], threshold: float) -> int:
     return sum(similarity >= threshold for similarity in similarities)
 
 
-def validate(questions: Sequence[Question], texts: dict[str, str]) -> None:
-    """Fail on a question whose ground truth does not hold in the filings.
+def validate(questions: Sequence[Question], texts: dict[DocumentKey, str]) -> None:
+    """Fail on a question whose ground truth does not hold in its documents.
 
-    `texts` maps each filing's `filing_key` to its normalized text.
+    `texts` maps each document's (collection, key) to its normalized text.
     """
     for question in questions:
-        if not question.evidence:
-            pass
-        elif (key := filing_key(question.ticker, question.period_end)) not in texts:
-            raise ValueError(f"{question.id}: no filing {key} in the corpus")
-        elif not re.search(question.evidence, texts[key]):
-            raise ValueError(f"{question.id}: evidence is not in the {key} filing")
-        else:
-            for fact in question.expected or []:
-                if not re.search(fact, texts[key], re.IGNORECASE):
-                    raise ValueError(f"{question.id}: expected {fact!r} is not in the {key} filing")
+        documents = {}
+        for key in targets(question):
+            if key not in texts:
+                raise ValueError(f"{question.id}: no document {key[1]} in {key[0]}")
+            documents[key] = texts[key]
+        if question.answerable and not documents:
+            raise ValueError(f"{question.id}: evidence without documents")
+        for pattern in question.evidence:
+            if not any(re.search(pattern, text) for text in documents.values()):
+                raise ValueError(f"{question.id}: evidence {pattern!r} is not in its documents")
+        for fact in question.expected:
+            if not any(re.search(fact, text, re.IGNORECASE) for text in documents.values()):
+                raise ValueError(f"{question.id}: expected {fact!r} is not in its documents")
+        collection = [text for (name, _), text in texts.items() if name == question.collection]
         if question.absent and any(
-            re.search(question.absent, text, re.IGNORECASE) for text in texts.values()
+            re.search(question.absent, text, re.IGNORECASE) for text in collection
         ):
-            raise ValueError(f"{question.id}: {question.absent!r} does occur in the corpus")
+            raise ValueError(f"{question.id}: {question.absent!r} does occur in the collection")
 
 
 def build_retriever(
     settings: Settings,
+    entries: Sequence[CorpusEntry],
     embedder: Embedder,
     reranker: Reranker | None,
     chunk_tokens: int,
     directory: Path,
 ) -> tuple[HybridRetriever, DenseIndex]:
     dense = DenseIndex(directory, settings.embedding_model)
-    for path, meta in load_corpus(settings.data_dir / "raw", EVAL_COLLECTIONS):
+    for entry in entries:
         ingest_file(
-            path,
-            meta,
+            entry.path,
+            entry.meta,
             embedder,
             dense,
             chunk_tokens=chunk_tokens,
@@ -244,11 +293,14 @@ def candidate_table(
     return "\n".join(lines)
 
 
-def question_sets(answerable: Sequence[Question], formats: dict[str, str]) -> dict[str, list[int]]:
-    """Group question positions by the format of their filing, such as "TXT filings (21)"."""
+def question_sets(
+    answerable: Sequence[Question], formats: dict[DocumentKey, str]
+) -> dict[str, list[int]]:
+    """Group question positions by the format of their first document, such as
+    "TXT filings (21)"."""
     groups: dict[str, list[int]] = {}
     for position, question in enumerate(answerable):
-        suffix = formats[filing_key(question.ticker, question.period_end)]
+        suffix = formats[(question.collection, question.documents[0])]
         groups.setdefault(suffix.lstrip(".").upper(), []).append(position)
     return {f"{name} filings ({len(group)})": group for name, group in sorted(groups.items())}
 
@@ -272,11 +324,12 @@ def gate_table(answerable: list[float], off_topic: list[float], in_domain: list[
 def main() -> None:
     settings = Settings()
     questions = load_questions(EVAL_DIR / "questions.jsonl")
-    corpus = load_corpus(settings.data_dir / "raw", EVAL_COLLECTIONS)
-    keys = [(path, document_key(meta)) for path, meta in corpus]
-    validate(questions, {key: normalize(load_file(path).text) for path, key in keys})
-    answerable = [q for q in questions if q.evidence]
-    sets = question_sets(answerable, {key: path.suffix.lower() for path, key in keys})
+    entries = corpus_entries(settings.data_dir / "raw", eval_collections(questions))
+    keys = DocumentKeys(entries)
+    by_key = {(e.meta.collection_id, e.key): e for e in entries}
+    validate(questions, {key: normalize(load_file(e.path).text) for key, e in by_key.items()})
+    answerable = [q for q in questions if q.answerable]
+    sets = question_sets(answerable, {key: e.path.suffix.lower() for key, e in by_key.items()})
     embedder = build_embedder(settings)
     reranker = build_reranker(settings)
 
@@ -288,7 +341,7 @@ def main() -> None:
     for chunk_tokens in CHUNK_SIZES:
         with tempfile.TemporaryDirectory() as directory:
             retriever, dense = build_retriever(
-                settings, embedder, reranker, chunk_tokens, Path(directory)
+                settings, entries, embedder, reranker, chunk_tokens, Path(directory)
             )
             ranks_by_mode: dict[str, list[int | None]] = {}
             for mode in get_args(SearchMode):
@@ -297,7 +350,7 @@ def main() -> None:
                     started = time.perf_counter()
                     passages = retriever.search(q.question, max(K_VALUES), mode=mode)
                     seconds.append(time.perf_counter() - started)
-                    ranks.append(first_hit_rank(passages, q))
+                    ranks.append(first_hit_rank(passages, q, keys))
                 ranks_by_mode[mode] = ranks
                 latencies.append(
                     f"| {chunk_tokens} | {mode} | {statistics.median(seconds) * 1000:.0f} "
@@ -323,8 +376,8 @@ def main() -> None:
                 for q in questions
             }
             kept = [top[q.id] for q in answerable]
-            off_topic = [top[q.id] for q in questions if q.unanswerable == "off_topic"]
-            in_domain = [top[q.id] for q in questions if q.unanswerable == "in_domain"]
+            off_topic = [top[q.id] for q in questions if q.type == "unanswerable_off_topic"]
+            in_domain = [top[q.id] for q in questions if q.type == "unanswerable_in_domain"]
             gate_sections.append(
                 f"### {chunk_tokens} tokens\n\n"
                 f"Best dense similarity: answerable min {min(kept):.3f}, "
@@ -340,7 +393,7 @@ def main() -> None:
             f"Candidates per retriever: {settings.retrieval_candidates}. RRF k: {settings.rrf_k}. "
             f"Re-ranker: `{settings.reranker_model or 'off'}` on the top "
             f"{settings.rerank_candidates} after fusion. "
-            f"Filings indexed: {len(corpus)}. Questions: {len(answerable)} answerable, "
+            f"Filings indexed: {len(entries)}. Questions: {len(answerable)} answerable, "
             f"{len(questions) - len(answerable)} unanswerable. Unfiltered searches over all "
             "filings; a question counts as found only in the filing it names.",
             "## Recall and MRR",
