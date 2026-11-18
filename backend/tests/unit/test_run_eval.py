@@ -124,6 +124,15 @@ def test_the_committed_questions_load_and_ask_as_alice() -> None:
     assert all(q.answerable == bool(q.documents) for q in questions)
 
 
+def test_the_held_out_questions_load_and_share_no_ids() -> None:
+    folder = Path(__file__).parents[2] / "eval"
+    tuned = load_questions(folder / "questions.jsonl")
+    held_out = load_questions(folder / "heldout.jsonl")
+
+    assert len(held_out) == 20
+    assert not {q.id for q in tuned} & {q.id for q in held_out}
+
+
 def test_score_computes_success_and_mrr() -> None:
     scores = score([(1,), (4,), (None,), (2,)], [1, 3])
 
