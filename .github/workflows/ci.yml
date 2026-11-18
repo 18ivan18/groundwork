@@ -37,3 +37,12 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # Builds both images without pushing them, so a broken Dockerfile fails the pull request
+  # rather than the first `docker compose up`.
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build --tag groundwork-api ./backend
+      - run: docker build --tag groundwork-web ./frontend
