@@ -5,7 +5,6 @@ from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
-from fastapi import Path as PathParam
 
 from groundwork.api.deps import ContainerDep, CurrentUser, UploadServiceDep
 from groundwork.api.schemas import (
@@ -13,7 +12,6 @@ from groundwork.api.schemas import (
     DocTypeText,
     DocumentResponse,
     ErrorResponse,
-    JobResponse,
     UploadResponse,
 )
 from groundwork.domain.models import Access
@@ -94,23 +92,3 @@ async def upload_document(
     except NoTextError as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from error
     return UploadResponse(job_id=job.job_id, doc_id=job.doc_id)
-
-
-@router.get(
-    "/jobs/{job_id}",
-    summary="Check an upload's progress",
-    description=(
-        "Only the user who started the job sees it; anyone else gets 404, as for a job that "
-        "does not exist."
-    ),
-    responses={404: {"model": ErrorResponse, "description": "No such job of this user's."}},
-)
-async def get_job(
-    job_id: Annotated[str, PathParam(description="The `job_id` from the upload.")],
-    container: ContainerDep,
-    user: CurrentUser,
-) -> JobResponse:
-    job = await container.jobs.get(job_id)
-    if job is None or job.owner_id != user.user_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such job.")
-    return JobResponse(status=job.status, progress=job.progress, error=job.error, chunks=job.chunks)

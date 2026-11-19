@@ -16,6 +16,7 @@ from groundwork.api import (
     routes_config,
     routes_documents,
     routes_health,
+    routes_jobs,
     routes_users,
 )
 from groundwork.api.deps import get_user
@@ -110,6 +111,7 @@ def create_app(settings: Settings | None = None, *, store: ChunkStore | None = N
         openapi_tags=[
             {"name": "questions", "description": "Ask questions of the library."},
             {"name": "documents", "description": "List the library and add to it."},
+            {"name": "jobs", "description": "Ingestion jobs: progress, retry and cancel."},
             {"name": "health", "description": "Service status."},
             {"name": "users", "description": "The demo users and the current user."},
             {"name": "config", "description": "Limits for clients to apply."},
@@ -145,7 +147,7 @@ def create_app(settings: Settings | None = None, *, store: ChunkStore | None = N
     unauthenticated: dict[int | str, dict[str, Any]] = {
         401: {"model": ErrorResponse, "description": "No `X-User` header, or an unknown user."}
     }
-    for module in (routes_config, routes_ask, routes_documents):
+    for module in (routes_config, routes_ask, routes_documents, routes_jobs):
         app.include_router(
             module.router, prefix="/api", dependencies=authenticated, responses=unauthenticated
         )

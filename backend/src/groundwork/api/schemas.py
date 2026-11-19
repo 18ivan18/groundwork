@@ -222,14 +222,48 @@ class UploadResponse(BaseModel):
 class JobResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
-            "examples": [{"status": "embedding", "progress": 60, "error": None, "chunks": None}]
+            "examples": [
+                {
+                    "job_id": "933dac8b-3c1e-4c8e-9c55-0d3f0c1f6a52",
+                    "kind": "ingest_document",
+                    "owner_id": "alice",
+                    "filename": "runbook.md",
+                    "doc_id": None,
+                    "status": "embedding",
+                    "progress": 60,
+                    "attempts": 1,
+                    "max_attempts": 3,
+                    "error": None,
+                    "chunks": None,
+                    "cancel_requested": False,
+                    "created_at": "2025-11-01T09:30:00Z",
+                    "updated_at": "2025-11-01T09:30:12Z",
+                }
+            ]
         }
     )
 
-    status: JobStatus = Field(description="`indexed` and `failed` are final.")
+    job_id: str = Field(description="Poll, retry or cancel the job with this.")
+    kind: str = Field(description="`ingest_document` for an upload or a corpus file.")
+    owner_id: str | None = Field(description="Who started it; null for the corpus ingest.")
+    filename: str | None = Field(
+        description="The file being indexed. Shown only to the job's owner."
+    )
+    doc_id: str | None = Field(
+        description="The document it stored, once known. Shown only to the job's owner."
+    )
+    status: JobStatus = Field(
+        description="`indexed`, `failed`, `dead` and `cancelled` are final. `failed` will not "
+        "succeed on retry as it is; `dead` ran out of attempts and may."
+    )
     progress: int = Field(ge=0, le=100, description="Percentage done.")
-    error: str | None = Field(description="What went wrong, when status is `failed`.")
+    attempts: int = Field(description="Attempts started, counting the current one.")
+    max_attempts: int = Field(description="After this many failed attempts the job is `dead`.")
+    error: str | None = Field(description="What went wrong, when the job failed or is retrying.")
     chunks: int | None = Field(description="Passages indexed, when status is `indexed`.")
+    cancel_requested: bool = Field(description="A cancel was asked for and the worker will stop.")
+    created_at: datetime = Field(description="When the job was queued.")
+    updated_at: datetime = Field(description="Its last change, heartbeats included.")
 
 
 class UserResponse(BaseModel):

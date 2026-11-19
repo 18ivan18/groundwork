@@ -13,11 +13,20 @@ from groundwork.domain.models import EVERYONE, UNRESTRICTED, Access
 _Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=40)]
 
 
+# Members see every user's jobs and may delete any document they can read, and documents in
+# protected collections. Reading is still by group: admin is not a superuser for retrieval.
+ADMIN = "admin"
+
+
 @dataclass(frozen=True)
 class User:
     user_id: str
     display_name: str
     groups: frozenset[str]
+
+    @property
+    def is_admin(self) -> bool:
+        return ADMIN in self.groups
 
 
 class UsersConfigError(ValueError):
