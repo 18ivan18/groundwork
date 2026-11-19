@@ -10,6 +10,7 @@ from groundwork.config import Settings
 from groundwork.db.pool import Pool, open_pool
 from groundwork.domain.users import User
 from groundwork.ingestion.uploads import UploadService
+from groundwork.llm.base import LLMClient
 from groundwork.llm.factory import build_llm
 from groundwork.qa.service import QAService
 from groundwork.retrieval.embedder import (
@@ -123,10 +124,14 @@ def make_retriever(
 
 
 def build_services(
-    settings: Settings, store: ChunkStore, embedder: Embedder | None = None
+    settings: Settings,
+    store: ChunkStore,
+    embedder: Embedder | None = None,
+    *,
+    llm: LLMClient | None = None,
 ) -> Services:
     # The LLM comes first: a missing setting should fail before the embedder loads.
-    llm = build_llm(settings)
+    llm = llm or build_llm(settings)
     embedder = embedder or build_embedder(settings)
     sparse = SparseCache(store, bm25_root(settings))
     retriever = make_retriever(settings, embedder, store, sparse, build_reranker(settings))

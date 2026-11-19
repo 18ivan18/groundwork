@@ -16,7 +16,8 @@ from groundwork.config import Settings
 from groundwork.container import Container, app_index, build_embedder, build_services
 from groundwork.db.pool import open_pool
 from groundwork.domain.users import load_users
-from groundwork.llm.base import LLMError
+from groundwork.llm.base import LLMClient, LLMError
+from groundwork.llm.factory import build_llm
 from groundwork.retrieval.embedder import Embedder
 from groundwork.retrieval.pgvector_store import PgVectorStore
 from groundwork.retrieval.store import ChunkStore
@@ -36,14 +37,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logging.basicConfig(level=settings.log_level)
     pool = None
     embedder: Embedder | None = None
+    llm: LLMClient | None = None
     try:
         if app.state.container is None:
+            # Before the database: a missing LLM setting should stop startup at once, not after
+            # a wait for Postgres.
+            llm = build_llm(settings)
             pool = await open_pool(settings.database_url)
             embedder = await asyncio.to_thread(build_embedder, settings)
             index = await app_index(pool, settings, embedder.dimension)
             app.state.container = Container(settings, PgVectorStore(pool, index), app.state.users)
         container: Container = app.state.container
-        services = build_services(settings, container.store, embedder)
+        services = build_services(settings, container.store, embedder, llm=llm)
         app.state.qa_service = services.qa
         app.state.upload_service = services.uploads
         yield
