@@ -55,6 +55,8 @@ services:
     <<: *backend
     pull_policy: never
     command: ["python", "-m", "groundwork.ingestion.worker"]
+    # About 850 MB while embedding a large filing.
+    mem_limit: 2g
     depends_on:
       ingest:
         condition: service_completed_successfully
@@ -64,6 +66,15 @@ services:
     <<: *backend
     # Uses the image that `ingest` builds. Building it in both would race on the same tag.
     pull_policy: never
+    # Two workers, to keep any in-process state from becoming load-bearing (#43): users, jobs,
+    # the index and its generation all live in Postgres, BM25 on the shared volume.
+    command:
+      [
+        "uvicorn", "groundwork.main:create_app", "--factory",
+        "--host", "0.0.0.0", "--port", "8000", "--workers", "2",
+      ]
+    # Each worker loads the embedder and the re-ranker (about 300 MB) and BM25 for the corpus.
+    mem_limit: 2g
     depends_on:
       ingest:
         condition: service_completed_successfully

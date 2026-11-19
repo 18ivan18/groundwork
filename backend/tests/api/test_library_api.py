@@ -1,11 +1,15 @@
 """The Library API (#44, #45): list, detail, download, edit and delete, by who may do what."""
 
 import asyncio
+from pathlib import Path
 
 from api_helpers import as_user
 from upload_harness import TEXT, USERS, Harness
 
 from groundwork.domain.models import Access
+from groundwork.retrieval.embedder import FakeEmbedder
+from groundwork.retrieval.hybrid import HybridRetriever
+from groundwork.retrieval.sparse import SparseCache
 
 
 def upload(harness: Harness, user: str = "alice", name: str = "notes.txt", **form: str) -> str:
@@ -236,3 +240,25 @@ def test_deleting_cancels_the_files_unfinished_ingestion(harness: Harness) -> No
     assert job is not None and job.status == "cancelled"
     assert harness.count_chunks() == 0
     assert titles(harness, "alice") == []
+
+
+def test_a_group_change_reaches_every_api_worker(harness: Harness, tmp_path: Path) -> None:
+    """Two API workers, each with its own BM25 cache, both warm before the change (#43)."""
+    doc_id = upload(harness, "hana")
+    other_worker = HybridRetriever(
+        FakeEmbedder(),
+        harness.store,
+        SparseCache(harness.store, tmp_path / "other-worker-bm25", check_seconds=0),
+        candidates=20,
+        rrf_k=60,
+    )
+    hr = Access.of(USERS["admin"].groups)
+
+    def found(retriever: HybridRetriever) -> bool:
+        return bool(asyncio.run(retriever.search("blacksmiths", 3, mode="sparse", access=hr)))
+
+    assert not found(harness.retriever) and not found(other_worker)
+
+    as_user(harness.app, "hana").patch(f"/api/documents/{doc_id}", json={"access_groups": ["hr"]})
+
+    assert found(harness.retriever) and found(other_worker)

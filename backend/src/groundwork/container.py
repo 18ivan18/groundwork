@@ -139,7 +139,9 @@ def build_services(
     # The LLM comes first: a missing setting should fail before the embedder loads.
     llm = llm or build_llm(settings)
     embedder = embedder or build_embedder(settings)
-    sparse = SparseCache(store, bm25_root(settings))
+    # The generation is read before every search (one row by primary key), so a change made
+    # through any API worker reaches the next search in every other one.
+    sparse = SparseCache(store, bm25_root(settings), check_seconds=0)
     retriever = make_retriever(settings, embedder, store, sparse, build_reranker(settings))
     return Services(
         qa=QAService(

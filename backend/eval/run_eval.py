@@ -29,7 +29,7 @@ import re
 import statistics
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal, get_args
@@ -41,7 +41,7 @@ from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
 from groundwork.db.pool import Pool, open_pool
 from groundwork.domain.models import Access, Document, ScoredPassage
-from groundwork.domain.users import access_for, load_users
+from groundwork.domain.users import User, access_for, load_users
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.ingestion.pipeline import ingest_file
@@ -446,6 +446,55 @@ def question_access(settings: Settings, questions: Sequence[Question]) -> dict[s
     return {q.id: access_for(users, q.user) for q in questions}
 
 
+def reader_for(
+    question: Question, entries: Sequence[CorpusEntry], users: Mapping[str, User]
+) -> str | None:
+    """A user who may read every document the question is about, for its refused twin."""
+    groups = [
+        set(e.meta.access_groups)
+        for e in entries
+        if (e.meta.collection_id, e.key) in targets(question)
+    ]
+    for user_id, user in sorted(users.items()):
+        if not user.is_admin and all(g & user.groups for g in groups):
+            return user_id
+    return None
+
+
+async def acl_check(
+    retriever: HybridRetriever,
+    settings: Settings,
+    questions: Sequence[Question],
+    entries: Sequence[CorpusEntry],
+    keys: DocumentKeys,
+) -> list[str]:
+    """Each restricted question is refused for the user who asks it (none of its documents in
+    any passage retrieved, at any depth) and answered for one who may read them (its evidence in
+    the top k). Returns the failures."""
+    users = load_users(settings.users_file)
+    failures = []
+    for q in (q for q in questions if q.type == "restricted"):
+        wrong = access_for(users, q.user)
+        result = await retriever.retrieve(q.question, settings.retrieval_candidates, access=wrong)
+        leaked = sorted({keys(p.document)[1] for p in result.passages} & set(q.documents))
+        reader = reader_for(q, entries, users)
+        found = False
+        if reader is not None:
+            passages = await retriever.search(
+                q.question, settings.top_k, access=access_for(users, reader)
+            )
+            found = all(rank is not None for rank in evidence_ranks(passages, q, keys))
+        print(
+            f"{q.id}: as {q.user} {'LEAKED ' + ', '.join(leaked) if leaked else 'refused'}; "
+            f"as {reader} {'found' if found else 'NOT found'}"
+        )
+        if leaked:
+            failures.append(f"{q.id}: {q.user} retrieved {', '.join(leaked)}")
+        if not found:
+            failures.append(f"{q.id}: {reader} did not find the evidence")
+    return failures
+
+
 async def ci(update_baseline: bool) -> int:
     settings = Settings()
     questions = [
@@ -472,6 +521,7 @@ async def ci(update_baseline: bool) -> int:
         for q in answerable:
             passages = await retriever.search(q.question, settings.top_k, access=access[q.id])
             found.setdefault(q.collection, []).append(evidence_ranks(passages, q, keys))
+        acl_failures = await acl_check(retriever, settings, questions, entries, keys)
     finally:
         await pool.close()
     success = {
@@ -484,7 +534,7 @@ async def ci(update_baseline: bool) -> int:
         BASELINE.write_text(json.dumps(success, indent=2, sort_keys=True) + "\n")
         print(f"Wrote {BASELINE.name}")
         return 0
-    failures = baseline_check(success, json.loads(BASELINE.read_text()))
+    failures = baseline_check(success, json.loads(BASELINE.read_text())) + acl_failures
     for failure in failures:
         print(f"FAIL {failure}")
     return 1 if failures else 0
