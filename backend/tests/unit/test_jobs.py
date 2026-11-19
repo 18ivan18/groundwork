@@ -141,6 +141,17 @@ async def test_a_job_whose_worker_stopped_is_taken_back(queue: JobQueue) -> None
     assert job is not None and job.status == "parsing"
 
 
+async def test_a_job_taken_back_keeps_its_place_in_the_queue(queue: JobQueue) -> None:
+    first = await enqueue(queue, "a")
+    await queue.claim("dead-worker")
+    await enqueue(queue, "b")
+
+    await queue.reap_stale(stale_after=0)
+    claimed = await queue.claim("w2")
+
+    assert claimed is not None and claimed.job_id == first
+
+
 async def test_a_stale_job_out_of_attempts_is_dead(queue: JobQueue) -> None:
     job_id = await enqueue(queue)
     for worker in ("w1", "w2"):

@@ -132,7 +132,8 @@ class PgJobQueue:
             cursor = await connection.execute(
                 "UPDATE jobs SET "
                 "status = CASE WHEN attempts >= max_attempts THEN 'dead' ELSE 'queued' END, "
-                "locked_by = NULL, locked_at = NULL, run_after = now(), error = %s, "
+                # run_after is kept, so the job goes back to its place in the queue, not the end.
+                "locked_by = NULL, locked_at = NULL, error = %s, "
                 "updated_at = now() "
                 "WHERE status = ANY(%s) AND locked_at <= now() - make_interval(secs => %s)",
                 (STALE_ERROR, list(RUNNING), stale_after),

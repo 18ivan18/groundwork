@@ -204,8 +204,8 @@ class MemoryJobQueue:
             ]
             for entry in stale:
                 spent = entry.job.attempts >= entry.job.max_attempts
+                # run_after is kept, so the job goes back to its place in the queue, not the end.
                 entry.locked_by = entry.locked_at = None
-                entry.run_after = self.clock()
                 self._update(
                     entry.job.job_id, status="dead" if spent else "queued", error=STALE_ERROR
                 )
