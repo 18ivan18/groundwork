@@ -36,13 +36,15 @@ DOCUMENTS = {
     "handbook": (("everyone",), ["The 2026 handbook mentions a bonus and the salary review."]),
     "salaries": (("hr",), ["Salary bands 2026: bonus salary salary budget.", "Salary review."]),
     "budget": (("finance",), ["Budget 2026: bonus budget budget salary costs."]),
+    "pay-slip": (("private:filip",), ["Filip's pay slip: Salary and bonus, Budget 2026."]),
 }
 # What each demo user may read, from conf/users.yaml.
 VISIBLE = {
     "alice": {"handbook"},
     "hana": {"handbook", "salaries"},
-    "filip": {"handbook", "budget"},
-    "admin": {"handbook", "salaries", "budget"},
+    "filip": {"handbook", "budget", "pay-slip"},
+    # Admin reads everything, private uploads included.
+    "admin": {"handbook", "salaries", "budget", "pay-slip"},
 }
 
 
@@ -91,7 +93,7 @@ async def library(request: pytest.FixtureRequest) -> AsyncIterator[Library]:
 
 
 def access(user: str) -> Access:
-    return Access.of(USERS[user].groups)
+    return USERS[user].access
 
 
 @pytest.mark.parametrize("mode", get_args(SearchMode))

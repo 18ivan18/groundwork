@@ -13,8 +13,8 @@ from groundwork.domain.models import EVERYONE, UNRESTRICTED, Access
 _Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=40)]
 
 
-# Members see every user's jobs and may delete any document they can read, and documents in
-# protected collections. Reading is still by group: admin is not a superuser for retrieval.
+# Members read every document, private uploads included, see every user's jobs, and may edit or
+# delete any document, those in protected collections too.
 ADMIN = "admin"
 
 
@@ -27,6 +27,11 @@ class User:
     @property
     def is_admin(self) -> bool:
         return ADMIN in self.groups
+
+    @property
+    def access(self) -> Access:
+        """What this user may read: everything for an admin, else their groups' documents."""
+        return UNRESTRICTED if self.is_admin else Access.of(self.groups)
 
 
 class UsersConfigError(ValueError):
@@ -77,4 +82,4 @@ def access_for(users: Mapping[str, User], user_id: str | None) -> Access:
         return UNRESTRICTED
     if user_id not in users:
         raise UsersConfigError(f"Unknown user {user_id!r}. Known: {', '.join(sorted(users))}.")
-    return Access.of(users[user_id].groups)
+    return users[user_id].access

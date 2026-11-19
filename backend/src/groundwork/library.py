@@ -1,7 +1,7 @@
 """The document library (#44, #45): who may see, download, edit and delete which document.
 
-- Seeing is reading: a document is visible to the groups it is shared with, and to nobody else,
-  admin included. Anything a user may not see is "not found", never "forbidden", so its id
+- Seeing is reading: a document is visible to the groups it is shared with, and to admins, who
+  read everything. Anything a user may not see is "not found", never "forbidden", so its id
   reveals nothing.
 - Editing and deleting are for the document's owner, or an admin. Groups can be set only to the
   editor's own (or to the owner alone, when none are given).
@@ -19,7 +19,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
-from groundwork.domain.models import Access, Document, DocumentChanges
+from groundwork.domain.models import Document, DocumentChanges
 from groundwork.domain.users import User
 from groundwork.ingestion.jobs import RUNNING, Job, JobQueue
 from groundwork.ingestion.uploads import UPLOADS_FOLDER, upload_groups
@@ -86,7 +86,7 @@ class LibraryService:
 
         Filtered in Python over the user's whole list: the library holds hundreds of documents,
         not millions. Past a few thousand this belongs in SQL."""
-        documents = await self._store.documents(access=Access.of(user.groups))
+        documents = await self._store.documents(access=user.access)
         text = query.text.casefold()
         matching = [
             (document, chunks)
@@ -105,7 +105,7 @@ class LibraryService:
         return await self._store.count_document_chunks(doc_id)
 
     async def _visible(self, user: User, doc_id: str) -> tuple[Document, int]:
-        found = await self._store.document(doc_id, access=Access.of(user.groups))
+        found = await self._store.document(doc_id, access=user.access)
         if found is None:
             raise DocumentNotFoundError(doc_id)
         return found

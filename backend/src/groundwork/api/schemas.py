@@ -247,10 +247,10 @@ class JobResponse(BaseModel):
     kind: str = Field(description="`ingest_document` for an upload or a corpus file.")
     owner_id: str | None = Field(description="Who started it; null for the corpus ingest.")
     filename: str | None = Field(
-        description="The file being indexed. Shown only to the job's owner."
+        description="The file being indexed. Shown to the job's owner and admins."
     )
     doc_id: str | None = Field(
-        description="The document it stored, once known. Shown only to the job's owner."
+        description="The document it stored, once known. Shown to the job's owner and admins."
     )
     status: JobStatus = Field(
         description="`indexed`, `failed`, `dead` and `cancelled` are final. `failed` will not "

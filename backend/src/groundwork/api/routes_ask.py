@@ -14,7 +14,7 @@ from groundwork.api.schemas import (
     SourceResponse,
     Timings,
 )
-from groundwork.domain.models import Access, ScoredPassage, SearchFilters
+from groundwork.domain.models import ScoredPassage, SearchFilters
 from groundwork.qa.service import Source
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ async def ask(request: AskRequest, service: QAServiceDep, user: CurrentUser) -> 
     # Questions can reveal client work, so they stay out of logs in production.
     logger.debug("Question: %s", request.question)
     answer = await service.ask(
-        request.question, _to_filters(request), request.top_k, access=Access.of(user.groups)
+        request.question, _to_filters(request), request.top_k, access=user.access
     )
     return AskResponse(
         answer=answer.text,

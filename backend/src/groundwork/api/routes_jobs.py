@@ -1,8 +1,7 @@
 """Ingestion jobs: list, status, retry and cancel (#46).
 
-A user sees their own jobs; an admin sees everyone's. A job the user may not see is 404, as if it
-did not exist. Another user's job never shows the file or the document it stored: an admin can
-manage the queue without learning what a private upload was.
+A user sees their own jobs; an admin, who reads every document, sees everyone's with their files.
+A job the user may not see is 404, as if it did not exist.
 """
 
 from typing import Annotated, Any
@@ -24,7 +23,7 @@ NOT_FOUND: dict[int | str, dict[str, Any]] = {
 
 
 def job_response(job: Job, user: User) -> JobResponse:
-    own = job.owner_id == user.user_id
+    own = job.owner_id == user.user_id or user.is_admin
     return JobResponse(
         job_id=job.job_id,
         kind=job.kind,

@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from pdf_builder import make_pdf
 from upload_harness import ALICE, FORM, MAX_BYTES, TEXT, USERS, Harness
 
-from groundwork.domain.models import Access, SearchFilters
+from groundwork.domain.models import SearchFilters
 from groundwork.ingestion import pipeline
 from groundwork.ingestion.jobs import Job
 from groundwork.ingestion.worker import FAILED_ERROR
@@ -291,8 +291,11 @@ def test_an_upload_is_private_to_its_owner_by_default(harness: Harness) -> None:
     [document] = harness.documents("hana")
     assert document["access_groups"] == ["private:hana"]
     assert document["owner_id"] == "hana"
-    assert harness.documents("admin") == []
-    assert harness.search("blacksmiths", 5, access=Access.of(USERS["admin"].groups)) == []
+    assert harness.documents("alice") == []
+    assert harness.search("blacksmiths", 5, access=USERS["alice"].access) == []
+    # An admin reads everything.
+    assert len(harness.documents("admin")) == 1
+    assert harness.search("blacksmiths", 5, access=USERS["admin"].access)
     assert job["status"] == "indexed"
 
 

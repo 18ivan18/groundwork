@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 
 from api_helpers import as_user
-from upload_harness import TEXT, USERS, Harness
+from upload_harness import TEXT, Harness
 
 from groundwork.domain.models import Access
 from groundwork.retrieval.embedder import FakeEmbedder
@@ -30,13 +30,13 @@ def titles(harness: Harness, user: str, **params: object) -> list[str]:
 # --- #44: list, detail, download ---
 
 
-def test_the_list_hides_others_documents(harness: Harness) -> None:
+def test_the_list_hides_others_documents_except_from_an_admin(harness: Harness) -> None:
     upload(harness, "alice", "alice.txt")
     upload(harness, "hana", "hana.txt", access_groups="hr")
 
     assert titles(harness, "alice") == ["alice.txt"]
     assert titles(harness, "hana") == ["hana.txt"]
-    assert titles(harness, "admin") == ["hana.txt"]
+    assert titles(harness, "admin") == ["alice.txt", "hana.txt"]
 
 
 def test_the_list_filters_searches_sorts_and_pages(harness: Harness) -> None:
@@ -86,7 +86,7 @@ def test_another_users_private_document_is_not_found(harness: Harness) -> None:
 
     for path in (f"/api/documents/{doc_id}", f"/api/documents/{doc_id}/file"):
         assert as_user(harness.app, "alice").get(path).status_code == 404
-        assert as_user(harness.app, "admin").get(path).status_code == 404
+        assert as_user(harness.app, "admin").get(path).status_code == 200
 
 
 def test_the_original_file_downloads(harness: Harness) -> None:
@@ -120,7 +120,7 @@ def test_an_edit_changes_the_tags(harness: Harness) -> None:
 def test_a_new_group_takes_effect_on_the_next_search(harness: Harness) -> None:
     """Every API worker rebuilds BM25 once the generation moves, so sharing reaches all modes."""
     doc_id = upload(harness, "hana")
-    hr_reader = Access.of(USERS["admin"].groups)
+    hr_reader = Access.of({"hr"})
     assert harness.search("blacksmiths", 3, mode="sparse", access=hr_reader) == []
     generation = harness.generation()
 
@@ -207,11 +207,10 @@ def test_a_protected_collection_needs_an_admin(harness: Harness) -> None:
     asyncio.run(harness.store.protect_collection("sec-10k"))
 
     by_owner = as_user(harness.app, "alice").delete(f"/api/documents/{doc_id}")
-    by_admin_unreadable = as_user(harness.app, "admin").delete(f"/api/documents/{doc_id}")
+    by_admin = as_user(harness.app, "admin").delete(f"/api/documents/{doc_id}")
 
     assert by_owner.status_code == 403
-    # Admin cannot read alice's private upload, so for admin it does not exist.
-    assert by_admin_unreadable.status_code == 404
+    assert by_admin.status_code == 204
 
 
 def test_bulk_delete_reports_what_it_could_not_delete(harness: Harness) -> None:
@@ -252,7 +251,7 @@ def test_a_group_change_reaches_every_api_worker(harness: Harness, tmp_path: Pat
         candidates=20,
         rrf_k=60,
     )
-    hr = Access.of(USERS["admin"].groups)
+    hr = Access.of({"hr"})
 
     def found(retriever: HybridRetriever) -> bool:
         return bool(asyncio.run(retriever.search("blacksmiths", 3, mode="sparse", access=hr)))

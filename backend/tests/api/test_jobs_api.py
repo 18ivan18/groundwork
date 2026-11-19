@@ -59,7 +59,7 @@ def test_a_user_lists_only_their_own_jobs(app: FastAPI) -> None:
     assert jobs[0]["status"] == "queued"
 
 
-def test_an_admin_lists_every_job_without_others_files(app: FastAPI) -> None:
+def test_an_admin_lists_every_job_with_its_file(app: FastAPI) -> None:
     enqueue(app, "alice")
     enqueue(app, "hana", "salaries.txt")
     done = asyncio.run(
@@ -69,9 +69,9 @@ def test_an_admin_lists_every_job_without_others_files(app: FastAPI) -> None:
     jobs = as_user(app, "admin").get("/api/jobs").json()
 
     assert {job["owner_id"] for job in jobs} == {"alice", "hana"}
-    assert all(job["filename"] is None and job["doc_id"] is None for job in jobs)
+    assert {job["filename"] for job in jobs} == {"notes.txt", "salaries.txt", None}
     [hanas_done] = [job for job in jobs if job["job_id"] == done.job_id]
-    assert hanas_done["status"] == "indexed"
+    assert (hanas_done["status"], hanas_done["doc_id"]) == ("indexed", "7")
 
 
 def test_jobs_filter_by_status(app: FastAPI) -> None:
@@ -150,4 +150,4 @@ def test_an_admin_can_cancel_anyones_job(app: FastAPI) -> None:
     body = as_user(app, "admin").post(f"/api/jobs/{job_id}/cancel").json()
 
     assert body["status"] == "cancelled"
-    assert body["filename"] is None
+    assert body["filename"] == "notes.txt"
