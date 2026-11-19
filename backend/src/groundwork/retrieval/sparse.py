@@ -50,6 +50,7 @@ def _document_json(document: Document) -> dict[str, Any]:
         "metadata": dict(document.metadata),
         "access_groups": list(document.access_groups),
         "owner_id": document.owner_id,
+        "storage_path": document.storage_path,
         "ingested_at": document.ingested_at.isoformat(),
     }
 
@@ -65,6 +66,7 @@ def _document_from_json(data: dict[str, Any]) -> Document:
         metadata=data["metadata"],
         access_groups=tuple(data["access_groups"]),
         owner_id=data["owner_id"],
+        storage_path=data.get("storage_path"),
         ingested_at=datetime.fromisoformat(data["ingested_at"]),
     )
 

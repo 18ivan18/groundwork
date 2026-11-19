@@ -239,6 +239,11 @@ class IngestWorker:
         # Asked now, not at the next heartbeat: a cancelled job must store nothing.
         await self._check(job_id, state)
         document = await self._store.add(meta, digest, prepared.chunks, prepared.embeddings)
+        # A cancel (a delete of the document, say) that landed while this stored: undo it.
+        current = await self._queue.get(job_id)
+        if current is not None and current.cancel_requested:
+            await self._store.delete_document(document.doc_id)
+            raise Cancelled
         if not self._unpublished:
             self._unpublished, self._unpublished_since = True, self._clock()
         return document.doc_id, len(prepared.chunks)

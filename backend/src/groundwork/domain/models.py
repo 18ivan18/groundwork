@@ -27,6 +27,8 @@ class DocumentMeta:
     metadata: Mapping[str, str] = field(default_factory=dict)
     access_groups: tuple[str, ...] = (EVERYONE,)
     owner_id: str | None = None
+    # The original file, relative to DATA_DIR, for download. None when it was not kept.
+    storage_path: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -36,6 +38,16 @@ class Document(DocumentMeta):
 
     doc_id: str
     ingested_at: datetime
+
+
+@dataclass(frozen=True)
+class DocumentChanges:
+    """An edit to a stored document's tags. None leaves a field as it is."""
+
+    title: str | None = None
+    doc_type: str | None = None
+    doc_date: date | None = None
+    access_groups: tuple[str, ...] | None = None
 
 
 def content_hash(raw: bytes) -> str:

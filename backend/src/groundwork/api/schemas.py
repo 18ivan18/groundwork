@@ -270,3 +270,45 @@ class UserResponse(BaseModel):
     user_id: str = Field(description="The value to send in the `X-User` header.")
     display_name: str = Field(description="The name to show for the user.")
     groups: list[str] = Field(description="The access groups whose documents this user can read.")
+
+
+class DocumentDetailResponse(DocumentResponse):
+    indexes: list[str] = Field(description="The chunk indexes that hold this document.")
+    jobs: list[JobResponse] = Field(description="Its ingestion jobs, newest first.")
+    can_edit: bool = Field(description="Whether this user may change its tags and groups.")
+    can_delete: bool = Field(description="Whether this user may delete it.")
+    downloadable: bool = Field(description="Whether the original file can be downloaded.")
+
+
+class DocumentPatch(BaseModel):
+    """Fields left out stay as they are."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"title": "Leave policy 2025", "access_groups": ["hr"]}]},
+    )
+
+    title: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+        | None
+    ) = Field(default=None, description="The title shown in the library and in citations.")
+    doc_type: DocTypeText | None = Field(default=None, description="The kind of document.")
+    doc_date: date | None = Field(default=None, description="The date it is about.")
+    access_groups: list[str] | None = Field(
+        default=None,
+        description="Groups that may read it, from the editor's own (`GET /api/me`). An empty "
+        "list: only the editor.",
+    )
+
+
+class BulkDeleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    doc_ids: list[str] = Field(min_length=1, max_length=200, description="Documents to delete.")
+
+
+class BulkDeleteResponse(BaseModel):
+    deleted: list[str] = Field(description="The documents deleted.")
+    not_found: list[str] = Field(
+        description="Ids that are not documents this user may delete. Nothing says which."
+    )

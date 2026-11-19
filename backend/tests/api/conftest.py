@@ -6,6 +6,7 @@ import pytest
 from api_helpers import ClientFactory, StubRetriever, as_user, make_passage
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from upload_harness import Harness
 
 from groundwork.api.deps import get_qa_service
 from groundwork.config import Settings
@@ -44,3 +45,8 @@ def make_client(app: FastAPI, retriever: StubRetriever) -> ClientFactory:
         return as_user(app, raise_server_exceptions=False)
 
     return factory
+
+
+@pytest.fixture
+def harness(app: FastAPI) -> Harness:
+    return Harness(app, FakeEmbedder())

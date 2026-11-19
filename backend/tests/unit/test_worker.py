@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import empty_database
@@ -166,6 +167,27 @@ async def test_cancelling_during_embedding_stores_nothing(setup: Setup) -> None:
     assert job is not None and job.status == "cancelled"
     assert await setup.store.count_chunks() == 0
     assert await setup.store.generation() == 0
+
+
+async def test_a_cancel_that_lands_while_storing_is_undone(
+    setup: Setup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_id = await setup.enqueue()
+    add = setup.store.add
+
+    async def add_then_cancel(*args: Any, **kwargs: Any) -> Any:
+        document = await add(*args, **kwargs)
+        # The document is deleted in the Library just as the worker stores it.
+        await setup.queue.cancel(job_id)
+        return document
+
+    monkeypatch.setattr(setup.store, "add", add_then_cancel)
+
+    await setup.worker().drain()
+
+    job = await setup.queue.get(job_id)
+    assert job is not None and job.status == "cancelled"
+    assert await setup.store.count_chunks() == 0
 
 
 async def test_a_file_too_short_fails_without_retrying(setup: Setup) -> None:

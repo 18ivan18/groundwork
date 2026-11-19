@@ -8,7 +8,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from groundwork.domain.models import Access, Chunk, Document, DocumentMeta, SearchFilters
+from groundwork.domain.models import (
+    Access,
+    Chunk,
+    Document,
+    DocumentChanges,
+    DocumentMeta,
+    SearchFilters,
+)
 from groundwork.retrieval.indexes import IndexInfo
 
 
@@ -40,6 +47,10 @@ def matches(document: Document, filters: SearchFilters | None) -> bool:
         if filters.date_to and document.doc_date > filters.date_to:
             return False
     return all(document.metadata.get(key) == value for key, value in filters.metadata.items())
+
+
+class DuplicateDocumentError(ValueError):
+    """Another stored document already has these bytes, collection, groups and owner."""
 
 
 class ChunkStore(Protocol):
@@ -95,6 +106,33 @@ class ChunkStore(Protocol):
         """Each document `access` may read with chunks in this index, with its chunk count, by
         title."""
         ...
+
+    async def document(self, doc_id: str, *, access: Access) -> tuple[Document, int] | None:
+        """The document, with its chunk count, if `access` may read it and this index holds it."""
+        ...
+
+    async def document_indexes(self, doc_id: str) -> list[str]:
+        """The names of every index holding chunks of the document."""
+        ...
+
+    async def update_document(self, doc_id: str, changes: DocumentChanges) -> Document:
+        """Change a document's tags, its chunks' copies of them included, in one transaction.
+        Raises DuplicateDocumentError when the new groups make it another stored document."""
+        ...
+
+    async def delete_document(self, doc_id: str) -> None:
+        """Delete the document and its chunks in every index."""
+        ...
+
+    async def storage_path_in_use(self, storage_path: str) -> bool:
+        """Whether any document still names this file."""
+        ...
+
+    async def protected_collections(self) -> frozenset[str]:
+        """Collections whose documents only an admin may delete."""
+        ...
+
+    async def protect_collection(self, collection_id: str) -> None: ...
 
     async def count_chunks(self) -> int: ...
 

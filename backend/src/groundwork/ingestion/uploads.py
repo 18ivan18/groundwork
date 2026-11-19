@@ -74,6 +74,7 @@ class UploadService:
             raise FileTooLargeError(f"The file is larger than the {limit_mb} MB limit.")
 
         digest = content_hash(raw)
+        relative = f"{UPLOADS_FOLDER}/{digest}{Path(name).suffix.lower()}"
         meta = DocumentMeta(
             title=name,
             collection_id=collection_id,
@@ -82,6 +83,7 @@ class UploadService:
             filename=name,
             access_groups=groups,
             owner_id=owner.user_id,
+            storage_path=relative,
         )
         if doc_id := await self._store.find_document(digest, meta):
             chunks = await self._store.count_document_chunks(doc_id)
@@ -93,7 +95,6 @@ class UploadService:
         loaded = await asyncio.to_thread(load, raw)
         if not loaded.text.strip():
             raise NoTextError("No text was found in this file.")
-        relative = f"{UPLOADS_FOLDER}/{digest}{Path(name).suffix.lower()}"
         path = self._data_dir / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         await asyncio.to_thread(path.write_bytes, raw)

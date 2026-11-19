@@ -12,12 +12,18 @@ from groundwork.domain.models import (
     Access,
     Chunk,
     Document,
+    DocumentChanges,
     DocumentMeta,
     SearchFilters,
     make_chunk_id,
 )
 from groundwork.retrieval.indexes import IndexInfo, IndexSpec
-from groundwork.retrieval.store import DenseHit, matches, normalized_groups
+from groundwork.retrieval.store import (
+    DenseHit,
+    DuplicateDocumentError,
+    matches,
+    normalized_groups,
+)
 
 _Identity = tuple[str, str, tuple[str, ...], str | None]
 
@@ -41,6 +47,7 @@ class MemoryStore:
         # doc_id -> its chunks and their unit vectors, in order.
         self._chunks: dict[str, list[tuple[Chunk, np.ndarray]]] = {}
         self._generation = 0
+        self._protected: set[str] = set()
 
     @property
     def index(self) -> IndexInfo:
@@ -76,6 +83,7 @@ class MemoryStore:
                 metadata=dict(meta.metadata),
                 access_groups=identity[2],
                 owner_id=meta.owner_id,
+                storage_path=meta.storage_path,
                 doc_id=str(next(self._ids)),
                 ingested_at=datetime.now(UTC),
             )
@@ -146,6 +154,52 @@ class MemoryStore:
             ),
             key=lambda item: (item[0].title, int(item[0].doc_id)),
         )
+
+    async def document(self, doc_id: str, *, access: Access) -> tuple[Document, int] | None:
+        document = self._by_id().get(doc_id)
+        items = self._chunks.get(doc_id)
+        if document is None or not items or not access.allows(document.access_groups):
+            return None
+        return document, len(items)
+
+    async def document_indexes(self, doc_id: str) -> list[str]:
+        return [self._index.name] if self._chunks.get(doc_id) else []
+
+    async def update_document(self, doc_id: str, changes: DocumentChanges) -> Document:
+        old_identity, document = next(
+            (identity, d) for identity, d in self._documents.items() if d.doc_id == doc_id
+        )
+        groups = (
+            normalized_groups(changes.access_groups)
+            if changes.access_groups is not None
+            else document.access_groups
+        )
+        identity = (old_identity[0], old_identity[1], groups, old_identity[3])
+        if identity != old_identity and identity in self._documents:
+            raise DuplicateDocumentError("The same file is already stored for these groups.")
+        updated = replace(
+            document,
+            title=changes.title if changes.title is not None else document.title,
+            doc_type=changes.doc_type if changes.doc_type is not None else document.doc_type,
+            doc_date=changes.doc_date if changes.doc_date is not None else document.doc_date,
+            access_groups=groups,
+        )
+        del self._documents[old_identity]
+        self._documents[identity] = updated
+        return updated
+
+    async def delete_document(self, doc_id: str) -> None:
+        self._documents = {k: d for k, d in self._documents.items() if d.doc_id != doc_id}
+        self._chunks.pop(doc_id, None)
+
+    async def storage_path_in_use(self, storage_path: str) -> bool:
+        return any(d.storage_path == storage_path for d in self._documents.values())
+
+    async def protected_collections(self) -> frozenset[str]:
+        return frozenset(self._protected)
+
+    async def protect_collection(self, collection_id: str) -> None:
+        self._protected.add(collection_id)
 
     async def count_chunks(self) -> int:
         return sum(len(items) for items in self._chunks.values())

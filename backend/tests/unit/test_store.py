@@ -1,6 +1,7 @@
 """The ChunkStore contract, run against the in-memory store and against Postgres."""
 
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from datetime import date
 from urllib.parse import quote
 
@@ -8,11 +9,18 @@ import pytest
 from conftest import empty_database
 
 from groundwork.db.pool import open_pool
-from groundwork.domain.models import UNRESTRICTED, Access, Chunk, DocumentMeta, SearchFilters
+from groundwork.domain.models import (
+    UNRESTRICTED,
+    Access,
+    Chunk,
+    DocumentChanges,
+    DocumentMeta,
+    SearchFilters,
+)
 from groundwork.retrieval.indexes import IndexSpec, ensure_index, hnsw_index_name
 from groundwork.retrieval.memory_store import MemoryStore, memory_index
 from groundwork.retrieval.pgvector_store import PgVectorStore
-from groundwork.retrieval.store import ChunkStore
+from groundwork.retrieval.store import ChunkStore, DuplicateDocumentError
 
 DIMENSION = 4
 
@@ -196,6 +204,74 @@ async def test_count_document_chunks(store: ChunkStore) -> None:
 
     assert await store.count_document_chunks(document.doc_id) == 2
     assert await store.count_document_chunks("12345") == 0
+
+
+async def test_one_document_is_found_only_by_who_may_read_it(store: ChunkStore) -> None:
+    hr_meta = replace(meta("pay", groups=("hr",)), storage_path="uploads/pay.txt")
+    document = await store.add(hr_meta, "h1", chunks("a", "b"), [vector(1)] * 2)
+
+    found = await store.document(document.doc_id, access=Access.of({"hr"}))
+
+    assert found is not None and found[1] == 2
+    assert found[0].storage_path == "uploads/pay.txt"
+    assert await store.document(document.doc_id, access=Access.of({"everyone"})) is None
+    assert await store.document("999", access=UNRESTRICTED) is None
+    assert await store.document("x", access=UNRESTRICTED) is None
+    assert await store.document_indexes(document.doc_id) == [store.index.name]
+
+
+async def test_an_edit_changes_what_searches_see(store: ChunkStore) -> None:
+    document = await store.add(meta("acme", groups=("hr",)), "h1", chunks("a"), [vector(1)])
+    everyone = Access.of({"everyone"})
+
+    edited = await store.update_document(
+        document.doc_id,
+        DocumentChanges(title="ACME", doc_date=date(2025, 1, 1), access_groups=("everyone",)),
+    )
+
+    assert (edited.title, edited.doc_date, edited.access_groups) == (
+        "ACME",
+        date(2025, 1, 1),
+        ("everyone",),
+    )
+    assert edited.doc_type == "10-K"
+    [hit] = await store.search(
+        vector(1), 5, SearchFilters(date_from=date(2025, 1, 1)), access=everyone
+    )
+    assert hit.document.title == "ACME"
+    hr_only = await store.search(vector(1), 5, access=Access.of({"hr"}))
+    assert hr_only == []
+
+
+async def test_an_edit_cannot_make_two_documents_one(store: ChunkStore) -> None:
+    await store.add(meta("acme", groups=("everyone",)), "h1", chunks("a"), [vector(1)])
+    hr = await store.add(meta("acme", groups=("hr",)), "h1", chunks("a"), [vector(1)])
+
+    with pytest.raises(DuplicateDocumentError):
+        await store.update_document(hr.doc_id, DocumentChanges(access_groups=("everyone",)))
+
+
+async def test_a_deleted_document_is_gone_everywhere(store: ChunkStore) -> None:
+    kept = await store.add(meta("kept"), "h1", chunks("a"), [vector(1)])
+    gone = await store.add(
+        replace(meta("gone"), storage_path="uploads/gone.txt"), "h2", chunks("b"), [vector(1)]
+    )
+
+    await store.delete_document(gone.doc_id)
+
+    assert [d.doc_id for d, _ in await store.documents(access=UNRESTRICTED)] == [kept.doc_id]
+    assert [
+        hit.document.doc_id for hit in await store.search(vector(1), 5, access=UNRESTRICTED)
+    ] == [kept.doc_id]
+    assert await store.get([f"{gone.doc_id}:0"], access=UNRESTRICTED) == {}
+    assert not await store.storage_path_in_use("uploads/gone.txt")
+
+
+async def test_collections_can_be_protected(store: ChunkStore) -> None:
+    await store.protect_collection("sec-10k")
+    await store.protect_collection("sec-10k")
+
+    assert await store.protected_collections() == {"sec-10k"}
 
 
 async def test_an_empty_store_finds_nothing(store: ChunkStore) -> None:
