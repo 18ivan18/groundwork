@@ -8,7 +8,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from groundwork.domain.models import Chunk, Document, DocumentMeta, SearchFilters
+from groundwork.domain.models import (
+    Access,
+    Chunk,
+    Document,
+    DocumentChanges,
+    DocumentMeta,
+    SearchFilters,
+)
 from groundwork.retrieval.indexes import IndexInfo
 
 
@@ -42,6 +49,10 @@ def matches(document: Document, filters: SearchFilters | None) -> bool:
     return all(document.metadata.get(key) == value for key, value in filters.metadata.items())
 
 
+class DuplicateDocumentError(ValueError):
+    """Another stored document already has these bytes, collection, groups and owner."""
+
+
 class ChunkStore(Protocol):
     """One index's chunks. A document counts as indexed once its chunks are stored: `add` writes
     them all in one transaction, so there is no half-indexed document to find."""
@@ -67,10 +78,23 @@ class ChunkStore(Protocol):
         ...
 
     async def search(
-        self, query_embedding: Sequence[float], n: int, filters: SearchFilters | None = None
-    ) -> list[DenseHit]: ...
+        self,
+        query_embedding: Sequence[float],
+        n: int,
+        filters: SearchFilters | None = None,
+        *,
+        access: Access,
+    ) -> list[DenseHit]:
+        """The n nearest chunks that `access` may read and the filters keep. A filter that
+        leaves fewer than n chunks returns all of them."""
+        ...
 
-    async def get(self, chunk_ids: Sequence[str]) -> dict[str, tuple[Chunk, Document]]: ...
+    async def get(
+        self, chunk_ids: Sequence[str], *, access: Access
+    ) -> dict[str, tuple[Chunk, Document]]:
+        """The chunks among `chunk_ids` that `access` may read. The ACL is checked here again,
+        though the ids come from a search that checked it: defence in depth."""
+        ...
 
     async def all_passages(self) -> list[tuple[Chunk, Document]]:
         """Every chunk with its document, in document then chunk order."""
@@ -78,9 +102,37 @@ class ChunkStore(Protocol):
 
     async def matching_ids(self, filters: SearchFilters) -> set[str]: ...
 
-    async def documents(self) -> list[tuple[Document, int]]:
-        """Each document with chunks in this index, with its chunk count, by title."""
+    async def documents(self, *, access: Access) -> list[tuple[Document, int]]:
+        """Each document `access` may read with chunks in this index, with its chunk count, by
+        title."""
         ...
+
+    async def document(self, doc_id: str, *, access: Access) -> tuple[Document, int] | None:
+        """The document, with its chunk count, if `access` may read it and this index holds it."""
+        ...
+
+    async def document_indexes(self, doc_id: str) -> list[str]:
+        """The names of every index holding chunks of the document."""
+        ...
+
+    async def update_document(self, doc_id: str, changes: DocumentChanges) -> Document:
+        """Change a document's tags, its chunks' copies of them included, in one transaction.
+        Raises DuplicateDocumentError when the new groups make it another stored document."""
+        ...
+
+    async def delete_document(self, doc_id: str) -> None:
+        """Delete the document and its chunks in every index."""
+        ...
+
+    async def storage_path_in_use(self, storage_path: str) -> bool:
+        """Whether any document still names this file."""
+        ...
+
+    async def protected_collections(self) -> frozenset[str]:
+        """Collections whose documents only an admin may delete."""
+        ...
+
+    async def protect_collection(self, collection_id: str) -> None: ...
 
     async def count_chunks(self) -> int: ...
 

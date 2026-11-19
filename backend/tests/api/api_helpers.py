@@ -4,9 +4,17 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Any
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from groundwork.domain.models import Chunk, Document, DocumentMeta, ScoredPassage, SearchFilters
+from groundwork.domain.models import (
+    Access,
+    Chunk,
+    Document,
+    DocumentMeta,
+    ScoredPassage,
+    SearchFilters,
+)
 from groundwork.retrieval.embedder import FakeEmbedder
 from groundwork.retrieval.hybrid import SearchResult
 from groundwork.retrieval.store import ChunkStore
@@ -43,11 +51,13 @@ class StubRetriever:
     def __init__(self, passages: list[ScoredPassage]) -> None:
         self.passages = passages
         self.calls: list[tuple[int, SearchFilters | None]] = []
+        self.access: list[Access] = []
 
     async def retrieve(
-        self, query: str, k: int, filters: SearchFilters | None = None
+        self, query: str, k: int, filters: SearchFilters | None = None, *, access: Access
     ) -> SearchResult:
         self.calls.append((k, filters))
+        self.access.append(access)
         similarities = [p.dense_similarity for p in self.passages if p.dense_similarity]
         return SearchResult(self.passages[:k], max(similarities, default=None))
 
@@ -70,3 +80,8 @@ async def add_document(store: ChunkStore, title: str, chunks: int, **meta: Any) 
     items = [Chunk("x", "x", "anvils", (), None, 0, 6) for _ in range(chunks)]
     vectors = FakeEmbedder().embed_documents(["anvils"] * chunks)
     return await store.add(DocumentMeta(**fields), f"hash-{title}", items, vectors)
+
+
+def as_user(app: FastAPI, user: str = "alice", **kwargs: Any) -> TestClient:
+    """A client whose every request sends `X-User: user`."""
+    return TestClient(app, headers={"X-User": user}, **kwargs)

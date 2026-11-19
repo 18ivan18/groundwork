@@ -8,7 +8,7 @@ that builds the `tsv` column (the chunk's header and text).
 
 import re
 
-from groundwork.domain.models import ScoredPassage, make_chunk_id
+from groundwork.domain.models import Access, ScoredPassage, make_chunk_id
 from groundwork.retrieval.pgvector_store import PgVectorStore
 
 _WORD = re.compile(r"[a-z0-9]+")
@@ -19,7 +19,9 @@ def or_query(question: str) -> str:
     return " | ".join(_WORD.findall(question.lower()))
 
 
-async def ts_rank_search(store: PgVectorStore, question: str, n: int) -> list[ScoredPassage]:
+async def ts_rank_search(
+    store: PgVectorStore, question: str, n: int, access: Access
+) -> list[ScoredPassage]:
     query = or_query(question)
     if not query:
         return []
@@ -32,8 +34,10 @@ async def ts_rank_search(store: PgVectorStore, question: str, n: int) -> list[Sc
         )
         rows = await cursor.fetchall()
     ids = [make_chunk_id(str(doc_id), ordinal) for doc_id, ordinal in rows]
-    stored = await store.get(ids)
+    # Unranked when the user may not read them, as the other retrievers drop them before the cut.
+    stored = await store.get(ids, access=access)
+    visible = [chunk_id for chunk_id in ids if chunk_id in stored]
     return [
         ScoredPassage(*stored[chunk_id], None, rank, 0.0, None)
-        for rank, chunk_id in enumerate(ids, start=1)
+        for rank, chunk_id in enumerate(visible, start=1)
     ]

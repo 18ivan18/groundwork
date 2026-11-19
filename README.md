@@ -22,7 +22,8 @@ docker compose up --build
 
 Open <http://localhost:8080>. The API docs are at <http://localhost:8080/api/docs>.
 
-The first start builds the images, then indexes the filings. Later starts take about 10 seconds.
+The first start builds the images and queues the corpora; the `worker` service indexes them over
+the next few minutes, and the Library fills as it goes. Later starts take about 10 seconds.
 Uploads and the index live in the `data` volume, so `docker compose down` keeps them and
 `docker compose down -v` removes them.
 
@@ -34,7 +35,8 @@ and Node 22.
 ```bash
 cd backend
 uv sync
-uv run python scripts/ingest.py
+uv run python scripts/ingest.py --work       # queue the corpora and index them here
+uv run python -m groundwork.ingestion.worker  # in its own terminal: indexes uploads
 uv run uvicorn groundwork.main:create_app --factory
 
 cd frontend          # in a second terminal
@@ -58,8 +60,8 @@ a change to `.env`, followed by a restart:
 
 ```mermaid
 flowchart TD
-    subgraph Ingestion["Ingestion (CLI script or upload job)"]
-        F[File] --> L[Loader] --> S[Section detection] --> C[Chunker] --> E[Embedder]
+    subgraph Ingestion["Ingestion (worker service, jobs from Postgres)"]
+        U[Upload or corpus] --> J[(Job queue)] --> F[File] --> L[Loader] --> S[Section detection] --> C[Chunker] --> E[Embedder]
         E --> V[(Postgres + pgvector: documents, chunks, vectors)]
         V --> B[(BM25 per index, rebuilt when its generation moves)]
     end
@@ -82,8 +84,9 @@ flowchart TD
 - `backend/src/groundwork/`: `ingestion/`, `retrieval/`, `llm/`, `qa/`, `api/`, with `domain/` for
   shared types. `container.py` does the wiring.
 - `frontend/src/`: React, with TanStack Query for server state.
-- Compose runs `db` (Postgres 16 with pgvector), `migrate` (Alembic) and `ingest` once, then `api`
-  (uvicorn), then `web` (nginx serving the build and proxying `/api`).
+- Compose runs `db` (Postgres 16 with pgvector), `migrate` (Alembic) and `ingest` (queues the
+  corpora) once, then `worker` (indexes queued files), `api` (uvicorn) and `web` (nginx serving the
+  build and proxying `/api`).
 
 ## Design decisions and trade-offs
 
@@ -100,7 +103,7 @@ flowchart TD
 | **Two no-evidence layers** | A similarity gate stops off-topic questions without calling the LLM, and the model can refuse the rest | The gate cannot catch in-domain questions (see below) |
 | **Title and section added to indexed text** | Filings say "the Company", so chunks had no link to the company a question names. Stored and cited text stays verbatim. | Slightly more text to embed |
 | **SEC EDGAR filings as the corpus** | Real, relevant and public domain, so they can be committed | See the limitations on their age |
-| **Upload as a background job** | Embedding is slow, so the request returns at once and the UI polls | In-memory jobs, one uvicorn worker. Production would use a queue such as Celery, RQ or Arq with a persisted job table |
+| **Uploads and the corpus as jobs in Postgres** (D21) | Embedding is slow, so the request returns at once and the UI polls. A separate worker claims jobs with `SKIP LOCKED`; a heartbeat lets a job whose worker died be taken back, retried with backoff, then marked `dead` | One more service. No broker: Postgres is already there, and the job rate is a few per minute, far below where a table queue strains |
 | **Vite, React, shadcn/ui, TanStack Query** | Components live in the repository and can be styled to the design. TanStack Query replaces hand-written loading and polling code. | Tailwind and Radix become dependencies |
 | **Models baked into the image** | No download on first start | The embedder is 65 MB and the re-ranker 129 MB. The `api` image is 1.27 GB |
 | **`sentence-transformers` and `torch` as an optional extra** | Only needed for the planned embedder comparison, and `torch` alone is about 700 MB | That provider does not work in Docker, and needs `uv sync --extra sentence-transformers` locally |

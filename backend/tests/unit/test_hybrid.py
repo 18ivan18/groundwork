@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from groundwork.domain.models import Chunk, DocumentMeta, SearchFilters
+from groundwork.domain.models import UNRESTRICTED, Chunk, DocumentMeta, SearchFilters
 from groundwork.retrieval.embedder import FakeEmbedder
 from groundwork.retrieval.hybrid import HybridRetriever, SearchMode
 from groundwork.retrieval.memory_store import MemoryStore, memory_index
@@ -77,11 +77,15 @@ async def texts(
     mode: SearchMode = "reranked",
 ) -> list[str]:
     retriever = await make_retriever(store)
-    return [p.chunk.text for p in await retriever.search(query, k, filters, mode)]
+    return [
+        p.chunk.text for p in await retriever.search(query, k, filters, mode, access=UNRESTRICTED)
+    ]
 
 
 async def test_hybrid_reports_both_ranks(library: Library) -> None:
-    passage = (await (await make_retriever(library.store)).search("anvils", 1))[0]
+    passage = (
+        await (await make_retriever(library.store)).search("anvils", 1, access=UNRESTRICTED)
+    )[0]
 
     assert passage.dense_rank is not None
     assert passage.sparse_rank is not None
@@ -90,7 +94,9 @@ async def test_hybrid_reports_both_ranks(library: Library) -> None:
 
 
 async def test_dense_mode_has_no_sparse_ranks(library: Library) -> None:
-    passages = await (await make_retriever(library.store)).search("anvils", 4, mode="dense")
+    passages = await (await make_retriever(library.store)).search(
+        "anvils", 4, mode="dense", access=UNRESTRICTED
+    )
 
     assert all(p.sparse_rank is None for p in passages)
     assert [p.dense_rank for p in passages] == [1, 2, 3, 4]
@@ -99,7 +105,7 @@ async def test_dense_mode_has_no_sparse_ranks(library: Library) -> None:
 async def test_sparse_mode_finds_chunks_without_any_dense_data(library: Library) -> None:
     retriever = await make_retriever(library.store)
 
-    passages = await retriever.search("engineers", 4, mode="sparse")
+    passages = await retriever.search("engineers", 4, mode="sparse", access=UNRESTRICTED)
 
     assert [p.chunk.chunk_id for p in passages] == [f"{library.beta}:1"]
     assert passages[0].dense_rank is None
@@ -112,12 +118,12 @@ async def test_chunk_found_only_by_bm25_is_fetched_in_hybrid_mode(
 ) -> None:
     retriever = await make_retriever(library.store)
 
-    async def nothing(*_: object) -> list[DenseHit]:
+    async def nothing(*_: object, **__: object) -> list[DenseHit]:
         return []
 
     monkeypatch.setattr(library.store, "search", nothing)
 
-    passage = (await retriever.search("engineers", 4))[0]
+    passage = (await retriever.search("engineers", 4, access=UNRESTRICTED))[0]
 
     assert passage.chunk.text == "BETA hires engineers"
     assert passage.document.metadata["ticker"] == "BETA"
@@ -146,7 +152,9 @@ async def test_each_filter_applies_in_every_mode(
 ) -> None:
     retriever = await make_retriever(library.store)
 
-    passages = await retriever.search("anvils", 4, FILTERS_FOR_BETA[name], mode)
+    passages = await retriever.search(
+        "anvils", 4, FILTERS_FOR_BETA[name], mode, access=UNRESTRICTED
+    )
 
     assert passages
     assert {p.document.metadata["ticker"] for p in passages} == {"BETA"}
@@ -155,7 +163,9 @@ async def test_each_filter_applies_in_every_mode(
 async def test_filters_combine(library: Library) -> None:
     filters = SearchFilters(collections=("filings", "news"), doc_types=("8-K",))
 
-    passages = await (await make_retriever(library.store)).search("anvils", 4, filters)
+    passages = await (await make_retriever(library.store)).search(
+        "anvils", 4, filters, access=UNRESTRICTED
+    )
 
     assert {p.document.doc_type for p in passages} == {"8-K"}
 
@@ -184,7 +194,7 @@ async def test_a_chunk_gone_from_the_store_since_bm25_was_built_is_skipped(
     # BETA is stored again with no chunks: BM25 still has the old ones.
     await library.store.add(BETA, BETA.title, [], [])
 
-    assert await retriever.search("engineers", 4, mode="sparse") == []
+    assert await retriever.search("engineers", 4, mode="sparse", access=UNRESTRICTED) == []
 
 
 class ScriptedReranker:
@@ -202,7 +212,7 @@ class ScriptedReranker:
 async def test_the_reranker_sets_the_order(library: Library) -> None:
     retriever = await make_retriever(library.store, ScriptedReranker("roof"), 4)
 
-    passages = await retriever.search("ACME anvils", 4)
+    passages = await retriever.search("ACME anvils", 4, access=UNRESTRICTED)
 
     assert passages[0].chunk.text == "ACME roof leaks"
     assert [p.rerank_rank for p in passages] == [1, 2, 3, 4]
@@ -212,16 +222,22 @@ async def test_the_reranker_sets_the_order(library: Library) -> None:
 async def test_the_reranker_reads_the_title_with_the_passage(library: Library) -> None:
     reranker = ScriptedReranker()
 
-    await (await make_retriever(library.store, reranker, 4)).search("ACME anvils", 1)
+    await (await make_retriever(library.store, reranker, 4)).search(
+        "ACME anvils", 1, access=UNRESTRICTED
+    )
 
     assert "ACME report\nACME sells anvils" in reranker.seen
 
 
 async def test_only_the_top_candidates_are_reranked(library: Library) -> None:
     reranker = ScriptedReranker("engineers")
-    unranked = await (await make_retriever(library.store)).search("ACME anvils", 4)
+    unranked = await (await make_retriever(library.store)).search(
+        "ACME anvils", 4, access=UNRESTRICTED
+    )
 
-    passages = await (await make_retriever(library.store, reranker, 2)).search("ACME anvils", 4)
+    passages = await (await make_retriever(library.store, reranker, 2)).search(
+        "ACME anvils", 4, access=UNRESTRICTED
+    )
 
     assert len(reranker.seen) == 2
     assert {p.chunk.chunk_id for p in passages[:2]} == {p.chunk.chunk_id for p in unranked[:2]}
@@ -233,10 +249,12 @@ async def test_hybrid_mode_skips_the_reranker(library: Library) -> None:
     reranker = ScriptedReranker("roof")
     retriever = await make_retriever(library.store, reranker, 4)
 
-    passages = await retriever.search("ACME anvils", 4, mode="hybrid")
+    passages = await retriever.search("ACME anvils", 4, mode="hybrid", access=UNRESTRICTED)
 
     assert reranker.seen == []
-    assert passages == await (await make_retriever(library.store)).search("ACME anvils", 4)
+    assert passages == await (await make_retriever(library.store)).search(
+        "ACME anvils", 4, access=UNRESTRICTED
+    )
 
 
 async def test_best_similarity_counts_candidates_the_reranker_pushed_out(
@@ -244,9 +262,9 @@ async def test_best_similarity_counts_candidates_the_reranker_pushed_out(
 ) -> None:
     retriever = await make_retriever(library.store, ScriptedReranker("engineers"), 4)
     plain = await make_retriever(library.store)
-    best = (await plain.search("ACME sells anvils", 1, mode="dense"))[0]
+    best = (await plain.search("ACME sells anvils", 1, mode="dense", access=UNRESTRICTED))[0]
 
-    result = await retriever.retrieve("ACME sells anvils", 1)
+    result = await retriever.retrieve("ACME sells anvils", 1, access=UNRESTRICTED)
 
     assert result.passages[0].chunk.text == "BETA hires engineers"
     assert result.best_similarity == best.dense_similarity

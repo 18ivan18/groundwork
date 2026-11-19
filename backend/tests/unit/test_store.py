@@ -1,16 +1,26 @@
 """The ChunkStore contract, run against the in-memory store and against Postgres."""
 
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from datetime import date
+from urllib.parse import quote
 
 import pytest
 from conftest import empty_database
 
-from groundwork.domain.models import Chunk, DocumentMeta, SearchFilters
-from groundwork.retrieval.indexes import IndexSpec, ensure_index
+from groundwork.db.pool import open_pool
+from groundwork.domain.models import (
+    UNRESTRICTED,
+    Access,
+    Chunk,
+    DocumentChanges,
+    DocumentMeta,
+    SearchFilters,
+)
+from groundwork.retrieval.indexes import IndexSpec, ensure_index, hnsw_index_name
 from groundwork.retrieval.memory_store import MemoryStore, memory_index
 from groundwork.retrieval.pgvector_store import PgVectorStore
-from groundwork.retrieval.store import ChunkStore
+from groundwork.retrieval.store import ChunkStore, DuplicateDocumentError
 
 DIMENSION = 4
 
@@ -81,7 +91,7 @@ async def test_added_chunks_get_ids_from_their_document(store: ChunkStore) -> No
 async def test_search_ranks_by_cosine_similarity(store: ChunkStore) -> None:
     await store.add(meta("acme"), "h1", chunks("east", "north"), [vector(1), vector(0, 1)])
 
-    hits = await store.search(vector(0.2, 1), 2)
+    hits = await store.search(vector(0.2, 1), 2, access=UNRESTRICTED)
 
     assert [hit.chunk.text for hit in hits] == ["north", "east"]
     assert hits[0].similarity == pytest.approx(1 / (1.04**0.5), abs=1e-4)
@@ -92,7 +102,7 @@ async def test_search_returns_at_most_n(store: ChunkStore) -> None:
         meta("acme"), "h1", chunks("a", "b", "c"), [vector(1), vector(1, 1), vector(0, 1)]
     )
 
-    assert len(await store.search(vector(1), 2)) == 2
+    assert len(await store.search(vector(1), 2, access=UNRESTRICTED)) == 2
 
 
 async def test_find_document_needs_the_same_bytes_collection_groups_and_owner(
@@ -140,7 +150,9 @@ async def test_one_file_in_two_collections_is_two_documents(store: ChunkStore) -
 async def test_get_returns_requested_chunks_and_skips_unknown_ids(store: ChunkStore) -> None:
     document = await store.add(meta("acme"), "h1", chunks("a", "b"), [vector(1)] * 2)
 
-    found = await store.get([f"{document.doc_id}:1", f"{document.doc_id}:9", "999:0"])
+    found = await store.get(
+        [f"{document.doc_id}:1", f"{document.doc_id}:9", "999:0"], access=UNRESTRICTED
+    )
 
     assert list(found) == [f"{document.doc_id}:1"]
     assert found[f"{document.doc_id}:1"][0].text == "b"
@@ -170,7 +182,7 @@ async def test_filters_narrow_search_and_matching_ids(store: ChunkStore) -> None
         SearchFilters(metadata={"ticker": "ACME"}),
     ]
     for filters in cases:
-        hits = await store.search(vector(1), 10, filters)
+        hits = await store.search(vector(1), 10, filters, access=UNRESTRICTED)
         assert [hit.chunk.chunk_id for hit in hits] == [only_acme], filters
         assert await store.matching_ids(filters) == {only_acme}, filters
 
@@ -179,7 +191,9 @@ async def test_documents_lists_chunk_counts_by_title(store: ChunkStore) -> None:
     await store.add(meta("zeta"), "h1", chunks("a"), [vector(1)])
     await store.add(meta("alpha"), "h2", chunks("a", "b"), [vector(1)] * 2)
 
-    listed = [(document.title, count) for document, count in await store.documents()]
+    listed = [
+        (document.title, count) for document, count in await store.documents(access=UNRESTRICTED)
+    ]
 
     assert listed == [("alpha", 2), ("zeta", 1)]
     assert await store.count_documents() == 2
@@ -192,8 +206,76 @@ async def test_count_document_chunks(store: ChunkStore) -> None:
     assert await store.count_document_chunks("12345") == 0
 
 
+async def test_one_document_is_found_only_by_who_may_read_it(store: ChunkStore) -> None:
+    hr_meta = replace(meta("pay", groups=("hr",)), storage_path="uploads/pay.txt")
+    document = await store.add(hr_meta, "h1", chunks("a", "b"), [vector(1)] * 2)
+
+    found = await store.document(document.doc_id, access=Access.of({"hr"}))
+
+    assert found is not None and found[1] == 2
+    assert found[0].storage_path == "uploads/pay.txt"
+    assert await store.document(document.doc_id, access=Access.of({"everyone"})) is None
+    assert await store.document("999", access=UNRESTRICTED) is None
+    assert await store.document("x", access=UNRESTRICTED) is None
+    assert await store.document_indexes(document.doc_id) == [store.index.name]
+
+
+async def test_an_edit_changes_what_searches_see(store: ChunkStore) -> None:
+    document = await store.add(meta("acme", groups=("hr",)), "h1", chunks("a"), [vector(1)])
+    everyone = Access.of({"everyone"})
+
+    edited = await store.update_document(
+        document.doc_id,
+        DocumentChanges(title="ACME", doc_date=date(2025, 1, 1), access_groups=("everyone",)),
+    )
+
+    assert (edited.title, edited.doc_date, edited.access_groups) == (
+        "ACME",
+        date(2025, 1, 1),
+        ("everyone",),
+    )
+    assert edited.doc_type == "10-K"
+    [hit] = await store.search(
+        vector(1), 5, SearchFilters(date_from=date(2025, 1, 1)), access=everyone
+    )
+    assert hit.document.title == "ACME"
+    hr_only = await store.search(vector(1), 5, access=Access.of({"hr"}))
+    assert hr_only == []
+
+
+async def test_an_edit_cannot_make_two_documents_one(store: ChunkStore) -> None:
+    await store.add(meta("acme", groups=("everyone",)), "h1", chunks("a"), [vector(1)])
+    hr = await store.add(meta("acme", groups=("hr",)), "h1", chunks("a"), [vector(1)])
+
+    with pytest.raises(DuplicateDocumentError):
+        await store.update_document(hr.doc_id, DocumentChanges(access_groups=("everyone",)))
+
+
+async def test_a_deleted_document_is_gone_everywhere(store: ChunkStore) -> None:
+    kept = await store.add(meta("kept"), "h1", chunks("a"), [vector(1)])
+    gone = await store.add(
+        replace(meta("gone"), storage_path="uploads/gone.txt"), "h2", chunks("b"), [vector(1)]
+    )
+
+    await store.delete_document(gone.doc_id)
+
+    assert [d.doc_id for d, _ in await store.documents(access=UNRESTRICTED)] == [kept.doc_id]
+    assert [
+        hit.document.doc_id for hit in await store.search(vector(1), 5, access=UNRESTRICTED)
+    ] == [kept.doc_id]
+    assert await store.get([f"{gone.doc_id}:0"], access=UNRESTRICTED) == {}
+    assert not await store.storage_path_in_use("uploads/gone.txt")
+
+
+async def test_collections_can_be_protected(store: ChunkStore) -> None:
+    await store.protect_collection("sec-10k")
+    await store.protect_collection("sec-10k")
+
+    assert await store.protected_collections() == {"sec-10k"}
+
+
 async def test_an_empty_store_finds_nothing(store: ChunkStore) -> None:
-    assert await store.search(vector(1), 5) == []
+    assert await store.search(vector(1), 5, access=UNRESTRICTED) == []
     assert await store.all_passages() == []
     assert await store.count_chunks() == 0
 
@@ -201,3 +283,48 @@ async def test_an_empty_store_finds_nothing(store: ChunkStore) -> None:
 async def test_a_chunk_count_must_match_its_embeddings(store: ChunkStore) -> None:
     with pytest.raises(ValueError, match="one embedding"):
         await store.add(meta("acme"), "h1", chunks("a", "b"), [vector(1)])
+
+
+def graph_only(database_url: str) -> str:
+    """The test database, with every session forced through the HNSW index and searching only
+    10 neighbours, as a much larger table would be. Without a sort, the btree on index_id cannot
+    order by distance, so it cannot compete whatever the statistics say."""
+    options = quote(
+        "-c enable_seqscan=off -c enable_bitmapscan=off -c enable_sort=off -c hnsw.ef_search=10"
+    )
+    return f"{database_url}{'&' if '?' in database_url else '?'}options={options}"
+
+
+@pytest.mark.db
+async def test_a_restrictive_filter_still_returns_n_rows(database_url: str) -> None:
+    """#39. 200 chunks everyone may read sit next to the query; 10 hr chunks are further away.
+    HNSW finds its ef_search nearest neighbours and filters after: an hr-only user gets fewer
+    than 10 rows unless pgvector keeps scanning (hnsw.iterative_scan)."""
+    hr_only = Access.of({"hr"})
+    query = [1.0, 0.0, 0.0, 0.0]
+    async with empty_database(database_url) as setup:
+        spec = IndexSpec(name="acl", chunker="window", embedder_model="fake", dimension=DIMENSION)
+        index = await ensure_index(setup, spec)
+        writer = PgVectorStore(setup, index)
+        near = [[1.0, 0.01 * i, 0.001 * (i % 7), 0.0] for i in range(200)]
+        await writer.add(meta("everyone"), "e", chunks(*["e"] * 200), near)
+        far = [[0.3, 1.0, 0.01 * i, 0.0] for i in range(10)]
+        await writer.add(meta("salaries", groups=("hr",)), "h", chunks(*["h"] * 10), far)
+
+    pool = await open_pool(graph_only(database_url))
+    try:
+        store = PgVectorStore(pool, index)
+        sql, params = store.search_sql(query, 10, None, hr_only)
+        async with pool.connection() as connection, connection.transaction():
+            await connection.execute("SET LOCAL hnsw.iterative_scan = off")
+            plan = await connection.execute("EXPLAIN " + sql, params)
+            assert hnsw_index_name(index.id) in str(await plan.fetchall())
+            without = await (await connection.execute(sql, params)).fetchall()
+
+        hits = await store.search(query, 10, access=hr_only)
+    finally:
+        await pool.close()
+
+    assert len(without) < 10
+    assert len(hits) == 10
+    assert {hit.document.title for hit in hits} == {"salaries"}

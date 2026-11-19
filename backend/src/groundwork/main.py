@@ -5,17 +5,29 @@ import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from typing import Any
 
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from groundwork.api import routes_ask, routes_config, routes_documents, routes_health
+from groundwork.api import (
+    routes_ask,
+    routes_config,
+    routes_documents,
+    routes_health,
+    routes_jobs,
+    routes_users,
+)
+from groundwork.api.deps import get_user
 from groundwork.api.schemas import ErrorResponse
+from groundwork.auth import USER_HEADER, HeaderAuthenticator
 from groundwork.config import Settings
 from groundwork.container import Container, app_index, build_embedder, build_services
 from groundwork.db.pool import open_pool
+from groundwork.db.users import sync_users
 from groundwork.domain.users import load_users
+from groundwork.ingestion.pg_jobs import PgJobQueue
 from groundwork.llm.base import LLMClient, LLMError
 from groundwork.llm.factory import build_llm
 from groundwork.retrieval.embedder import Embedder
@@ -45,10 +57,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             llm = build_llm(settings)
             pool = await open_pool(settings.database_url)
             embedder = await asyncio.to_thread(build_embedder, settings)
+            # Before anything is stored: uploads reference their owner.
+            await sync_users(pool, app.state.users)
             index = await app_index(pool, settings, embedder.dimension)
-            app.state.container = Container(settings, PgVectorStore(pool, index), app.state.users)
+            app.state.container = Container(
+                settings, PgVectorStore(pool, index), app.state.users, PgJobQueue(pool)
+            )
         container: Container = app.state.container
-        services = build_services(settings, container.store, embedder, llm=llm)
+        services = build_services(settings, container.store, embedder, llm=llm, jobs=container.jobs)
         app.state.qa_service = services.qa
         app.state.upload_service = services.uploads
         yield
@@ -95,7 +111,9 @@ def create_app(settings: Settings | None = None, *, store: ChunkStore | None = N
         openapi_tags=[
             {"name": "questions", "description": "Ask questions of the library."},
             {"name": "documents", "description": "List the library and add to it."},
+            {"name": "jobs", "description": "Ingestion jobs: progress, retry and cancel."},
             {"name": "health", "description": "Service status."},
+            {"name": "users", "description": "The demo users and the current user."},
             {"name": "config", "description": "Limits for clients to apply."},
         ],
         responses={500: {"model": ErrorResponse, "description": "An unexpected error."}},
@@ -107,20 +125,30 @@ def create_app(settings: Settings | None = None, *, store: ChunkStore | None = N
     )
     app.state.settings = settings
     app.state.users = load_users(settings.users_file)
+    app.state.authenticator = HeaderAuthenticator(app.state.users)
     app.state.container = None if store is None else Container(settings, store, app.state.users)
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_headers=["Content-Type", USER_HEADER],
     )
     app.middleware("http")(log_request)
     app.add_exception_handler(LLMError, handle_llm_error)
     app.add_exception_handler(Exception, handle_unexpected_error)
 
+    # Open: the Docker healthcheck sends no user, and a client lists the users to choose one.
     app.include_router(routes_health.router, prefix="/api")
-    app.include_router(routes_config.router, prefix="/api")
-    app.include_router(routes_ask.router, prefix="/api")
-    app.include_router(routes_documents.router, prefix="/api")
+    app.include_router(routes_users.router, prefix="/api")
+    # Everything else needs a known user. Set here rather than per route, so a new route cannot
+    # forget it; routes that use the user declare `CurrentUser` too, which FastAPI resolves once.
+    authenticated = [Depends(get_user)]
+    unauthenticated: dict[int | str, dict[str, Any]] = {
+        401: {"model": ErrorResponse, "description": "No `X-User` header, or an unknown user."}
+    }
+    for module in (routes_config, routes_ask, routes_documents, routes_jobs):
+        app.include_router(
+            module.router, prefix="/api", dependencies=authenticated, responses=unauthenticated
+        )
     return app

@@ -26,7 +26,7 @@ import bm25s
 import numpy as np
 import Stemmer
 
-from groundwork.domain.models import Chunk, Document, SearchFilters, indexed_text
+from groundwork.domain.models import Access, Chunk, Document, SearchFilters, indexed_text
 from groundwork.retrieval.store import ChunkStore, matches
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,7 @@ def _document_json(document: Document) -> dict[str, Any]:
         "metadata": dict(document.metadata),
         "access_groups": list(document.access_groups),
         "owner_id": document.owner_id,
+        "storage_path": document.storage_path,
         "ingested_at": document.ingested_at.isoformat(),
     }
 
@@ -65,6 +66,7 @@ def _document_from_json(data: dict[str, Any]) -> Document:
         metadata=data["metadata"],
         access_groups=tuple(data["access_groups"]),
         owner_id=data["owner_id"],
+        storage_path=data.get("storage_path"),
         ingested_at=datetime.fromisoformat(data["ingested_at"]),
     )
 
@@ -116,13 +118,24 @@ class Positions:
             group_bits=document_bits[positions] if documents else np.zeros(0, np.uint64),
         )
 
-    def mask(self, filters: SearchFilters | None) -> np.ndarray | None:
-        """1.0 where a chunk passes the filters, else 0.0; None when nothing is filtered."""
-        if filters is None or filters == SearchFilters():
+    def group_mask(self, access: Access) -> int:
+        """The bits of the groups `access` holds. A group no document here has sets no bit."""
+        assert access.groups is not None
+        return sum(1 << bit for group, bit in self.group_bit.items() if group in access.groups)
+
+    def mask(self, filters: SearchFilters | None, access: Access) -> np.ndarray | None:
+        """1.0 where a chunk passes the filters and `access` may read it, else 0.0; None when
+        nothing is excluded."""
+        filtered = filters is not None and filters != SearchFilters()
+        if not filtered and access.groups is None:
             return None
-        allowed = np.array([matches(d, filters) for d in self.documents], dtype=np.float32)
-        result: np.ndarray = allowed[self.document_of]
-        return result
+        allowed = np.ones(len(self.chunk_ids), dtype=bool)
+        if filtered:
+            by_document = np.array([matches(d, filters) for d in self.documents], dtype=bool)
+            allowed &= by_document[self.document_of]
+        if access.groups is not None:
+            allowed &= (self.group_bits & np.uint64(self.group_mask(access))) != 0
+        return allowed.astype(np.float32)
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -169,16 +182,17 @@ class SparseIndex:
         return len(self._positions.chunk_ids)
 
     def search(
-        self, query: str, n: int, filters: SearchFilters | None = None
+        self, query: str, n: int, filters: SearchFilters | None = None, *, access: Access
     ) -> list[tuple[str, float]]:
-        """Up to n (chunk_id, score) pairs, best first. Chunks the filters exclude score 0."""
+        """Up to n (chunk_id, score) pairs, best first. Chunks the filters exclude, or `access`
+        may not read, score 0 before the top n are taken."""
         if self._retriever is None or n <= 0:
             return []
         results = self._retriever.retrieve(
             _tokenize([query]),
             k=min(n, len(self)),
             show_progress=False,
-            weight_mask=self._positions.mask(filters),
+            weight_mask=self._positions.mask(filters, access),
         )
         hits = []
         for position, score in zip(results.documents[0], results.scores[0], strict=True):

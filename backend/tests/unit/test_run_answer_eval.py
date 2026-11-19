@@ -18,7 +18,15 @@ from run_answer_eval import (
 )
 from run_eval import Question
 
-from groundwork.domain.models import Chunk, Document, DocumentMeta, ScoredPassage, SearchFilters
+from groundwork.domain.models import (
+    UNRESTRICTED,
+    Access,
+    Chunk,
+    Document,
+    DocumentMeta,
+    ScoredPassage,
+    SearchFilters,
+)
 from groundwork.ingestion.corpus import CorpusEntry
 from groundwork.llm.base import Completion, LLMError, RateLimitError
 from groundwork.llm.fake import FakeLLM
@@ -137,7 +145,7 @@ DOCUMENT = Document(
 
 class StubRetriever:
     async def retrieve(
-        self, query: str, k: int, filters: SearchFilters | None = None
+        self, query: str, k: int, filters: SearchFilters | None = None, *, access: Access
     ) -> SearchResult:
         chunk = Chunk("doc:0", "doc", "ACME sold 10 anvils.", ("Item 7",), None, 0, 20)
         return SearchResult([ScoredPassage(chunk, DOCUMENT, 1, 1, 0.03, 0.9)], 0.9)
@@ -157,7 +165,10 @@ def no_pacing() -> TokenPacer:
 def run(
     path: Path, questions: Sequence[Question], qa: QAService, only: set[str] | None = None
 ) -> bool:
-    return asyncio.run(ask_all(questions, qa, path, no_pacing(), only=only, log=lambda _: None))
+    access = {q.id: UNRESTRICTED for q in questions}
+    return asyncio.run(
+        ask_all(questions, qa, path, no_pacing(), access=access, only=only, log=lambda _: None)
+    )
 
 
 def test_ask_saves_the_answer_and_its_sources(tmp_path: Path) -> None:

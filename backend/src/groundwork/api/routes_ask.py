@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter
 
-from groundwork.api.deps import QAServiceDep
+from groundwork.api.deps import CurrentUser, QAServiceDep
 from groundwork.api.schemas import (
     AskRequest,
     AskResponse,
@@ -73,10 +73,12 @@ def _to_filters(request: AskRequest) -> SearchFilters | None:
     ),
     responses={502: {"model": ErrorResponse, "description": "The LLM provider failed."}},
 )
-async def ask(request: AskRequest, service: QAServiceDep) -> AskResponse:
+async def ask(request: AskRequest, service: QAServiceDep, user: CurrentUser) -> AskResponse:
     # Questions can reveal client work, so they stay out of logs in production.
     logger.debug("Question: %s", request.question)
-    answer = await service.ask(request.question, _to_filters(request), request.top_k)
+    answer = await service.ask(
+        request.question, _to_filters(request), request.top_k, access=user.access
+    )
     return AskResponse(
         answer=answer.text,
         insufficient_evidence=answer.insufficient_evidence,

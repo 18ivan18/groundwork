@@ -27,7 +27,7 @@ from psycopg import AsyncClientCursor, AsyncConnection
 from groundwork.config import Settings
 from groundwork.container import build_embedder
 from groundwork.db.pool import open_pool
-from groundwork.domain.models import SearchFilters
+from groundwork.domain.models import UNRESTRICTED, SearchFilters
 from groundwork.retrieval.indexes import active_index, get_index
 from groundwork.retrieval.pgvector_store import PgVectorStore
 
@@ -132,8 +132,13 @@ async def main() -> None:
             overlaps = []
             for question in questions:
                 query = embedder.embed_query(question)
-                approximate = {hit.chunk.chunk_id for hit in await store.search(query, N)}
-                exact_hits = {hit.chunk.chunk_id for hit in await exact_store.search(query, N)}
+                approximate = {
+                    hit.chunk.chunk_id for hit in await store.search(query, N, access=UNRESTRICTED)
+                }
+                exact_hits = {
+                    hit.chunk.chunk_id
+                    for hit in await exact_store.search(query, N, access=UNRESTRICTED)
+                }
                 overlaps.append(len(approximate & exact_hits))
             differ = sum(overlap < N for overlap in overlaps)
             print(

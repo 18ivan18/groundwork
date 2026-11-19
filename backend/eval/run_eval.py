@@ -29,7 +29,7 @@ import re
 import statistics
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal, get_args
@@ -40,7 +40,8 @@ from tsrank import ts_rank_search
 from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
 from groundwork.db.pool import Pool, open_pool
-from groundwork.domain.models import Document, ScoredPassage
+from groundwork.domain.models import Access, Document, ScoredPassage
+from groundwork.domain.users import User, access_for, load_users
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.ingestion.pipeline import ingest_file
@@ -91,7 +92,7 @@ class Question(BaseModel):
     # Facts the answer must state, each a case-insensitive pattern whose alternatives are
     # accepted ways of writing it. Used by run_answer_eval.py.
     expected: tuple[str, ...] = ()
-    # Who asks: a user from conf/users.yaml. Access is enforced from M3.
+    # Who asks: a user from conf/users.yaml. Retrieval searches only what they may read.
     user: str = "alice"
     # For unanswerable questions: a pattern that must not occur anywhere in the collection, which
     # proves the answer is not there.
@@ -439,6 +440,61 @@ def baseline_check(
     return failures
 
 
+def question_access(settings: Settings, questions: Sequence[Question]) -> dict[str, Access]:
+    """What each question's user may read: the evaluation searches as they would."""
+    users = load_users(settings.users_file)
+    return {q.id: access_for(users, q.user) for q in questions}
+
+
+def reader_for(
+    question: Question, entries: Sequence[CorpusEntry], users: Mapping[str, User]
+) -> str | None:
+    """A user who may read every document the question is about, for its refused twin."""
+    groups = [
+        set(e.meta.access_groups)
+        for e in entries
+        if (e.meta.collection_id, e.key) in targets(question)
+    ]
+    for user_id, user in sorted(users.items()):
+        if not user.is_admin and all(g & user.groups for g in groups):
+            return user_id
+    return None
+
+
+async def acl_check(
+    retriever: HybridRetriever,
+    settings: Settings,
+    questions: Sequence[Question],
+    entries: Sequence[CorpusEntry],
+    keys: DocumentKeys,
+) -> list[str]:
+    """Each restricted question is refused for the user who asks it (none of its documents in
+    any passage retrieved, at any depth) and answered for one who may read them (its evidence in
+    the top k). Returns the failures."""
+    users = load_users(settings.users_file)
+    failures = []
+    for q in (q for q in questions if q.type == "restricted"):
+        wrong = access_for(users, q.user)
+        result = await retriever.retrieve(q.question, settings.retrieval_candidates, access=wrong)
+        leaked = sorted({keys(p.document)[1] for p in result.passages} & set(q.documents))
+        reader = reader_for(q, entries, users)
+        found = False
+        if reader is not None:
+            passages = await retriever.search(
+                q.question, settings.top_k, access=access_for(users, reader)
+            )
+            found = all(rank is not None for rank in evidence_ranks(passages, q, keys))
+        print(
+            f"{q.id}: as {q.user} {'LEAKED ' + ', '.join(leaked) if leaked else 'refused'}; "
+            f"as {reader} {'found' if found else 'NOT found'}"
+        )
+        if leaked:
+            failures.append(f"{q.id}: {q.user} retrieved {', '.join(leaked)}")
+        if not found:
+            failures.append(f"{q.id}: {reader} did not find the evidence")
+    return failures
+
+
 async def ci(update_baseline: bool) -> int:
     settings = Settings()
     questions = [
@@ -460,10 +516,12 @@ async def ci(update_baseline: bool) -> int:
             pool, settings, entries, embedder, settings.chunk_tokens, exact=True, prefix="ci"
         )
         retriever = await build_retriever(settings, store, embedder, build_reranker(settings))
+        access = question_access(settings, answerable)
         found: dict[str, list[EvidenceRanks]] = {}
         for q in answerable:
-            passages = await retriever.search(q.question, settings.top_k)
+            passages = await retriever.search(q.question, settings.top_k, access=access[q.id])
             found.setdefault(q.collection, []).append(evidence_ranks(passages, q, keys))
+        acl_failures = await acl_check(retriever, settings, questions, entries, keys)
     finally:
         await pool.close()
     success = {
@@ -476,7 +534,7 @@ async def ci(update_baseline: bool) -> int:
         BASELINE.write_text(json.dumps(success, indent=2, sort_keys=True) + "\n")
         print(f"Wrote {BASELINE.name}")
         return 0
-    failures = baseline_check(success, json.loads(BASELINE.read_text()))
+    failures = baseline_check(success, json.loads(BASELINE.read_text())) + acl_failures
     for failure in failures:
         print(f"FAIL {failure}")
     return 1 if failures else 0
@@ -500,6 +558,7 @@ async def main() -> None:
     gate_sections: list[str] = []
     latencies: list[str] = []
     ts_rows: list[Row] = []
+    access = question_access(settings, questions)
     pool = await open_pool(settings.database_url)
     for chunk_tokens in CHUNK_SIZES:
         dense = await eval_store(pool, settings, entries, embedder, chunk_tokens)
@@ -511,7 +570,9 @@ async def main() -> None:
             seconds = []
             for q in answerable:
                 started = time.perf_counter()
-                passages = await retriever.search(q.question, max(K_VALUES), mode=mode)
+                passages = await retriever.search(
+                    q.question, max(K_VALUES), mode=mode, access=access[q.id]
+                )
                 seconds.append(time.perf_counter() - started)
                 found.append(evidence_ranks(passages, q, keys))
             ranks = [first_hit(evidence) for evidence in found]
@@ -536,7 +597,9 @@ async def main() -> None:
             candidate_rows.append((chunk_tokens, name, candidates))
 
         ts_found = [
-            evidence_ranks(await ts_rank_search(dense, q.question, max(K_VALUES)), q, keys)
+            evidence_ranks(
+                await ts_rank_search(dense, q.question, max(K_VALUES), access[q.id]), q, keys
+            )
             for q in answerable
         ]
         for name, positions in sets.items():
@@ -545,7 +608,7 @@ async def main() -> None:
 
         top: dict[str, float] = {}
         for q in questions:
-            [hit] = await dense.search(embedder.embed_query(q.question), 1)
+            [hit] = await dense.search(embedder.embed_query(q.question), 1, access=access[q.id])
             top[q.id] = hit.similarity
         kept = [top[q.id] for q in answerable]
         off_topic = [top[q.id] for q in questions if q.type == "unanswerable_off_topic"]

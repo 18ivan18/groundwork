@@ -24,7 +24,7 @@ import subprocess
 import sys
 import time
 from collections import deque
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,6 +37,7 @@ from run_eval import (
     eval_collections,
     load_questions,
     normalize,
+    question_access,
     question_sets,
     targets,
     validate,
@@ -44,7 +45,7 @@ from run_eval import (
 
 from groundwork.config import Settings
 from groundwork.container import build_services, open_app_store
-from groundwork.domain.models import ScoredPassage, SearchFilters, section_label
+from groundwork.domain.models import Access, ScoredPassage, SearchFilters, section_label
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.llm.base import LLMError, RateLimitError
@@ -184,10 +185,12 @@ async def ask_all(
     path: Path,
     pacer: TokenPacer,
     *,
+    access: Mapping[str, Access],
     only: set[str] | None = None,
     log: Callable[[str], None] = print,
 ) -> bool:
-    """Ask each question not yet answered, or each in `only`. False if a rate limit stopped it."""
+    """Ask each question not yet answered, or each in `only`, as the user in `access` by
+    question id. False if a rate limit stopped it."""
     done = answered_ids(read_run(path))
     pending = [q for q in questions if (q.id in only if only else q.id not in done)]
     for number, question in enumerate(pending, start=1):
@@ -195,7 +198,7 @@ async def ask_all(
         try:
             # Searched within the question's collection, as in the retrieval eval.
             filters = SearchFilters(collections=(question.collection,))
-            answer = await qa.ask(question.question, filters)
+            answer = await qa.ask(question.question, filters, access=access[question.id])
         except RateLimitError as error:
             log(f"Stopped at {question.id}: {error} Run `ask` again later to resume.")
             return False
@@ -554,7 +557,8 @@ async def ask(settings: Settings, args: argparse.Namespace, questions: list[Ques
         only = set(args.only.split(",")) if args.only else None
         qa = build_services(settings, opened.store, opened.embedder).qa
         pacer = TokenPacer(args.tokens_per_minute)
-        finished = await ask_all(questions, qa, path, pacer, only=only)
+        access = question_access(settings, questions)
+        finished = await ask_all(questions, qa, path, pacer, access=access, only=only)
     print(f"Saved to {path}")
     return 0 if finished else 2
 

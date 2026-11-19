@@ -3,9 +3,10 @@ by a cross-encoder."""
 
 import asyncio
 from dataclasses import dataclass, replace
+from functools import partial
 from typing import Literal, Protocol
 
-from groundwork.domain.models import ScoredPassage, SearchFilters, indexed_text
+from groundwork.domain.models import Access, ScoredPassage, SearchFilters, indexed_text
 from groundwork.retrieval.embedder import Embedder
 from groundwork.retrieval.fusion import rrf
 from groundwork.retrieval.reranker import Reranker
@@ -34,7 +35,7 @@ def _ranks(chunk_ids: list[str]) -> dict[str, int]:
 
 class Retriever(Protocol):
     async def retrieve(
-        self, query: str, k: int, filters: SearchFilters | None = None
+        self, query: str, k: int, filters: SearchFilters | None = None, *, access: Access
     ) -> SearchResult: ...
 
 
@@ -67,8 +68,10 @@ class HybridRetriever:
         k: int,
         filters: SearchFilters | None = None,
         mode: SearchMode = "reranked",
+        *,
+        access: Access,
     ) -> list[ScoredPassage]:
-        return (await self.retrieve(query, k, filters, mode)).passages
+        return (await self.retrieve(query, k, filters, mode, access=access)).passages
 
     async def retrieve(
         self,
@@ -76,18 +79,25 @@ class HybridRetriever:
         k: int,
         filters: SearchFilters | None = None,
         mode: SearchMode = "reranked",
+        *,
+        access: Access,
     ) -> SearchResult:
-        """Return the top k passages. RRF of a single list keeps its order, so "dense" and
-        "sparse" return that retriever's own ranking."""
+        """Return the top k passages `access` may read. RRF of a single list keeps its order, so
+        "dense" and "sparse" return that retriever's own ranking. Both retrievers apply the ACL
+        before their top n, and fetching BM25-only hits checks it again."""
         dense_hits: list[DenseHit] = []
         if mode != "sparse":
             query_vector = await asyncio.to_thread(self._embedder.embed_query, query)
-            dense_hits = await self._store.search(query_vector, self._candidates, filters)
+            dense_hits = await self._store.search(
+                query_vector, self._candidates, filters, access=access
+            )
 
         sparse_ids: list[str] = []
         if mode != "dense":
             sparse = await self._sparse.current()
-            sparse_hits = await asyncio.to_thread(sparse.search, query, self._candidates, filters)
+            sparse_hits = await asyncio.to_thread(
+                partial(sparse.search, access=access), query, self._candidates, filters
+            )
             sparse_ids = [chunk_id for chunk_id, _ in sparse_hits]
 
         rerank = mode == "reranked" and self._reranker is not None
@@ -100,14 +110,14 @@ class HybridRetriever:
         stored = {chunk_id: (hit.chunk, hit.document) for chunk_id, hit in hits_by_id.items()}
         # A chunk found only by BM25 still has to be fetched from the store.
         missing = [chunk_id for chunk_id, _ in fused if chunk_id not in stored]
-        stored.update(await self._store.get(missing))
+        stored.update(await self._store.get(missing, access=access))
 
         dense_ranks = _ranks(dense_ids)
         sparse_ranks = _ranks(sparse_ids)
         passages = []
         for chunk_id, score in fused:
             if chunk_id not in stored:
-                # Deleted since this worker's BM25 index was built.
+                # Deleted, or its groups changed, since this worker's BM25 index was built.
                 continue
             chunk, document = stored[chunk_id]
             hit = hits_by_id.get(chunk_id)

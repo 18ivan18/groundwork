@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { currentUser } from "@/lib/currentUser";
+
 import {
   AskResponseSchema,
   ClientConfigSchema,
@@ -7,6 +9,7 @@ import {
   JobSchema,
   LibraryDocumentSchema,
   UploadResponseSchema,
+  UserSchema,
 } from "./schemas";
 import type {
   AskRequest,
@@ -17,6 +20,7 @@ import type {
   LibraryDocument,
   UploadResponse,
   UploadTags,
+  User,
 } from "./types";
 
 const NETWORK_ERROR = "Could not reach the server. Check that the API is running.";
@@ -67,7 +71,9 @@ async function request<S extends z.ZodType>(
 ): Promise<z.infer<S>> {
   let response: Response;
   try {
-    response = await fetch(`/api${path}`, init);
+    const headers = new Headers(init?.headers);
+    headers.set("X-User", currentUser());
+    response = await fetch(`/api${path}`, { ...init, headers });
   } catch {
     throw new ApiError(0, NETWORK_ERROR);
   }
@@ -85,6 +91,10 @@ async function request<S extends z.ZodType>(
 
 export function getHealth(): Promise<Health> {
   return request("/health", HealthSchema);
+}
+
+export function getUsers(): Promise<User[]> {
+  return request("/users", z.array(UserSchema));
 }
 
 export function getConfig(): Promise<ClientConfig> {

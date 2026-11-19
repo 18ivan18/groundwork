@@ -1,4 +1,4 @@
-import type { Job } from "@/api/types";
+import type { Job, JobStatus } from "@/api/types";
 
 /** Where a file is on this side of the API. Once submitted, its job takes over. */
 export interface QueueItem {
@@ -44,8 +44,10 @@ export function queueReducer(items: QueueItem[], action: QueueAction): QueueItem
   }
 }
 
+const FINISHED = new Set<JobStatus>(["indexed", "failed", "dead", "cancelled"]);
+
 export function isJobActive(job: Job | undefined): boolean {
-  return job?.status !== "indexed" && job?.status !== "failed";
+  return job === undefined || !FINISHED.has(job.status);
 }
 
 export type ItemView =
@@ -65,10 +67,10 @@ export function describeItem(item: QueueItem, job: Job | undefined, pollFailed: 
   if (item.state === "ready" || item.state === "sending") return { kind: item.state };
   if (item.state === "rejected") return { kind: "failed", error: item.error ?? "Upload failed." };
   if (job?.status === "indexed") return { kind: "indexed", chunks: job.chunks ?? 0 };
-  if (job?.status === "failed") {
+  if (job?.status === "failed" || job?.status === "dead") {
     return { kind: "failed", error: job.error ?? "Indexing failed." };
   }
-  // Jobs live in memory, so a server restart loses them. The file may still have been indexed.
+  if (job?.status === "cancelled") return { kind: "failed", error: "Cancelled." };
   if (pollFailed) return { kind: "failed", error: "Lost track of this upload. Check the library." };
   const status = job?.status ?? "queued";
   return { kind: "working", label: WORKING_LABELS[status], progress: job?.progress ?? 0 };

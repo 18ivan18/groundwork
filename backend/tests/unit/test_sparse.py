@@ -2,7 +2,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from groundwork.domain.models import Chunk, Document, SearchFilters
+from groundwork.domain.models import UNRESTRICTED, Access, Chunk, Document, SearchFilters
 from groundwork.retrieval.embedder import FakeEmbedder
 from groundwork.retrieval.memory_store import MemoryStore, memory_index
 from groundwork.retrieval.sparse import Positions, SparseCache, SparseIndex
@@ -37,27 +37,27 @@ def ids(hits: list[tuple[str, float]]) -> list[str]:
 
 
 def test_stemming_matches_word_forms() -> None:
-    assert "doc:0" in ids(SparseIndex.build(CHUNKS).search("selling", 5))
+    assert "doc:0" in ids(SparseIndex.build(CHUNKS).search("selling", 5, access=UNRESTRICTED))
 
 
 def test_best_match_comes_first() -> None:
-    assert ids(SparseIndex.build(CHUNKS).search("anvil", 5))[0] == "doc:2"
+    assert ids(SparseIndex.build(CHUNKS).search("anvil", 5, access=UNRESTRICTED))[0] == "doc:2"
 
 
 def test_chunks_without_a_query_term_are_not_returned() -> None:
-    assert ids(SparseIndex.build(CHUNKS).search("warehouse", 5)) == ["doc:1"]
+    assert ids(SparseIndex.build(CHUNKS).search("warehouse", 5, access=UNRESTRICTED)) == ["doc:1"]
 
 
 def test_query_of_stopwords_returns_nothing() -> None:
-    assert SparseIndex.build(CHUNKS).search("the and of", 5) == []
+    assert SparseIndex.build(CHUNKS).search("the and of", 5, access=UNRESTRICTED) == []
 
 
 def test_unknown_word_returns_nothing() -> None:
-    assert SparseIndex.build(CHUNKS).search("zebra", 5) == []
+    assert SparseIndex.build(CHUNKS).search("zebra", 5, access=UNRESTRICTED) == []
 
 
 def test_results_respect_n() -> None:
-    assert len(SparseIndex.build(CHUNKS).search("anvil", 1)) == 1
+    assert len(SparseIndex.build(CHUNKS).search("anvil", 1, access=UNRESTRICTED)) == 1
 
 
 OTHER = replace(DOCUMENT, doc_id="other", collection_id="news", metadata={"ticker": "BETA"})
@@ -71,15 +71,21 @@ def test_filters_apply_before_n() -> None:
     """The best match overall is BETA's; filtered to ACME, n=1 still finds ACME's best."""
     index = SparseIndex.build(MIXED)
 
-    assert ids(index.search("anvil", 1)) == ["other:0"]
-    assert ids(index.search("anvil", 1, SearchFilters(collections=("uploads",)))) == ["doc:2"]
-    assert ids(index.search("anvil", 5, SearchFilters(metadata={"ticker": "BETA"}))) == ["other:0"]
+    assert ids(index.search("anvil", 1, access=UNRESTRICTED)) == ["other:0"]
+    assert ids(
+        index.search("anvil", 1, SearchFilters(collections=("uploads",)), access=UNRESTRICTED)
+    ) == ["doc:2"]
+    assert ids(
+        index.search("anvil", 5, SearchFilters(metadata={"ticker": "BETA"}), access=UNRESTRICTED)
+    ) == ["other:0"]
 
 
 def test_a_filter_matching_nothing_finds_nothing() -> None:
     index = SparseIndex.build(MIXED)
 
-    assert index.search("anvil", 5, SearchFilters(collections=("nowhere",))) == []
+    assert (
+        index.search("anvil", 5, SearchFilters(collections=("nowhere",)), access=UNRESTRICTED) == []
+    )
 
 
 def test_filters_survive_save_and_load(tmp_path: Path) -> None:
@@ -87,7 +93,9 @@ def test_filters_survive_save_and_load(tmp_path: Path) -> None:
 
     loaded = SparseIndex.load(tmp_path)
 
-    assert ids(loaded.search("anvil", 5, SearchFilters(collections=("news",)))) == ["other:0"]
+    assert ids(
+        loaded.search("anvil", 5, SearchFilters(collections=("news",)), access=UNRESTRICTED)
+    ) == ["other:0"]
 
 
 def test_groups_get_one_bit_each_per_build() -> None:
@@ -140,7 +148,7 @@ async def test_a_second_worker_loads_the_saved_generation(tmp_path: Path) -> Non
     loaded = await SparseCache(store, tmp_path).current()
 
     assert store.builds == 1
-    assert ids(loaded.search("anvils", 5)) == ["1:0"]
+    assert ids(loaded.search("anvils", 5, access=UNRESTRICTED)) == ["1:0"]
     assert sorted(p.name for p in (tmp_path / "1").iterdir()) == ["0"]
 
 
@@ -157,20 +165,66 @@ def test_document_title_and_section_are_searchable() -> None:
     chunk = Chunk("doc:0", "doc", "Headcount grew.", ("Item 1 — Business",), None, 0, 1)
     index = SparseIndex.build([(chunk, DOCUMENT)])
 
-    assert ids(index.search("report", 5)) == ["doc:0"]
-    assert ids(index.search("business", 5)) == ["doc:0"]
+    assert ids(index.search("report", 5, access=UNRESTRICTED)) == ["doc:0"]
+    assert ids(index.search("business", 5, access=UNRESTRICTED)) == ["doc:0"]
 
 
 def test_empty_index_returns_nothing(tmp_path: Path) -> None:
     index = SparseIndex.build([])
     index.save(tmp_path)
 
-    assert index.search("anvil", 5) == []
-    assert SparseIndex.load(tmp_path).search("anvil", 5) == []
+    assert index.search("anvil", 5, access=UNRESTRICTED) == []
+    assert SparseIndex.load(tmp_path).search("anvil", 5, access=UNRESTRICTED) == []
 
 
 def test_save_and_load_keep_results(tmp_path: Path) -> None:
     index = SparseIndex.build(CHUNKS)
     index.save(tmp_path)
 
-    assert SparseIndex.load(tmp_path).search("anvil", 5) == index.search("anvil", 5)
+    assert SparseIndex.load(tmp_path).search("anvil", 5, access=UNRESTRICTED) == index.search(
+        "anvil", 5, access=UNRESTRICTED
+    )
+
+
+HR = replace(DOCUMENT, doc_id="hr", access_groups=("hr",))
+FINANCE = replace(DOCUMENT, doc_id="fin", access_groups=("finance", "hr"))
+GROUPED = [
+    (Chunk("doc:0", "doc", "anvil price list", (), None, 0, 1), DOCUMENT),
+    (Chunk("hr:0", "hr", "anvil anvil anvil salaries", (), None, 0, 1), HR),
+    (Chunk("fin:0", "fin", "anvil anvil budget", (), None, 0, 1), FINANCE),
+]
+ALICE = Access.of({"everyone"})
+HANA = Access.of({"everyone", "hr"})
+
+
+def test_the_acl_applies_before_n() -> None:
+    """#40. hr's chunk is the best match; alice still gets n results, all of them hers."""
+    index = SparseIndex.build(GROUPED)
+
+    assert ids(index.search("anvil", 1, access=UNRESTRICTED)) == ["hr:0"]
+    assert ids(index.search("anvil", 1, access=ALICE)) == ["doc:0"]
+    assert ids(index.search("anvil", 5, access=ALICE)) == ["doc:0"]
+
+
+def test_any_shared_group_is_enough() -> None:
+    index = SparseIndex.build(GROUPED)
+
+    assert set(ids(index.search("anvil", 5, access=HANA))) == {"doc:0", "hr:0", "fin:0"}
+    assert ids(index.search("anvil", 5, access=Access.of({"finance"}))) == ["fin:0"]
+
+
+def test_a_group_no_document_has_reads_nothing() -> None:
+    index = SparseIndex.build(GROUPED)
+
+    assert index.search("anvil", 5, access=Access.of({"legal"})) == []
+    assert index.search("anvil", 5, access=Access.of(set())) == []
+
+
+def test_the_acl_and_filters_combine(tmp_path: Path) -> None:
+    SparseIndex.build(GROUPED).save(tmp_path)
+    loaded = SparseIndex.load(tmp_path)
+
+    found = loaded.search("anvil", 5, SearchFilters(collections=("uploads",)), access=HANA)
+
+    assert set(ids(found)) == {"doc:0", "hr:0", "fin:0"}
+    assert loaded.search("anvil", 5, SearchFilters(collections=("news",)), access=HANA) == []

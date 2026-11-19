@@ -8,9 +8,14 @@ from typing import Annotated
 import yaml
 from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError
 
-from groundwork.domain.models import EVERYONE
+from groundwork.domain.models import EVERYONE, UNRESTRICTED, Access
 
 _Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=40)]
+
+
+# Members read every document, private uploads included, see every user's jobs, and may edit or
+# delete any document, those in protected collections too.
+ADMIN = "admin"
 
 
 @dataclass(frozen=True)
@@ -18,6 +23,15 @@ class User:
     user_id: str
     display_name: str
     groups: frozenset[str]
+
+    @property
+    def is_admin(self) -> bool:
+        return ADMIN in self.groups
+
+    @property
+    def access(self) -> Access:
+        """What this user may read: everything for an admin, else their groups' documents."""
+        return UNRESTRICTED if self.is_admin else Access.of(self.groups)
 
 
 class UsersConfigError(ValueError):
@@ -37,8 +51,14 @@ class _UsersFile(BaseModel):
     users: dict[_Slug, _UserEntry]
 
 
+def private_group(user_id: str) -> str:
+    """The group only this user is in: the default for what they upload."""
+    return f"private:{user_id}"
+
+
 def load_users(path: Path) -> Mapping[str, User]:
-    """Users by id. Each user is in `everyone`, whether or not the file lists it."""
+    """Users by id. Each user is in `everyone` and their own private group, whether or not the
+    file lists them."""
     try:
         parsed = _UsersFile.model_validate(yaml.safe_load(path.read_text()))
     except (OSError, yaml.YAMLError, ValidationError) as error:
@@ -46,6 +66,20 @@ def load_users(path: Path) -> Mapping[str, User]:
     if not parsed.users:
         raise UsersConfigError(f"{path}: no users")
     return {
-        user_id: User(user_id, entry.display_name, frozenset({EVERYONE, *entry.groups}))
+        user_id: User(
+            user_id,
+            entry.display_name,
+            frozenset({EVERYONE, private_group(user_id), *entry.groups}),
+        )
         for user_id, entry in parsed.users.items()
     }
+
+
+def access_for(users: Mapping[str, User], user_id: str | None) -> Access:
+    """What `user_id` may read; everything when None. For scripts and the evaluation: the API
+    gets its user from the Authenticator."""
+    if user_id is None:
+        return UNRESTRICTED
+    if user_id not in users:
+        raise UsersConfigError(f"Unknown user {user_id!r}. Known: {', '.join(sorted(users))}.")
+    return users[user_id].access

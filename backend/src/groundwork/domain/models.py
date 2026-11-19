@@ -1,11 +1,11 @@
 """Core domain types, independent of the API and storage layers."""
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-# Everyone can read a document in this group. Real access control arrives in M3.
+# Every user is in this group, so its documents are readable by all.
 EVERYONE = "everyone"
 
 
@@ -27,6 +27,8 @@ class DocumentMeta:
     metadata: Mapping[str, str] = field(default_factory=dict)
     access_groups: tuple[str, ...] = (EVERYONE,)
     owner_id: str | None = None
+    # The original file, relative to DATA_DIR, for download. None when it was not kept.
+    storage_path: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -36,6 +38,16 @@ class Document(DocumentMeta):
 
     doc_id: str
     ingested_at: datetime
+
+
+@dataclass(frozen=True)
+class DocumentChanges:
+    """An edit to a stored document's tags. None leaves a field as it is."""
+
+    title: str | None = None
+    doc_type: str | None = None
+    doc_date: date | None = None
+    access_groups: tuple[str, ...] | None = None
 
 
 def content_hash(raw: bytes) -> str:
@@ -64,6 +76,26 @@ class SearchFilters:
     date_to: date | None = None
     # Every key must have exactly this value in the document's metadata.
     metadata: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Access:
+    """Which documents a search may return: those sharing at least one access group with
+    `groups`. Every read path takes one, so a caller cannot forget it. `UNRESTRICTED` (no groups
+    to check) is for the evaluation and command-line scripts; a request always carries its
+    user's groups."""
+
+    groups: frozenset[str] | None
+
+    @classmethod
+    def of(cls, groups: Iterable[str]) -> "Access":
+        return cls(frozenset(groups))
+
+    def allows(self, document_groups: Iterable[str]) -> bool:
+        return self.groups is None or not self.groups.isdisjoint(document_groups)
+
+
+UNRESTRICTED = Access(None)
 
 
 @dataclass(frozen=True)

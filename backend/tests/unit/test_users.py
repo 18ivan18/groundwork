@@ -18,17 +18,17 @@ def test_the_committed_users_have_their_groups() -> None:
     users = load_users(REPO_USERS)
 
     assert {user_id: set(user.groups) for user_id, user in users.items()} == {
-        "alice": {"everyone"},
-        "hana": {"everyone", "hr"},
-        "filip": {"everyone", "finance"},
-        "admin": {"everyone", "hr", "finance", "admin"},
+        "alice": {"everyone", "private:alice"},
+        "hana": {"everyone", "private:hana", "hr"},
+        "filip": {"everyone", "private:filip", "finance"},
+        "admin": {"everyone", "private:admin", "hr", "finance", "admin"},
     }
 
 
-def test_everyone_is_added_when_not_listed(tmp_path: Path) -> None:
+def test_everyone_and_a_private_group_are_added(tmp_path: Path) -> None:
     users = load_users(write(tmp_path, "users:\n  bo:\n    display_name: Bo\n    groups: [hr]\n"))
 
-    assert users["bo"] == User("bo", "Bo", frozenset({EVERYONE, "hr"}))
+    assert users["bo"] == User("bo", "Bo", frozenset({EVERYONE, "private:bo", "hr"}))
 
 
 @pytest.mark.parametrize(

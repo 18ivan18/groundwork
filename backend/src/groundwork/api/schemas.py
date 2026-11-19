@@ -185,6 +185,8 @@ class DocumentResponse(BaseModel):
                     "doc_date": "2025-09-27",
                     "metadata": {"company": "ACME Corp", "ticker": "ACME", "form": "10-K"},
                     "filename": "ACME-10-K-2025-09-27.txt",
+                    "access_groups": ["everyone"],
+                    "owner_id": None,
                     "ingested_at": "2025-11-01T09:30:00Z",
                     "chunks": 193,
                 }
@@ -199,6 +201,8 @@ class DocumentResponse(BaseModel):
     doc_date: date | None = Field(description="The date the document is about, if known.")
     metadata: dict[str, str] = Field(description="Fields only some collections have.")
     filename: str = Field(description="The original file name.")
+    access_groups: list[str] = Field(description="Groups whose members may read it.")
+    owner_id: str | None = Field(description="Who uploaded it; none for the demo corpora.")
     ingested_at: datetime = Field(description="When it was indexed.")
     chunks: int = Field(description="Passages indexed from this document.")
 
@@ -218,11 +222,93 @@ class UploadResponse(BaseModel):
 class JobResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
-            "examples": [{"status": "embedding", "progress": 60, "error": None, "chunks": None}]
+            "examples": [
+                {
+                    "job_id": "933dac8b-3c1e-4c8e-9c55-0d3f0c1f6a52",
+                    "kind": "ingest_document",
+                    "owner_id": "alice",
+                    "filename": "runbook.md",
+                    "doc_id": None,
+                    "status": "embedding",
+                    "progress": 60,
+                    "attempts": 1,
+                    "max_attempts": 3,
+                    "error": None,
+                    "chunks": None,
+                    "cancel_requested": False,
+                    "created_at": "2025-11-01T09:30:00Z",
+                    "updated_at": "2025-11-01T09:30:12Z",
+                }
+            ]
         }
     )
 
-    status: JobStatus = Field(description="`indexed` and `failed` are final.")
+    job_id: str = Field(description="Poll, retry or cancel the job with this.")
+    kind: str = Field(description="`ingest_document` for an upload or a corpus file.")
+    owner_id: str | None = Field(description="Who started it; null for the corpus ingest.")
+    filename: str | None = Field(
+        description="The file being indexed. Shown to the job's owner and admins."
+    )
+    doc_id: str | None = Field(
+        description="The document it stored, once known. Shown to the job's owner and admins."
+    )
+    status: JobStatus = Field(
+        description="`indexed`, `failed`, `dead` and `cancelled` are final. `failed` will not "
+        "succeed on retry as it is; `dead` ran out of attempts and may."
+    )
     progress: int = Field(ge=0, le=100, description="Percentage done.")
-    error: str | None = Field(description="What went wrong, when status is `failed`.")
+    attempts: int = Field(description="Attempts started, counting the current one.")
+    max_attempts: int = Field(description="After this many failed attempts the job is `dead`.")
+    error: str | None = Field(description="What went wrong, when the job failed or is retrying.")
     chunks: int | None = Field(description="Passages indexed, when status is `indexed`.")
+    cancel_requested: bool = Field(description="A cancel was asked for and the worker will stop.")
+    created_at: datetime = Field(description="When the job was queued.")
+    updated_at: datetime = Field(description="Its last change, heartbeats included.")
+
+
+class UserResponse(BaseModel):
+    user_id: str = Field(description="The value to send in the `X-User` header.")
+    display_name: str = Field(description="The name to show for the user.")
+    groups: list[str] = Field(description="The access groups whose documents this user can read.")
+
+
+class DocumentDetailResponse(DocumentResponse):
+    indexes: list[str] = Field(description="The chunk indexes that hold this document.")
+    jobs: list[JobResponse] = Field(description="Its ingestion jobs, newest first.")
+    can_edit: bool = Field(description="Whether this user may change its tags and groups.")
+    can_delete: bool = Field(description="Whether this user may delete it.")
+    downloadable: bool = Field(description="Whether the original file can be downloaded.")
+
+
+class DocumentPatch(BaseModel):
+    """Fields left out stay as they are."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"title": "Leave policy 2025", "access_groups": ["hr"]}]},
+    )
+
+    title: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+        | None
+    ) = Field(default=None, description="The title shown in the library and in citations.")
+    doc_type: DocTypeText | None = Field(default=None, description="The kind of document.")
+    doc_date: date | None = Field(default=None, description="The date it is about.")
+    access_groups: list[str] | None = Field(
+        default=None,
+        description="Groups that may read it, from the editor's own (`GET /api/me`). An empty "
+        "list: only the editor.",
+    )
+
+
+class BulkDeleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    doc_ids: list[str] = Field(min_length=1, max_length=200, description="Documents to delete.")
+
+
+class BulkDeleteResponse(BaseModel):
+    deleted: list[str] = Field(description="The documents deleted.")
+    not_found: list[str] = Field(
+        description="Ids that are not documents this user may delete. Nothing says which."
+    )
