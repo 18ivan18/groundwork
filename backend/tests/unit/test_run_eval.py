@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from run_eval import (
     DocumentKeys,
     Question,
+    baseline_check,
     candidate_recall,
     eval_collections,
     evidence_ranks,
@@ -20,6 +21,7 @@ from run_eval import (
     share_at_or_above,
     validate,
 )
+from tsrank import or_query
 
 from groundwork.domain.models import Chunk, Document, DocumentMeta, ScoredPassage
 from groundwork.ingestion.corpus import CorpusEntry
@@ -256,3 +258,22 @@ def test_report_groups_split_a_collection_only_where_it_varies() -> None:
         "sec-10k · multi_hop (1)": [2],
         "sec-10k · single (2)": [0, 1],
     }
+
+
+def test_the_ci_gate_allows_three_points_of_noise() -> None:
+    baseline = {"northwind": 0.80, "sec-10k": 0.90}
+
+    assert baseline_check({"northwind": 0.77, "sec-10k": 0.95}, baseline) == []
+    [failure] = baseline_check({"northwind": 0.76, "sec-10k": 0.90}, baseline)
+    assert failure.startswith("northwind: Success@6 0.760")
+
+
+def test_the_ci_gate_fails_a_collection_without_a_baseline() -> None:
+    [failure] = baseline_check({"books": 0.5}, {})
+
+    assert "no baseline" in failure
+
+
+def test_ts_rank_queries_or_the_words() -> None:
+    assert or_query("What was ACME's 2024 revenue?") == "what | was | acme | s | 2024 | revenue"
+    assert or_query("?!") == ""

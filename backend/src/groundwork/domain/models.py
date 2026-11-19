@@ -31,20 +31,26 @@ class DocumentMeta:
 
 @dataclass(frozen=True, kw_only=True)
 class Document(DocumentMeta):
-    """An ingested file. `doc_id` is the sha256 of its bytes, which also deduplicates uploads."""
+    """A stored file. `doc_id` is the store's id for it; the same bytes stored in two collections,
+    or for two sets of groups, are two documents."""
 
     doc_id: str
     ingested_at: datetime
 
 
-def make_doc_id(raw: bytes) -> str:
+def content_hash(raw: bytes) -> str:
     """The sha256 of a file's bytes, so a file uploaded twice is indexed once."""
     return hashlib.sha256(raw).hexdigest()
 
 
 def make_chunk_id(doc_id: str, position: int) -> str:
-    """Chunk 0's id also marks a document as fully indexed: the dense index writes it last."""
+    """A chunk's id within its index: its document's id and its position in the document."""
     return f"{doc_id}:{position}"
+
+
+def parse_chunk_id(chunk_id: str) -> tuple[str, int]:
+    doc_id, _, position = chunk_id.rpartition(":")
+    return doc_id, int(position)
 
 
 @dataclass(frozen=True)
@@ -74,6 +80,11 @@ class Chunk:
     char_end: int
 
 
+def chunk_header(chunk: Chunk, document: Document) -> str:
+    """The document's title and the chunk's headings: "AAPL 10-K 2025 · Item 7"."""
+    return " · ".join((document.title, *chunk.section_path))
+
+
 def indexed_text(chunk: Chunk, document: Document) -> str:
     """The text to embed and to index for BM25, which is not the text shown to users.
 
@@ -81,8 +92,7 @@ def indexed_text(chunk: Chunk, document: Document) -> str:
     question names, and the same passage from three filings looks alike to both retrievers. The
     title does the same for any document whose text doesn't name its subject.
     """
-    header = " · ".join((document.title, *chunk.section_path))
-    return f"{header}\n{chunk.text}"
+    return f"{chunk_header(chunk, document)}\n{chunk.text}"
 
 
 def section_label(chunk: Chunk) -> str | None:

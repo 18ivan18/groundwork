@@ -16,6 +16,7 @@ when one of its patterns matches the answer, so the patterns decide what "correc
 """
 
 import argparse
+import asyncio
 import json
 import re
 import statistics
@@ -42,7 +43,7 @@ from run_eval import (
 )
 
 from groundwork.config import Settings
-from groundwork.container import build_dense_index, build_services
+from groundwork.container import build_services, open_app_store
 from groundwork.domain.models import ScoredPassage, SearchFilters, section_label
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
@@ -177,7 +178,7 @@ def append(path: Path, record: Record) -> None:
         file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
-def ask_all(
+async def ask_all(
     questions: Sequence[Question],
     qa: QAService,
     path: Path,
@@ -190,10 +191,11 @@ def ask_all(
     done = answered_ids(read_run(path))
     pending = [q for q in questions if (q.id in only if only else q.id not in done)]
     for number, question in enumerate(pending, start=1):
-        waited = pacer.wait()
+        waited = await asyncio.to_thread(pacer.wait)
         try:
             # Searched within the question's collection, as in the retrieval eval.
-            answer = qa.ask(question.question, SearchFilters(collections=(question.collection,)))
+            filters = SearchFilters(collections=(question.collection,))
+            answer = await qa.ask(question.question, filters)
         except RateLimitError as error:
             log(f"Stopped at {question.id}: {error} Run `ask` again later to resume.")
             return False
@@ -537,6 +539,26 @@ def latest_run() -> str | None:
     return runs[-1].stem if runs else None
 
 
+async def ask(settings: Settings, args: argparse.Namespace, questions: list[Question]) -> int:
+    """Ask on the app's active index. The exit status: 2 when a rate limit stopped the run."""
+    async with open_app_store(settings) as opened:
+        header = run_header(settings, await opened.store.count_chunks())
+        name = args.run or default_run_name(header["model"])
+        path = RUNS_DIR / f"{name}.jsonl"
+        records = read_run(path)
+        if not records:
+            RUNS_DIR.mkdir(exist_ok=True)
+            append(path, header)
+        elif records[0]["model"] != header["model"]:
+            sys.exit(f"{path.name} was run with {records[0]['model']}, not {header['model']}.")
+        only = set(args.only.split(",")) if args.only else None
+        qa = build_services(settings, opened.store, opened.embedder).qa
+        pacer = TokenPacer(args.tokens_per_minute)
+        finished = await ask_all(questions, qa, path, pacer, only=only)
+    print(f"Saved to {path}")
+    return 0 if finished else 2
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("command", choices=["ask", "score"])
@@ -563,23 +585,7 @@ def main() -> None:
     formats = {key: e.path.suffix.lower() for key, e in by_key.items()}
 
     if args.command == "ask":
-        dense = build_dense_index(settings)
-        header = run_header(settings, dense.count_chunks())
-        name = args.run or default_run_name(header["model"])
-        path = RUNS_DIR / f"{name}.jsonl"
-        records = read_run(path)
-        if not records:
-            RUNS_DIR.mkdir(exist_ok=True)
-            append(path, header)
-        elif records[0]["model"] != header["model"]:
-            sys.exit(f"{path.name} was run with {records[0]['model']}, not {header['model']}.")
-        only = set(args.only.split(",")) if args.only else None
-        qa = build_services(settings, dense).qa
-        finished = ask_all(questions, qa, path, TokenPacer(args.tokens_per_minute), only=only)
-        print(f"Saved to {path}")
-        if not finished:
-            sys.exit(2)
-        return
+        sys.exit(asyncio.run(ask(settings, args, questions)))
 
     name = args.run or latest_run()
     if name is None:

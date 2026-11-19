@@ -30,10 +30,10 @@ UPLOADS_COLLECTION = "uploads"
     summary="List the document library",
     description="Returns every indexed document, in title order.",
 )
-def list_documents(container: ContainerDep) -> list[DocumentResponse]:
+async def list_documents(container: ContainerDep) -> list[DocumentResponse]:
     return [
         DocumentResponse(**asdict(document), chunks=chunks)
-        for document, chunks in container.dense_index.documents()
+        for document, chunks in await container.store.documents()
     ]
 
 
@@ -53,7 +53,7 @@ def list_documents(container: ContainerDep) -> list[DocumentResponse]:
         422: {"description": "A field is invalid, or the file has no text (`detail` is a string)."},
     },
 )
-def upload_document(
+async def upload_document(
     file: Annotated[UploadFile, File(description="The document to index.")],
     doc_type: Annotated[DocTypeText, Form(description="The kind of document, such as `runbook`.")],
     service: UploadServiceDep,
@@ -66,9 +66,9 @@ def upload_document(
     ] = None,
 ) -> UploadResponse:
     try:
-        job = service.accept(
+        job = await service.accept(
             file.filename or "",
-            file.file.read(),
+            await file.read(),
             collection_id=collection,
             doc_type=doc_type,
             doc_date=doc_date,
@@ -89,7 +89,7 @@ def upload_document(
     description="Jobs live in memory, so a job from before a server restart returns 404.",
     responses={404: {"model": ErrorResponse, "description": "No such job."}},
 )
-def get_job(
+async def get_job(
     job_id: Annotated[str, PathParam(description="The `job_id` from the upload.")],
     service: UploadServiceDep,
 ) -> JobResponse:

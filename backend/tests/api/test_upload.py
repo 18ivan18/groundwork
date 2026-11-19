@@ -1,5 +1,5 @@
-import hashlib
-from collections.abc import Callable, Sequence
+import asyncio
+from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -10,13 +10,14 @@ from httpx import Response
 from pdf_builder import make_pdf
 
 from groundwork.api.deps import get_upload_service
-from groundwork.container import Container, rebuild_sparse_index
-from groundwork.domain.models import SearchFilters
+from groundwork.container import Container
+from groundwork.domain.models import ScoredPassage, SearchFilters
 from groundwork.ingestion import pipeline
+from groundwork.ingestion.jobs import Job
 from groundwork.ingestion.uploads import UploadService
 from groundwork.retrieval.embedder import Embedder, FakeEmbedder
-from groundwork.retrieval.hybrid import HybridRetriever
-from groundwork.retrieval.sparse import SparseIndex
+from groundwork.retrieval.hybrid import HybridRetriever, SearchMode
+from groundwork.retrieval.sparse import SparseCache
 
 MAX_BYTES = 5000
 TEXT = (
@@ -26,23 +27,18 @@ FORM = {"doc_type": "notes"}
 
 
 class Harness:
+    """Drives uploads through the API and runs the background job before each response
+    returns, as TestClient does."""
+
     def __init__(self, app: FastAPI, embedder: Embedder) -> None:
         container: Container = app.state.container
-        self.dense = container.dense_index
+        self.store = container.store
         self.uploads_dir = container.settings.data_dir / "uploads"
-        self.refreshes = 0
-        self.retriever = HybridRetriever(
-            embedder, self.dense, SparseIndex.build([]), candidates=20, rrf_k=60
-        )
-
-        def refresh() -> None:
-            self.refreshes += 1
-            self.retriever.replace_sparse(rebuild_sparse_index(container.settings, self.dense))
-
+        sparse = SparseCache(self.store, container.settings.data_dir / "bm25", check_seconds=0)
+        self.retriever = HybridRetriever(embedder, self.store, sparse, candidates=20, rrf_k=60)
         self.service = UploadService(
             embedder,
-            self.dense,
-            refresh,
+            self.store,
             uploads_dir=self.uploads_dir,
             max_bytes=MAX_BYTES,
             chunk_tokens=40,
@@ -50,6 +46,21 @@ class Harness:
         )
         app.dependency_overrides[get_upload_service] = lambda: self.service
         self.client = TestClient(app)
+
+    def search(
+        self,
+        query: str,
+        k: int,
+        filters: SearchFilters | None = None,
+        mode: SearchMode = "reranked",
+    ) -> list[ScoredPassage]:
+        return asyncio.run(self.retriever.search(query, k, filters, mode))
+
+    def count_chunks(self) -> int:
+        return asyncio.run(self.store.count_chunks())
+
+    def generation(self) -> int:
+        return asyncio.run(self.store.generation())
 
     def upload(self, content: bytes = TEXT, name: str = "notes.txt", **form: str) -> Response:
         return self.client.post(
@@ -73,10 +84,12 @@ def test_upload_is_indexed_in_the_background(harness: Harness) -> None:
 
     assert response.status_code == 202
     body = response.json()
-    assert body["doc_id"] == hashlib.sha256(TEXT).hexdigest()
+    # A new file gets its document ID once it is indexed.
+    assert body["doc_id"] is None
     job = harness.job(body["job_id"])
     assert (job["status"], job["progress"], job["error"]) == ("indexed", 100, None)
-    assert job["chunks"] == harness.dense.count_chunks() > 0
+    assert job["chunks"] == harness.count_chunks() > 0
+    assert harness.generation() == 1
 
 
 def test_uploaded_document_joins_the_library_with_its_tags(harness: Harness) -> None:
@@ -103,8 +116,8 @@ def test_uploads_go_to_the_uploads_collection_by_default(harness: Harness) -> No
 def test_uploaded_document_is_searchable_by_both_retrievers(harness: Harness) -> None:
     harness.upload()
 
-    assert harness.retriever.search("blacksmiths", 3, mode="sparse")
-    assert harness.retriever.search("blacksmiths", 3, mode="dense")
+    assert harness.search("blacksmiths", 3, mode="sparse")
+    assert harness.search("blacksmiths", 3, mode="dense")
 
 
 def test_uploads_can_be_searched_on_their_own(harness: Harness) -> None:
@@ -112,8 +125,8 @@ def test_uploads_can_be_searched_on_their_own(harness: Harness) -> None:
     uploads_only = SearchFilters(collections=("uploads",))
     filings_only = SearchFilters(collections=("sec-10k",))
 
-    assert harness.retriever.search("blacksmiths", 3, uploads_only)
-    assert harness.retriever.search("blacksmiths", 3, filings_only) == []
+    assert harness.search("blacksmiths", 3, uploads_only)
+    assert harness.search("blacksmiths", 3, filings_only) == []
 
 
 def test_html_upload_is_indexed_without_its_markup(harness: Harness) -> None:
@@ -122,7 +135,7 @@ def test_html_upload_is_indexed_without_its_markup(harness: Harness) -> None:
     job = harness.job(harness.upload(page, name="report.html").json()["job_id"])
 
     assert job["status"] == "indexed"
-    [passage] = harness.retriever.search("blacksmiths", 1, mode="sparse")
+    [passage] = harness.search("blacksmiths", 1, mode="sparse")
     assert "<div>" not in passage.chunk.text
     assert "hidden" not in passage.chunk.text
 
@@ -141,39 +154,41 @@ def test_markdown_and_uppercase_suffixes_are_accepted(harness: Harness) -> None:
 
 def test_duplicate_returns_a_finished_job_and_adds_nothing(harness: Harness) -> None:
     first = harness.upload().json()
-    chunks = harness.dense.count_chunks()
+    chunks = harness.count_chunks()
+    [document] = harness.client.get("/api/documents").json()
 
     second = harness.upload(name="renamed.txt").json()
 
-    assert second["doc_id"] == first["doc_id"]
+    assert second["doc_id"] == document["doc_id"]
     assert second["job_id"] != first["job_id"]
     job = harness.job(second["job_id"])
     assert (job["status"], job["chunks"]) == ("indexed", chunks)
-    assert harness.dense.count_chunks() == chunks
-    assert harness.refreshes == 1
+    assert harness.count_chunks() == chunks
+    assert harness.generation() == 1
 
 
 def test_identical_uploads_in_flight_index_once(harness: Harness) -> None:
-    scheduled: list[tuple[Callable[..., None], tuple[Any, ...]]] = []
+    scheduled: list[Callable[[], Awaitable[None]]] = []
 
-    def schedule(task: Callable[..., None], *args: Any) -> None:
-        scheduled.append((task, args))
+    async def accept_both_then_index() -> list[Job]:
+        jobs = [
+            await harness.service.accept(
+                "notes.txt",
+                TEXT,
+                collection_id="uploads",
+                doc_type="notes",
+                doc_date=None,
+                schedule=scheduled.append,
+            )
+            for _ in range(2)
+        ]
+        await asyncio.gather(*(task() for task in scheduled))
+        return jobs
 
-    jobs = [
-        harness.service.accept(
-            "notes.txt",
-            TEXT,
-            collection_id="uploads",
-            doc_type="notes",
-            doc_date=None,
-            schedule=schedule,
-        )
-        for _ in range(2)
-    ]
-    for task, args in scheduled:
-        task(*args)
+    jobs = asyncio.run(accept_both_then_index())
 
-    assert harness.refreshes == 1
+    assert harness.generation() == 1
+    assert harness.count_chunks() == len(asyncio.run(harness.store.all_passages()))
     assert [harness.job(job.job_id)["status"] for job in jobs] == ["indexed", "indexed"]
 
 
@@ -196,7 +211,7 @@ def test_pdf_upload_is_searchable_with_page_numbers(harness: Harness) -> None:
     response = harness.upload(pdf, "catalogue.pdf")
 
     assert harness.job(response.json()["job_id"])["status"] == "indexed", response.json()
-    [passage] = harness.retriever.search("blacksmiths spring", 1, mode="sparse")
+    [passage] = harness.search("blacksmiths spring", 1, mode="sparse")
     # The cover is too short to be a chunk of its own, so the passage starts on page 2.
     assert passage.chunk.page == 2
     assert passage.document.filename == "catalogue.pdf"
@@ -232,7 +247,7 @@ def test_file_too_short_to_chunk_fails_its_job(harness: Harness) -> None:
 
     assert job["status"] == "failed"
     assert job["error"] == "This file has too little text to index."
-    assert harness.dense.count_chunks() == 0
+    assert harness.count_chunks() == 0
 
 
 def test_indexing_crash_fails_the_job_and_hides_the_cause(app: FastAPI) -> None:

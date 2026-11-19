@@ -3,12 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from groundwork.domain.models import DocumentMeta, make_chunk_id, make_doc_id
+from groundwork.domain.models import DocumentMeta, content_hash, make_chunk_id, parse_chunk_id
 from groundwork.ingestion import pipeline
 from groundwork.ingestion.loaders import LoadedDocument
 from groundwork.ingestion.pipeline import ingest_file, prepare_document
-from groundwork.retrieval.dense import DenseIndex
 from groundwork.retrieval.embedder import FakeEmbedder
+from groundwork.retrieval.memory_store import MemoryStore, memory_index
 
 META = DocumentMeta(
     title="ACME Corp · Form 10-K",
@@ -37,9 +37,16 @@ class RecordingEmbedder(FakeEmbedder):
         return super().embed_documents(texts)
 
 
-def ingest(path: Path, embedder: FakeEmbedder, index: DenseIndex) -> tuple[str, int, bool]:
-    result = ingest_file(path, META, embedder, index, chunk_tokens=100, chunk_overlap=10)
+async def ingest(
+    path: Path, embedder: FakeEmbedder, store: MemoryStore
+) -> tuple[str | None, int, bool]:
+    result = await ingest_file(path, META, embedder, store, chunk_tokens=100, chunk_overlap=10)
     return result.doc_id, result.chunks, result.skipped
+
+
+@pytest.fixture
+def store() -> MemoryStore:
+    return MemoryStore(memory_index(FakeEmbedder().dimension))
 
 
 @pytest.fixture
@@ -49,57 +56,66 @@ def filing(tmp_path: Path) -> Path:
     return path
 
 
-def test_ingest_indexes_a_new_file(filing: Path, tmp_path: Path) -> None:
-    index = DenseIndex(tmp_path / "index", "fake-model")
-
-    doc_id, chunks, skipped = ingest(filing, FakeEmbedder(), index)
+async def test_ingest_indexes_a_new_file(filing: Path, store: MemoryStore) -> None:
+    doc_id, chunks, skipped = await ingest(filing, FakeEmbedder(), store)
 
     assert not skipped
     assert chunks > 1
-    assert index.count_chunks() == chunks
-    assert index.has_document(doc_id)
+    assert await store.count_chunks() == chunks
+    assert await store.find_document(content_hash(TEXT.encode()), META) == doc_id
 
 
-def test_ingest_is_idempotent_and_does_not_embed_twice(filing: Path, tmp_path: Path) -> None:
-    index = DenseIndex(tmp_path / "index", "fake-model")
+async def test_ingest_is_idempotent_and_does_not_embed_twice(
+    filing: Path, store: MemoryStore
+) -> None:
     embedder = CountingEmbedder()
-    ingest(filing, embedder, index)
-    stored = index.count_chunks()
+    first, _, _ = await ingest(filing, embedder, store)
+    stored = await store.count_chunks()
 
-    _, _, skipped = ingest(filing, embedder, index)
+    again, _, skipped = await ingest(filing, embedder, store)
 
     assert skipped
+    assert again == first
     assert embedder.calls == 1
-    assert index.count_chunks() == stored
+    assert await store.count_chunks() == stored
 
 
-def test_changed_content_is_a_new_document(filing: Path, tmp_path: Path) -> None:
-    index = DenseIndex(tmp_path / "index", "fake-model")
-    ingest(filing, FakeEmbedder(), index)
+async def test_changed_content_is_a_new_document(filing: Path, store: MemoryStore) -> None:
+    await ingest(filing, FakeEmbedder(), store)
     filing.write_text(TEXT + "New sentence about ACME.")
 
-    _, _, skipped = ingest(filing, FakeEmbedder(), index)
+    _, _, skipped = await ingest(filing, FakeEmbedder(), store)
 
     assert not skipped
-    assert index.count_documents() == 2
+    assert await store.count_documents() == 2
 
 
-def test_header_is_embedded_but_stored_text_stays_verbatim(filing: Path, tmp_path: Path) -> None:
-    index = DenseIndex(tmp_path / "index", "fake-model")
+async def test_too_little_text_stores_nothing(tmp_path: Path, store: MemoryStore) -> None:
+    path = tmp_path / "short.txt"
+    path.write_text("Too short.")
+
+    assert await ingest(path, FakeEmbedder(), store) == (None, 0, False)
+    assert await store.count_documents() == 0
+
+
+async def test_header_is_embedded_but_stored_text_stays_verbatim(
+    filing: Path, store: MemoryStore
+) -> None:
     embedder = RecordingEmbedder()
 
-    ingest(filing, embedder, index)
+    await ingest(filing, embedder, store)
 
     assert embedder.texts[0].startswith("ACME Corp · Form 10-K · Item 1 — Business\n")
-    chunk, _ = index.all_passages()[0]
+    chunk, _ = (await store.all_passages())[0]
     assert "Form 10-K" not in chunk.text
 
 
-def test_doc_id_is_the_sha256_of_the_bytes_and_chunk_0_marks_a_document() -> None:
-    doc_id = make_doc_id(b"content")
-
-    assert doc_id == "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73"
-    assert make_chunk_id(doc_id, 0) == f"{doc_id}:0"
+def test_content_hash_is_the_sha256_and_chunk_ids_round_trip() -> None:
+    assert content_hash(b"content") == (
+        "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73"
+    )
+    assert make_chunk_id("42", 7) == "42:7"
+    assert parse_chunk_id("42:7") == ("42", 7)
 
 
 def test_prepare_reports_progress_per_embedding_batch(monkeypatch: pytest.MonkeyPatch) -> None:

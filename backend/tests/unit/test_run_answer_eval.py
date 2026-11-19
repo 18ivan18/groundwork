@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -135,7 +136,9 @@ DOCUMENT = Document(
 
 
 class StubRetriever:
-    def retrieve(self, query: str, k: int, filters: SearchFilters | None = None) -> SearchResult:
+    async def retrieve(
+        self, query: str, k: int, filters: SearchFilters | None = None
+    ) -> SearchResult:
         chunk = Chunk("doc:0", "doc", "ACME sold 10 anvils.", ("Item 7",), None, 0, 20)
         return SearchResult([ScoredPassage(chunk, DOCUMENT, 1, 1, 0.03, 0.9)], 0.9)
 
@@ -154,7 +157,7 @@ def no_pacing() -> TokenPacer:
 def run(
     path: Path, questions: Sequence[Question], qa: QAService, only: set[str] | None = None
 ) -> bool:
-    return ask_all(questions, qa, path, no_pacing(), only=only, log=lambda _: None)
+    return asyncio.run(ask_all(questions, qa, path, no_pacing(), only=only, log=lambda _: None))
 
 
 def test_ask_saves_the_answer_and_its_sources(tmp_path: Path) -> None:

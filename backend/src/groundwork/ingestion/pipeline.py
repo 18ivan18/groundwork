@@ -1,5 +1,6 @@
 """Ingestion steps from a file to the index, shared by the corpus script and uploads."""
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -9,14 +10,14 @@ from groundwork.domain.models import (
     Chunk,
     Document,
     DocumentMeta,
+    content_hash,
     indexed_text,
-    make_doc_id,
 )
 from groundwork.ingestion.chunking import TokenCounter, chunk_document
 from groundwork.ingestion.loaders import LoadedDocument, load_file, loader_for
 from groundwork.ingestion.structure import StructureDetector, detector_for
-from groundwork.retrieval.dense import DenseIndex
 from groundwork.retrieval.embedder import Embedder
+from groundwork.retrieval.store import ChunkStore
 
 # Chunks per embedding call. Only progress reporting needs batches: the embedder batches again
 # inside each call.
@@ -28,7 +29,8 @@ ProgressCallback = Callable[[float], None]
 
 @dataclass(frozen=True)
 class IngestResult:
-    doc_id: str
+    # None when the file had too little text to index.
+    doc_id: str | None
     chunks: int
     skipped: bool
 
@@ -36,7 +38,8 @@ class IngestResult:
 @dataclass(frozen=True)
 class PreparedDocument:
     """A document chunked and embedded, ready to store. `chunks` is empty if it had too little
-    text to index."""
+    text to index. Ids in `document` and `chunks` are placeholders until the store assigns its
+    own."""
 
     document: Document
     chunks: list[Chunk]
@@ -119,24 +122,33 @@ def prepare_document(
     return PreparedDocument(document, chunks, embeddings)
 
 
-def ingest_file(
+async def ingest_file(
     path: Path,
     meta: DocumentMeta,
     embedder: Embedder,
-    index: DenseIndex,
+    store: ChunkStore,
     *,
     chunk_tokens: int,
     chunk_overlap: int,
 ) -> IngestResult:
-    """Chunk, embed and store a file, unless identical bytes are already indexed."""
+    """Chunk, embed and store a file, unless the store already holds it. Does not bump the
+    index's generation: the caller does that once, after its last file."""
     raw = path.read_bytes()
-    doc_id = make_doc_id(raw)
-    if index.has_document(doc_id):
+    digest = content_hash(raw)
+    if doc_id := await store.find_document(digest, meta):
         return IngestResult(doc_id=doc_id, chunks=0, skipped=True)
 
     loaded = loader_for(path.name)(raw)
-    prepared = prepare_document(
-        loaded, meta, doc_id, embedder, chunk_tokens=chunk_tokens, chunk_overlap=chunk_overlap
+    prepared = await asyncio.to_thread(
+        prepare_document,
+        loaded,
+        meta,
+        digest,
+        embedder,
+        chunk_tokens=chunk_tokens,
+        chunk_overlap=chunk_overlap,
     )
-    index.add(prepared.document, prepared.chunks, prepared.embeddings)
-    return IngestResult(doc_id=doc_id, chunks=len(prepared.chunks), skipped=False)
+    if not prepared.chunks:
+        return IngestResult(doc_id=None, chunks=0, skipped=False)
+    document = await store.add(meta, digest, prepared.chunks, prepared.embeddings)
+    return IngestResult(doc_id=document.doc_id, chunks=len(prepared.chunks), skipped=False)

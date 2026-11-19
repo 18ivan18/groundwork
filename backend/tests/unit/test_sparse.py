@@ -1,8 +1,11 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from groundwork.domain.models import Chunk, Document
-from groundwork.retrieval.sparse import SparseIndex
+from groundwork.domain.models import Chunk, Document, SearchFilters
+from groundwork.retrieval.embedder import FakeEmbedder
+from groundwork.retrieval.memory_store import MemoryStore, memory_index
+from groundwork.retrieval.sparse import Positions, SparseCache, SparseIndex
 
 DOCUMENT = Document(
     title="Report",
@@ -57,10 +60,97 @@ def test_results_respect_n() -> None:
     assert len(SparseIndex.build(CHUNKS).search("anvil", 1)) == 1
 
 
-def test_allowed_restricts_results_before_n_applies() -> None:
-    hits = SparseIndex.build(CHUNKS).search("anvil", 1, allowed={"doc:0"})
+OTHER = replace(DOCUMENT, doc_id="other", collection_id="news", metadata={"ticker": "BETA"})
+MIXED = [
+    *CHUNKS,
+    (Chunk("other:0", "other", "BETA anvil anvil anvil", (), None, 0, 1), OTHER),
+]
 
-    assert ids(hits) == ["doc:0"]
+
+def test_filters_apply_before_n() -> None:
+    """The best match overall is BETA's; filtered to ACME, n=1 still finds ACME's best."""
+    index = SparseIndex.build(MIXED)
+
+    assert ids(index.search("anvil", 1)) == ["other:0"]
+    assert ids(index.search("anvil", 1, SearchFilters(collections=("uploads",)))) == ["doc:2"]
+    assert ids(index.search("anvil", 5, SearchFilters(metadata={"ticker": "BETA"}))) == ["other:0"]
+
+
+def test_a_filter_matching_nothing_finds_nothing() -> None:
+    index = SparseIndex.build(MIXED)
+
+    assert index.search("anvil", 5, SearchFilters(collections=("nowhere",))) == []
+
+
+def test_filters_survive_save_and_load(tmp_path: Path) -> None:
+    SparseIndex.build(MIXED).save(tmp_path)
+
+    loaded = SparseIndex.load(tmp_path)
+
+    assert ids(loaded.search("anvil", 5, SearchFilters(collections=("news",)))) == ["other:0"]
+
+
+def test_groups_get_one_bit_each_per_build() -> None:
+    hr = replace(OTHER, access_groups=("everyone", "hr"))
+    positions = Positions.from_passages([CHUNKS[0], (MIXED[3][0], hr)])
+
+    assert positions.group_bit == {"everyone": 0, "hr": 1}
+    assert positions.group_bits.tolist() == [0b01, 0b11]
+
+
+class GenerationStore(MemoryStore):
+    """Counts how often BM25 is rebuilt from it."""
+
+    builds = 0
+
+    async def all_passages(self) -> list[tuple[Chunk, Document]]:
+        self.builds += 1
+        return await super().all_passages()
+
+
+async def store_with(*texts: str) -> GenerationStore:
+    store = GenerationStore(memory_index(FakeEmbedder().dimension))
+    chunks = [Chunk("x", "x", text, (), None, 0, 1) for text in texts]
+    await store.add(DOCUMENT, "hash", chunks, FakeEmbedder().embed_documents(list(texts)))
+    return store
+
+
+async def test_the_cache_rebuilds_only_when_the_generation_moves(tmp_path: Path) -> None:
+    store = await store_with("ACME sells anvils")
+    now = [0.0]
+    cache = SparseCache(store, tmp_path, check_seconds=1.0, clock=lambda: now[0])
+
+    first = await cache.current()
+    await store.add(OTHER, "beta", [Chunk("x", "x", "BETA anvils", (), None, 0, 1)], [[1.0] * 64])
+    same = await cache.current()
+    await store.bump_generation()
+    still_cached = await cache.current()
+    now[0] = 2.0
+    rebuilt = await cache.current()
+
+    assert same is first and still_cached is first
+    assert len(rebuilt) == 2
+    assert store.builds == 2
+
+
+async def test_a_second_worker_loads_the_saved_generation(tmp_path: Path) -> None:
+    store = await store_with("ACME sells anvils")
+    await SparseCache(store, tmp_path).current()
+
+    loaded = await SparseCache(store, tmp_path).current()
+
+    assert store.builds == 1
+    assert ids(loaded.search("anvils", 5)) == ["1:0"]
+    assert sorted(p.name for p in (tmp_path / "1").iterdir()) == ["0"]
+
+
+async def test_old_generations_are_removed(tmp_path: Path) -> None:
+    store = await store_with("ACME sells anvils")
+    for _ in range(3):
+        await SparseCache(store, tmp_path).current()
+        await store.bump_generation()
+
+    assert sorted(p.name for p in (tmp_path / "1").iterdir()) == ["1", "2"]
 
 
 def test_document_title_and_section_are_searchable() -> None:

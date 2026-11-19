@@ -15,7 +15,7 @@ CollectionId = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)
 DocTypeText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 
 _EXAMPLE_PASSAGE: dict[str, JsonValue] = {
-    "doc_id": "9f2c1e7a",
+    "doc_id": "42",
     "title": "ACME Corp · Form 10-K",
     "collection_id": "sec-10k",
     "doc_type": "10-K",
@@ -124,7 +124,7 @@ class RetrievalInfo(BaseModel):
 
 
 class PassageResponse(BaseModel):
-    doc_id: str = Field(description="The sha256 of the document's bytes.")
+    doc_id: str = Field(description="The document's ID in the library.")
     title: str = Field(description="The document's title.")
     collection_id: str = Field(description="The collection the document belongs to.")
     doc_type: str = Field(description="The kind of document, such as `10-K` or `runbook`.")
@@ -136,7 +136,7 @@ class PassageResponse(BaseModel):
     )
     page: int | None = Field(description="The page number, for formats that have pages.")
     excerpt: str = Field(description="The full passage text, exactly as indexed.")
-    chunk_id: str = Field(description="The passage's ID: the doc_id and its position.")
+    chunk_id: str = Field(description="The passage's ID: the doc_id and its position in it.")
     retrieval: RetrievalInfo = Field(description="How the two searches ranked this passage.")
 
 
@@ -178,7 +178,7 @@ class DocumentResponse(BaseModel):
         json_schema_extra={
             "examples": [
                 {
-                    "doc_id": "9f2c1e7a",
+                    "doc_id": "42",
                     "title": "ACME Corp · Form 10-K",
                     "collection_id": "sec-10k",
                     "doc_type": "10-K",
@@ -192,7 +192,7 @@ class DocumentResponse(BaseModel):
         }
     )
 
-    doc_id: str = Field(description="The sha256 of the document's bytes.")
+    doc_id: str = Field(description="The document's ID in the library.")
     title: str = Field(description="The document's title.")
     collection_id: str = Field(description="The collection the document belongs to.")
     doc_type: str = Field(description="The kind of document, such as `10-K` or `runbook`.")
@@ -205,11 +205,14 @@ class DocumentResponse(BaseModel):
 
 class UploadResponse(BaseModel):
     model_config = ConfigDict(
-        json_schema_extra={"examples": [{"job_id": "933dac8b", "doc_id": "9f2c1e7a"}]}
+        json_schema_extra={"examples": [{"job_id": "933dac8b", "doc_id": None}]}
     )
 
     job_id: str = Field(description="Poll this with GET /api/jobs/{job_id}.")
-    doc_id: str = Field(description="The sha256 of the file's bytes.")
+    doc_id: str | None = Field(
+        description="The document's ID when the file is already in the library; null for a new "
+        "file, which gets its ID once indexed."
+    )
 
 
 class JobResponse(BaseModel):

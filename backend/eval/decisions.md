@@ -372,3 +372,43 @@ tokens, re-ranked:
   they must be misses for `alice`.
 - **The relevance gate** still separates at 0.58, narrowly: the lowest answerable question scores
   0.589 and the highest off-topic one 0.574.
+
+## Postgres in place of Chroma (M2)
+
+The same eval on pgvector (HNSW, `m = 16`, `ef_construction = 64`, `ef_search = 40`) against the
+M1 baseline on Chroma. **Success@6 is identical in every row**, for every collection, mode and
+chunk size. Differences appear only deeper: at 200 tokens sec-10k S@8 0.91 → 0.89 and MRR
+0.674 → 0.671; at 300 tokens books S@8 0.69 → 0.62; at 400 tokens books Recall@20 0.69 → 0.65.
+Those are ranks 7 to 20 moving, as they did between two Chroma builds (see *Run-to-run variance*).
+
+HNSW's top 20 equals exact search's for 123 of the 126 questions; the other 3 share 18 or 19
+(docs/RETRIEVAL.md). The CI gate searches exactly, so the graph cannot make it flaky.
+
+### BM25 against Postgres full-text search
+
+D17 keeps bm25s and derives it from Postgres. `ts_rank` over the chunks' `tsv` column, the
+question's words ORed, is the alternative that needs no second index. At 400 tokens, alone:
+
+| Collection | bm25s S@1 / S@6 / MRR | ts_rank S@1 / S@6 / MRR |
+|---|---|---|
+| sec-10k (45) | 0.36 / 0.71 / 0.512 | 0.27 / 0.80 / 0.502 |
+| engineering (27) | 0.56 / 0.89 / 0.703 | 0.56 / 0.89 / 0.680 |
+| northwind (26) | 0.69 / 1.00 / 0.817 | 0.54 / 0.96 / 0.729 |
+| books (13) | 0.31 / 0.54 / 0.434 | 0.31 / 0.77 / 0.467 |
+
+bm25s ranks the evidence first more often, as expected of a ranking with inverse document
+frequency. But `ts_rank` puts more of it in the top 6 on the filings and the books. Without IDF,
+a long passage that repeats the question's common words scores high; on those two collections
+that is often the right passage. This compares the sparse retrievers alone: what matters is the
+hybrid after fusion and re-ranking, which this table does not measure. Worth trying as M6's
+sparse candidate before deciding bm25s stays; D17 is unchanged for now.
+
+### The CI gate
+
+`eval/baseline.json`: Success@6 at 400 tokens, exact search, re-ranked, sec-10k 0.867 (45
+questions), northwind 1.000 (23; restricted questions excluded). With
+`RETRIEVAL_CANDIDATES=3` instead of 20, sec-10k falls to 0.756 and the gate fails:
+
+```
+FAIL sec-10k: Success@6 0.756, baseline 0.867
+```
