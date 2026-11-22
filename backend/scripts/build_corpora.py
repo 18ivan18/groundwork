@@ -1,9 +1,14 @@
-"""Build a corpora version: fetch the third-party collections, take Northwind from the local raw
-directory, pack all four into corpora-v<N>.tar.gz and print what to publish.
+"""Build a corpora version: pack the four collections into corpora-v<N>.tar.gz and print what to
+publish.
 
-The SEC, Kubernetes and Gutenberg collections are fetched from upstream into a staging directory,
-so the local raw directory is never overwritten. Northwind is fictional and has no upstream; it is
-copied from data/raw/northwind/, so edit it there before packing a new version.
+By default the SEC, Kubernetes and Gutenberg collections are fetched from upstream into a staging
+directory, so the local raw directory is never overwritten. Northwind is fictional and has no
+upstream; it is copied from data/raw/northwind/, so edit it there before packing a new version.
+
+With --from-local nothing is fetched: all four collections are packed from data/raw/ exactly as
+they are. corpora-v1 is made this way, from the committed bytes the eval baseline was measured on.
+A fetched build differs from them (the SEC fetcher strips a script tag EDGAR injects into the HTML
+filings), so a fetched corpora version needs an eval rerun.
 
 The build then compares every packed file with the file at the same path under data/raw/ and says
 whether they are byte-identical: if they are, eval numbers measured on the local corpora hold for
@@ -11,8 +16,9 @@ the new corpora version without a rerun.
 
 Publishing is a manual step: the script prints the `gh release create` command and does not run it.
 
-Run from backend/ (needs the network and SEC_USER_AGENT):
-    uv run python scripts/build_corpora.py 1 [--out DIR]
+Run from backend/:
+    uv run python scripts/build_corpora.py 1 --from-local [--out DIR]
+    uv run python scripts/build_corpora.py N [--out DIR]   # needs the network and SEC_USER_AGENT
 """
 
 import argparse
@@ -109,19 +115,27 @@ def main() -> None:
     parser.add_argument(
         "--out", type=Path, help="directory for the tarball (default: a new temporary directory)"
     )
+    parser.add_argument(
+        "--from-local",
+        action="store_true",
+        help="fetch nothing; pack all four collections from data/raw/ exactly as they are",
+    )
     args = parser.parse_args()
 
     settings = Settings()
-    if not settings.sec_user_agent:
+    if not args.from_local and not settings.sec_user_agent:
         sys.exit('SEC_USER_AGENT is required by EDGAR. Set it in .env: "Your Name your@email"')
     raw_dir = settings.data_dir / "raw"
     out: Path = args.out or Path(tempfile.mkdtemp(prefix="corpora-"))
     out.mkdir(parents=True, exist_ok=True)
     archive = out / archive_name(args.version)
 
-    with tempfile.TemporaryDirectory(prefix="corpora-staging-") as staging:
-        stage(raw_dir, Path(staging), settings.sec_user_agent)
-        sha256 = pack(Path(staging), archive)
+    if args.from_local:
+        sha256 = pack(raw_dir, archive)
+    else:
+        with tempfile.TemporaryDirectory(prefix="corpora-staging-") as staging:
+            stage(raw_dir, Path(staging), settings.sec_user_agent)
+            sha256 = pack(Path(staging), archive)
 
     print()
     print(f"Tarball: {archive.resolve()}")
