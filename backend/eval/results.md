@@ -1,5 +1,7 @@
 # Retrieval evaluation
 
+Corpora version: `corpora-v1` (measured on the committed corpora that `corpora-v1` was packed from, byte-identical: see "First four-collection baseline (M1)" in `decisions.md`).
+
 Embedder: `BAAI/bge-small-en-v1.5`. Overlap: 60 tokens. Candidates per retriever: 20. RRF k: 60. Re-ranker: `jinaai/jina-reranker-v1-tiny-en` on the top 20 after fusion. Documents indexed: 205 in books, engineering, northwind, sec-10k. Questions: 111 answerable, 15 unanswerable. Unfiltered searches over every indexed collection; a question counts as found only in the documents it names.
 
 ## Success, recall and MRR

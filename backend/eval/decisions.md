@@ -351,6 +351,12 @@ Groq's tokens-per-minute limit held the run to about two questions a minute.
 
 ## First four-collection baseline (M1)
 
+**Measured on corpora version `corpora-v1`.** The run read the corpora then committed in
+`backend/data/raw/`; `corpora-v1` was packed from those files with `scripts/build_corpora.py 1
+--from-local`, and all 209 packed files (4 manifests, 205 documents) are byte-identical to them
+(tarball sha256 `2679d12cc638d74a6e80ac16406adc7cf43be355d97214fdd29a077f4203349a`, the same on two
+builds). The numbers therefore hold for `corpora-v1` without a rerun (D27).
+
 `results.md` now scores 111 answerable questions over 205 documents in four collections, with every
 search unfiltered across all of them (18 minutes on this machine for three chunk sizes). At 400
 tokens, re-ranked:
