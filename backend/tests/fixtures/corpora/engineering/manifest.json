@@ -1,0 +1,21 @@
+{
+  "collection": "engineering",
+  "description": "Test fixture: one concept page of the Kubernetes documentation.",
+  "source": "https://github.com/kubernetes/website/tree/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts",
+  "licence": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). © The Kubernetes Authors. Changed: Hugo front matter and shortcodes were rewritten as plain Markdown, and HTML comments removed. Test fixture: one page, unchanged from the corpus.",
+  "revision": "6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751",
+  "documents": [
+    {
+      "key": "architecture-self-healing",
+      "filename": "architecture--self-healing.md",
+      "title": "Kubernetes Self-Healing",
+      "doc_type": "concept",
+      "doc_date": "2026-11-18",
+      "metadata": {
+        "section": "architecture"
+      },
+      "source_url": "https://github.com/kubernetes/website/blob/6dc0b2fbf8b78a76f8fff211cfd5bf7b558ca751/content/en/docs/concepts/architecture/self-healing.md",
+      "sha256": "e0a792ef733cc356a444f60792803ee3b425e1c2f768278cc87f37e7e99b25a7"
+    }
+  ]
+}
