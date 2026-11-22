@@ -1,0 +1,52 @@
+<DOCUMENT>
+<TYPE>10-K
+<SEQUENCE>1
+<FILENAME>d10k.txt
+<DESCRIPTION>FORM 10-K
+<TEXT>
+<PAGE>
+
+================================================================================
+
+                                 UNITED STATES
+
+                      SECURITIES AND EXCHANGE COMMISSION
+                            WASHINGTON, D.C.  20549
+                        ______________________________
+
+                                   FORM 10-K
+
+
+               [X] ANNUAL REPORT PURSUANT TO SECTION 13 OR 15(d)
+
+                    OF THE SECURITIES EXCHANGE ACT OF 1934
+
+
+                    For The Fiscal Year Ended June 30, 2001
+
+
+             [_] TRANSITION REPORT PURSUANT TO SECTION 13 OR 15(d)
+                    OF THE SECURITIES EXCHANGE ACT OF 1934
+
+                 For the Transition Period from _____ to ____
+
+                        ______________________________
+
+                        Commission File Number 0-14278
+
+                             MICROSOFT CORPORATION
+
+                   Washington                     91-1144442
+            (State of incorporation)              (I.R.S. ID)
+
+               One Microsoft Way, Redmond, Washington 98052-6399
+
+                                (425) 882-8080
+
+          Securities registered pursuant to Section 12(b) of the Act:
+
+                                     None
+
+          Securities registered pursuant to Section 12(g) of the Act:
+
+                                 Common Stock

@@ -1,0 +1,68 @@
+{
+  "collection": "sec-10k",
+  "description": "Test fixture: excerpts of three Form 10-K filings, one in inline XBRL HTML and two in plain text.",
+  "source": "SEC EDGAR",
+  "licence": "Public filings published by the SEC on EDGAR. Test fixture: excerpts only. The HTML file is the start of Item 1 (Business); the text files are the cover pages.",
+  "documents": [
+    {
+      "key": "aapl-10-k-2026-09-26",
+      "filename": "AAPL-10-K-2026-09-26.htm",
+      "title": "Apple Inc. · Form 10-K",
+      "doc_type": "10-K",
+      "doc_date": "2026-09-26",
+      "metadata": {
+        "company": "Apple Inc.",
+        "ticker": "AAPL",
+        "form": "10-K"
+      },
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000026/aapl-20260926.htm",
+      "provenance": {
+        "cik": "0000320193",
+        "filing_date": "2026-11-03",
+        "accession_number": "0000320193-26-000026",
+        "primary_document": "aapl-20260926.htm"
+      },
+      "sha256": "6a495adfd098b2ab00a33f59922daac461b201aa98e3af7d44662020c1c73d72"
+    },
+    {
+      "key": "msft-10-k-2001-06-30",
+      "filename": "MSFT-10-K-2001-06-30.txt",
+      "title": "Microsoft Corporation · Form 10-K",
+      "doc_type": "10-K",
+      "doc_date": "2001-06-30",
+      "metadata": {
+        "company": "Microsoft Corporation",
+        "ticker": "MSFT",
+        "form": "10-K"
+      },
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000103221001501099/d10k.txt",
+      "provenance": {
+        "cik": "0000789019",
+        "filing_date": "2001-09-18",
+        "accession_number": "0001032210-01-501099",
+        "primary_document": "d10k.txt"
+      },
+      "sha256": "d64b7633ae63dc98100d8443daa686f783751bd6b3fb66b6e0fc631434180904"
+    },
+    {
+      "key": "nvda-10-k405-2001-01-28",
+      "filename": "NVDA-10-K405-2001-01-28.txt",
+      "title": "NVIDIA Corporation · Form 10-K",
+      "doc_type": "10-K",
+      "doc_date": "2001-01-28",
+      "metadata": {
+        "company": "NVIDIA Corporation",
+        "ticker": "NVDA",
+        "form": "10-K405"
+      },
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1045810/000101287001500492/d10k405.txt",
+      "provenance": {
+        "cik": "0001045810",
+        "filing_date": "2001-04-27",
+        "accession_number": "0001012870-01-500492",
+        "primary_document": "d10k405.txt"
+      },
+      "sha256": "f73b0f2d62da84c5a044aebca2c9a3135dd52250cdbcefb684bf86883b3bf22c"
+    }
+  ]
+}
