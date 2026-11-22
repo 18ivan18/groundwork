@@ -1,0 +1,53 @@
+{
+  "collection": "books",
+  "description": "Test fixture: excerpts of three novels from Project Gutenberg.",
+  "source": "Project Gutenberg",
+  "licence": "Public domain in the United States. Each file keeps the Project Gutenberg licence; only the text between its START and END lines is indexed. Test fixture: excerpts only. Each file keeps its Project Gutenberg header, the opening of the text and its END line; the full Project Gutenberg License is at https://www.gutenberg.org/policy/license.html.",
+  "documents": [
+    {
+      "key": "pride-and-prejudice",
+      "filename": "pg1342.txt",
+      "title": "Pride and Prejudice",
+      "doc_type": "book",
+      "doc_date": "1813-01-28",
+      "metadata": {
+        "author": "Jane Austen"
+      },
+      "source_url": "https://www.gutenberg.org/ebooks/1342",
+      "provenance": {
+        "ebook_number": "1342"
+      },
+      "sha256": "04155f0b2c129203302836d59b87838132df944d3ff22bac267d7757e3ab540a"
+    },
+    {
+      "key": "frankenstein",
+      "filename": "pg84.txt",
+      "title": "Frankenstein; or, The Modern Prometheus",
+      "doc_type": "book",
+      "doc_date": "1818-01-01",
+      "metadata": {
+        "author": "Mary Wollstonecraft Shelley"
+      },
+      "source_url": "https://www.gutenberg.org/ebooks/84",
+      "provenance": {
+        "ebook_number": "84"
+      },
+      "sha256": "2829d171229a464c3cc96b16b4c9be4ce85e015b5600775316066f665e90d4cd"
+    },
+    {
+      "key": "sherlock-holmes",
+      "filename": "pg1661.txt",
+      "title": "The Adventures of Sherlock Holmes",
+      "doc_type": "book",
+      "doc_date": "1892-10-14",
+      "metadata": {
+        "author": "Arthur Conan Doyle"
+      },
+      "source_url": "https://www.gutenberg.org/ebooks/1661",
+      "provenance": {
+        "ebook_number": "1661"
+      },
+      "sha256": "6c4ce2bc976f69192575e4101edef85f02c0a22da9041f5202fbd6897efac5b6"
+    }
+  ]
+}
