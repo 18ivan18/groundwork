@@ -8,6 +8,7 @@ Run from backend/: uv run python scripts/fetch_filings.py
 """
 
 import hashlib
+import re
 import sys
 import time
 from collections.abc import Iterable, Sequence
@@ -47,6 +48,11 @@ PLAIN_TEXT_FORMS = ("10-K", "10-K405")
 DOC_TYPE_BY_FORM = {"10-K405": "10-K"}
 # EDGAR allows 10 requests per second; stay well under that.
 SECONDS_BETWEEN_REQUESTS = 0.2
+# EDGAR serves its HTML documents with a script tag added just before </body>, whose src path
+# rotates over time, so two fetches of the same filing differ. Only that exact tag is removed.
+_EDGAR_SCRIPT = re.compile(
+    rb'<script type="text/javascript"  src="/[A-Za-z0-9_/-]+"></script>(?=</body>)'
+)
 
 
 @dataclass(frozen=True)
@@ -116,6 +122,11 @@ def find_latest_filing(
     )
 
 
+def strip_edgar_script(content: bytes) -> bytes:
+    """The document without the script tag EDGAR injects before </body>; else unchanged."""
+    return _EDGAR_SCRIPT.sub(b"", content)
+
+
 def manifest_entry(filing: Filing, content: bytes) -> ManifestDocument:
     doc_type = DOC_TYPE_BY_FORM.get(filing.form, filing.form)
     return ManifestDocument(
@@ -171,7 +182,10 @@ def fetch_filings(client: httpx.Client, folder: Path) -> Manifest:
         ]
         for found in filings:
             filing = replace(found, company=DISPLAY_NAMES[ticker])
-            content = fetch(client, filing.source_url).content
+            # Stripped before hashing and writing, so rebuilds are reproducible. Fetches from
+            # corpora-v2 on are stripped: corpora-v1 holds the committed bytes, which still have
+            # the tag, so a new corpora version needs an eval rerun.
+            content = strip_edgar_script(fetch(client, filing.source_url).content)
             (folder / filing.filename).write_bytes(content)
             entries.append(manifest_entry(filing, content))
             print(f"{filing.filename}: {len(content):,} bytes, filed {filing.filing_date}")
