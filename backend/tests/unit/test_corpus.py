@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from collection_builder import doc, write_collection
 
 from groundwork.domain.models import EVERYONE
 from groundwork.ingestion.corpus import (
@@ -16,28 +17,6 @@ from groundwork.ingestion.corpus import (
 
 # Small excerpts of each corpus format, with manifests shaped like the real ones.
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "corpora"
-
-
-def write_collection(raw: Path, name: str, documents: list[dict[str, Any]], **fields: Any) -> Path:
-    folder = raw / name
-    folder.mkdir(parents=True)
-    for document in documents:
-        (folder / document["filename"]).write_text("text")
-    manifest = {
-        "collection": name,
-        "description": "Test documents.",
-        "source": "Tests",
-        "licence": "CC0",
-        "documents": documents,
-        **fields,
-    }
-    (folder / "manifest.json").write_text(json.dumps(manifest))
-    return folder
-
-
-def doc(filename: str = "a.md", **fields: Any) -> dict[str, Any]:
-    key = filename.split(".")[0].lower() + "-" + filename.split(".")[-1].lower()
-    return {"key": key, "filename": filename, "title": "A", "doc_type": "runbook", **fields}
 
 
 def test_documents_get_their_collection_and_manifest_fields(tmp_path: Path) -> None:
