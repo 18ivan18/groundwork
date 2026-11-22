@@ -2,6 +2,8 @@
 
 Run from backend/: uv run python eval/run_eval.py
 
+It first makes data/raw/ hold the locked corpora version, as scripts/ingest.py does.
+
 For each chunk size the collections the questions are about are indexed into a temporary
 directory, so the real index is untouched. A question counts as found when a passage from one of
 its `documents` (manifest keys) contains one of its `evidence` patterns. That is stricter than
@@ -29,6 +31,7 @@ from pydantic import BaseModel, ConfigDict
 from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
 from groundwork.domain.models import Document, ScoredPassage
+from groundwork.ingestion.corpora_bundle import LOCK_FILE, ensure_locked
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.ingestion.pipeline import ingest_file
@@ -386,7 +389,9 @@ def gate_table(answerable: list[float], off_topic: list[float], in_domain: list[
 def main() -> None:
     settings = Settings()
     questions = load_questions(EVAL_DIR / "questions.jsonl")
-    entries = corpus_entries(settings.data_dir / "raw", eval_collections(questions))
+    raw_dir = settings.data_dir / "raw"
+    print(ensure_locked(raw_dir, EVAL_DIR.parent / LOCK_FILE))
+    entries = corpus_entries(raw_dir, eval_collections(questions))
     keys = DocumentKeys(entries)
     by_key = {(e.meta.collection_id, e.key): e for e in entries}
     validate(questions, {key: normalize(load_file(e.path).text) for key, e in by_key.items()})
