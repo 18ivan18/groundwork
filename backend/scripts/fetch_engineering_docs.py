@@ -15,7 +15,7 @@ import hashlib
 import re
 import time
 from datetime import date
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import httpx
@@ -118,34 +118,32 @@ def list_pages(client: httpx.Client) -> list[str]:
     )
 
 
-def main() -> None:
-    settings = Settings()
-    folder = settings.data_dir / "raw" / COLLECTION
+def fetch_engineering_docs(client: httpx.Client, folder: Path) -> Manifest:
+    """Download every concept page at REVISION into folder and write its manifest there."""
     folder.mkdir(parents=True, exist_ok=True)
     documents = []
-    with httpx.Client(timeout=60, follow_redirects=True) as client:
-        for page in list_pages(client):
-            url = f"https://raw.githubusercontent.com/{REPOSITORY}/{REVISION}/{DOCS_ROOT}/{page}"
-            response = client.get(url)
-            response.raise_for_status()
-            time.sleep(SECONDS_BETWEEN_REQUESTS)
-            front, text = convert(response.text)
-            content = text.encode()
-            name = output_name(page)
-            (folder / name).write_bytes(content)
-            documents.append(
-                ManifestDocument(
-                    key=document_key(page),
-                    filename=name,
-                    title=str(front.get("title") or PurePosixPath(page).stem),
-                    doc_type=str(front.get("content_type") or "concept"),
-                    doc_date=REVISION_DATE,
-                    metadata={"section": page.split("/")[0]},
-                    source_url=f"https://github.com/{REPOSITORY}/blob/{REVISION}/{DOCS_ROOT}/{page}",
-                    sha256=hashlib.sha256(content).hexdigest(),
-                )
+    for page in list_pages(client):
+        url = f"https://raw.githubusercontent.com/{REPOSITORY}/{REVISION}/{DOCS_ROOT}/{page}"
+        response = client.get(url)
+        response.raise_for_status()
+        time.sleep(SECONDS_BETWEEN_REQUESTS)
+        front, text = convert(response.text)
+        content = text.encode()
+        name = output_name(page)
+        (folder / name).write_bytes(content)
+        documents.append(
+            ManifestDocument(
+                key=document_key(page),
+                filename=name,
+                title=str(front.get("title") or PurePosixPath(page).stem),
+                doc_type=str(front.get("content_type") or "concept"),
+                doc_date=REVISION_DATE,
+                metadata={"section": page.split("/")[0]},
+                source_url=f"https://github.com/{REPOSITORY}/blob/{REVISION}/{DOCS_ROOT}/{page}",
+                sha256=hashlib.sha256(content).hexdigest(),
             )
-            print(f"{name}: {len(content):,} bytes")
+        )
+        print(f"{name}: {len(content):,} bytes")
     manifest = Manifest(
         collection=COLLECTION,
         description="Concept pages of the Kubernetes documentation: technical prose in Markdown "
@@ -159,6 +157,13 @@ def main() -> None:
     )
     (folder / MANIFEST).write_text(write_manifest(manifest))
     print(f"{len(documents)} pages")
+    return manifest
+
+
+def main() -> None:
+    settings = Settings()
+    with httpx.Client(timeout=60, follow_redirects=True) as client:
+        fetch_engineering_docs(client, settings.data_dir / "raw" / COLLECTION)
 
 
 if __name__ == "__main__":
