@@ -67,9 +67,7 @@ async def test_one_index_is_active(pool: Pool) -> None:
 
 
 def document(title: str) -> DocumentMeta:
-    return DocumentMeta(
-        title=title, collection_id="c", doc_type="x", doc_date=None, filename=title
-    )
+    return DocumentMeta(title=title, collection_id="c", doc_type="x", doc_date=None, filename=title)
 
 
 CHUNK = Chunk("x", "x", "a", (), None, 0, 1)

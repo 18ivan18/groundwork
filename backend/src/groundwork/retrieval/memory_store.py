@@ -143,7 +143,11 @@ class MemoryStore:
     async def documents(self) -> list[tuple[Document, int]]:
         documents = self._by_id()
         return sorted(
-            ((documents[doc_id], len(items)) for doc_id, items in self._data.chunks.items() if items),
+            (
+                (documents[doc_id], len(items))
+                for doc_id, items in self._data.chunks.items()
+                if items
+            ),
             key=lambda item: (item[0].title, int(item[0].doc_id)),
         )
 

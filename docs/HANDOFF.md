@@ -156,7 +156,7 @@ text, never HTML (M11).
 ```
                          ┌──────────────── worker service (jobs from Postgres) ─────────────────┐
  upload / corpus ─▶ jobs ─▶ loader ─▶ structure detector ─▶ Chunker ─▶ Contextualizer ─▶ Embedder ─▶ chunks (Postgres)
-                                                                                                └─▶ bump index generation
+                                                                                                └─▶ publish: the generation moves
                                                                                                     └─▶ bm25s rebuilt per index
 
  user ─▶ Authenticator (X-User → groups)
@@ -219,7 +219,9 @@ documents    (id bigserial PK, content_hash text NOT NULL, collection_id text RE
 indexes      (id serial PK, name text UNIQUE, chunker text, chunker_params jsonb,
               contextualizer text, contextualizer_params jsonb, embedder_model text, dimension int,
               status text CHECK (status IN ('building','ready','retired')),
-              generation bigint NOT NULL DEFAULT 0, is_active bool NOT NULL DEFAULT false,
+              generation bigint NOT NULL DEFAULT 0,
+              unpublished bool NOT NULL DEFAULT false,    -- has writes BM25 has not seen
+              is_active bool NOT NULL DEFAULT false,
               created_at timestamptz DEFAULT now())
               -- partial unique index: only one row with is_active
 chunks       (id bigserial PK, index_id int REFERENCES indexes ON DELETE CASCADE,
@@ -396,8 +398,11 @@ alone.
   score-all-then-filter loop and note its cost. The group bitmask needs a **group → bit mapping built
   per generation** from the groups present in the index, because M3 adds a `private:<user>` group per
   uploader and the set of groups is not fixed.
-- **Generation bumps once per job, not per document:** a corpus ingest or bulk upload bumps the index
-  generation when the job finishes, so bm25s is rebuilt once rather than once per file.
+- **Publishing once per job, not per document:** every write that changes an index's chunks sets
+  `unpublished` in the same transaction. Publishing moves the generation and clears it, and does
+  nothing when there is nothing to publish. A corpus ingest publishes when it ends, also after a
+  failure, so bm25s is rebuilt once rather than once per file; an upload publishes in the transaction
+  that stores it; ingest and API start publish what a crashed process left.
 - **Comparison retriever:** `ts_rank` on `tsv` as a fourth sparse option in the eval only (D17).
 - `docs/RETRIEVAL.md`: `EXPLAIN ANALYZE` of a dense query showing the HNSW index used, the same query
   with a selective filter, and what changes with `hnsw.ef_search`. Include the **sixth run of the same
@@ -410,8 +415,8 @@ alone.
 
 **Tests:** store contract tests run against Postgres (marked `db`; required in CI, skipped locally
 without a database, as in the scaffold (S11 in `docs/DECISIONS.md`)); idempotent re-ingest, including an ownerless
-corpus document (the `NULLS NOT DISTINCT` constraint); generation bump reloads BM25; a bulk ingest
-bumps the generation once; the dense query plan uses the partial HNSW index after six executions.
+corpus document (the `NULLS NOT DISTINCT` constraint); a publication reloads BM25; a bulk ingest
+publishes once; the dense query plan uses the partial HNSW index after six executions.
 **Measure:** every retrieval number from M1 within noise on Postgres; exact versus HNSW top-20
 differences per run (expect a few questions, as with Chroma); `ts_rank` versus bm25s table.
 **Done when:** Chroma is gone, the eval matches, and the CI gate fails a deliberately broken branch.
