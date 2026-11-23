@@ -2,6 +2,7 @@ import hashlib
 import io
 import json
 import os
+import shutil
 import tarfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -10,11 +11,13 @@ import httpx
 import pytest
 from collection_builder import doc, write_collection
 
+from groundwork.config import Settings
 from groundwork.domain.models import DocumentMeta
 from groundwork.ingestion.corpora_bundle import (
     CorporaError,
     CorporaLock,
     ensure,
+    ensure_corpora,
     ensure_locked,
     pack,
     read_lock,
@@ -139,14 +142,57 @@ def entries(raw: Path) -> list[tuple[str, DocumentMeta]]:
     return [(entry.key, entry.meta) for entry in corpus_entries(raw)]
 
 
-def test_ensure_installs_the_locked_corpora_version(tmp_path: Path) -> None:
+@pytest.mark.parametrize("exists", [False, True], ids=["missing", "empty"])
+def test_ensure_installs_the_locked_corpora_version(tmp_path: Path, exists: bool) -> None:
     source, archive = packed(tmp_path)
     raw = tmp_path / "data" / "raw"
+    if exists:
+        raw.mkdir(parents=True)
+
+    with Server(archive).client() as client:
+        outcome = ensure(raw, corpora_lock(archive), client)
+
+    assert outcome == "installed"
+    assert entries(raw) == entries(source)
+
+
+class RedirectingServer(Server):
+    """Redirects the Release URL to where the asset is, as GitHub does."""
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        if request.url.host == "example.test":
+            self.requests.append(request)
+            return httpx.Response(302, headers={"Location": "https://assets.example.test/a"})
+        return super().__call__(request)
+
+
+def test_ensure_follows_the_release_redirect_whatever_the_client(tmp_path: Path) -> None:
+    source, archive = packed(tmp_path)
+    raw = tmp_path / "data" / "raw"
+
+    # A client that does not follow redirects by default.
+    with RedirectingServer(archive).client() as client:
+        ensure(raw, corpora_lock(archive), client)
+
+    assert entries(raw) == entries(source)
+
+
+def test_temporary_folders_left_by_a_killed_run_are_removed(tmp_path: Path) -> None:
+    _, archive = packed(tmp_path)
+    raw = tmp_path / "data" / "raw"
+    with Server(archive).client() as client:
+        ensure(raw, corpora_lock(archive), client)
+    stale = raw.parent / ".raw-corpora-k1lled"
+    (stale / "unpacked").mkdir(parents=True)
+    (stale / "corpora-v1.tar.gz").write_bytes(b"half")
+    kept = raw.parent / ".raw-backup"
+    kept.mkdir()
 
     with Server(archive).client() as client:
         ensure(raw, corpora_lock(archive), client)
 
-    assert entries(raw) == entries(source)
+    assert not stale.exists()
+    assert kept.exists()
 
 
 def snapshot(raw: Path) -> dict[str, bytes] | None:
@@ -320,17 +366,42 @@ def test_a_malformed_lock_file_is_refused(tmp_path: Path, content: str) -> None:
         read_lock(tmp_path / "corpora.lock.json")
 
 
-def test_without_a_lock_file_the_corpora_are_used_as_they_are(tmp_path: Path) -> None:
+def test_a_missing_lock_file_is_an_error(tmp_path: Path) -> None:
     raw = tmp_path / "data" / "raw"
     before = installed(raw, previous=True)
     _, archive = packed(tmp_path)
     server = Server(archive)
+    lock_file = tmp_path / "conf" / "corpora.lock.json"
+
+    with (
+        server.client() as client,
+        pytest.raises(CorporaError, match=f"(?s){lock_file}.*GROUNDWORK_CORPORA=local"),
+    ):
+        ensure_locked(raw, lock_file, client)
+
+    assert server.requests == []
+    assert snapshot(raw) == before
+
+
+@pytest.mark.parametrize("locked", [False, True], ids=["no lock", "lock"])
+def test_local_corpora_are_used_as_they_are_and_said_to_be_unchecked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, locked: bool
+) -> None:
+    monkeypatch.setenv("GROUNDWORK_CORPORA", "local")
+    raw = tmp_path / "data" / "raw"
+    before = installed(raw, previous=True)
+    _, archive = packed(tmp_path)
+    lock_file = tmp_path / "corpora.lock.json"
+    if locked:
+        lock_file.write_text(corpora_lock(archive).model_dump_json())
+    server = Server(archive)
 
     with server.client() as client:
-        message = ensure_locked(raw, tmp_path / "corpora.lock.json", client)
+        message = ensure_locked(raw, lock_file, client)
 
-    assert "No corpora lock" in message
-    assert str(tmp_path / "corpora.lock.json") in message
+    assert "LOCAL" in message
+    assert "unchecked" in message
+    assert "corpora version" in message
     assert server.requests == []
     assert snapshot(raw) == before
 
@@ -350,3 +421,132 @@ def test_with_a_lock_file_the_locked_version_is_installed_once(tmp_path: Path) -
     assert "corpora-v3 already" in second
     assert len(server.requests) == 1
     assert entries(raw) == entries(source)
+
+
+def test_scripts_ensure_the_corpora_locked_in_the_working_directorys_conf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # backend/ in a checkout, /app in the Docker image: both hold conf/corpora.lock.json.
+    source, archive = packed(tmp_path)
+    workdir = tmp_path / "app"
+    (workdir / "conf").mkdir(parents=True)
+    (workdir / "conf" / "corpora.lock.json").write_text(corpora_lock(archive).model_dump_json())
+    monkeypatch.chdir(workdir)
+    settings = Settings(_env_file=None, data_dir=tmp_path / "volume")
+
+    with Server(archive).client() as client:
+        raw = ensure_corpora(settings, client)
+
+    assert raw == tmp_path / "volume" / "raw"
+    assert entries(raw) == entries(source)
+    assert "Installed corpora-v1" in capsys.readouterr().out
+
+
+# Local changes: Northwind's only source is the maintainer's data/raw, so ensure never loses them.
+
+
+def edit(raw: Path) -> None:
+    (raw / "northwind" / "a.md").write_text("edited locally")
+
+
+def add(raw: Path) -> None:
+    (raw / "books" / "new.txt").write_text("added locally")
+
+
+def remove(raw: Path) -> None:
+    (raw / "books" / "c.txt").unlink()
+
+
+@pytest.mark.parametrize(
+    ("change", "path"),
+    [(edit, "northwind/a.md"), (add, "books/new.txt"), (remove, "books/c.txt")],
+    ids=["edited", "added", "removed"],
+)
+@pytest.mark.parametrize("next_version", [1, 2], ids=["same lock", "new lock"])
+def test_corpora_with_local_changes_are_never_replaced(
+    tmp_path: Path, change: Callable[[Path], None], path: str, next_version: int
+) -> None:
+    _, archive = packed(tmp_path)
+    raw = tmp_path / "data" / "raw"
+    with Server(archive).client() as client:
+        ensure(raw, corpora_lock(archive), client)
+    change(raw)
+    before = snapshot(raw)
+    server = Server(archive)
+
+    with (
+        server.client() as client,
+        pytest.raises(CorporaError, match=f"(?s)local changes.*{path}.*new corpora version"),
+    ):
+        ensure(raw, corpora_lock(archive, version=next_version), client)
+
+    assert snapshot(raw) == before
+    assert server.requests == []
+    assert leftovers(raw) == []
+
+
+def test_hidden_files_are_not_local_changes(tmp_path: Path) -> None:
+    _, archive = packed(tmp_path)
+    raw = tmp_path / "data" / "raw"
+    with Server(archive).client() as client:
+        ensure(raw, corpora_lock(archive), client)
+    (raw / "books" / ".DS_Store").write_bytes(b"finder")
+
+    again = Server(archive)
+    with again.client() as client:
+        ensure(raw, corpora_lock(archive), client)
+
+    assert again.requests == []
+
+
+# A raw directory from before markers held file hashes: every checkout and Docker volume then.
+
+
+def test_unmarked_corpora_identical_to_the_locked_version_are_adopted(tmp_path: Path) -> None:
+    source, archive = packed(tmp_path)
+    raw = tmp_path / "data" / "raw"
+    shutil.copytree(source, raw)
+    (raw / ".keep").write_text("left in place")
+    before = snapshot(raw)
+
+    with Server(archive).client() as client:
+        outcome = ensure(raw, corpora_lock(archive), client)
+
+    assert outcome == "adopted"
+    assert (raw / ".keep").exists()
+    assert {
+        k: v for k, v in (snapshot(raw) or {}).items() if k != ".corpora-version.json"
+    } == before
+    assert leftovers(raw) == []
+    again = Server(archive)
+    with again.client() as client:
+        assert ensure(raw, corpora_lock(archive), client) == "current"
+    assert again.requests == []
+
+
+@pytest.mark.parametrize(
+    ("change", "line"),
+    [
+        (edit, "differs from corpora-v1: northwind/a.md"),
+        (add, "only in the raw directory: books/new.txt"),
+        (remove, "only in corpora-v1: books/c.txt"),
+    ],
+    ids=["edited", "added", "removed"],
+)
+def test_unmarked_corpora_that_differ_from_the_locked_version_are_left_alone(
+    tmp_path: Path, change: Callable[[Path], None], line: str
+) -> None:
+    source, archive = packed(tmp_path)
+    raw = tmp_path / "data" / "raw"
+    shutil.copytree(source, raw)
+    change(raw)
+    before = snapshot(raw)
+
+    with (
+        Server(archive).client() as client,
+        pytest.raises(CorporaError, match=f"(?s){line}.*new corpora version"),
+    ):
+        ensure(raw, corpora_lock(archive), client)
+
+    assert snapshot(raw) == before
+    assert leftovers(raw) == []

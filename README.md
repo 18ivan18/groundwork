@@ -47,9 +47,18 @@ npm run dev          # http://localhost:5173, with /api proxied to port 8000
 The corpora are not in git (D27 in `docs/DECISIONS.md`). All collections are published together as
 a **corpora version**: the tarball `corpora-vN.tar.gz`, with each collection's manifest inside, on
 the GitHub Release `corpora-vN`. `backend/conf/corpora.lock.json` names the version the code expects,
-with its URL and sha256. `scripts/ingest.py` and the eval scripts download it into
-`backend/data/raw/` (ignored by git), check the sha256 and unpack it when the local copy is missing or
-different, and make no request when it already matches.
+with its URL and sha256; the scripts read it from `conf/` under the working directory (`backend/`, or
+`/app` in the image) and stop if it is missing. `scripts/ingest.py` and the eval scripts download the
+locked version into `backend/data/raw/` (ignored by git), check the sha256 and unpack it, then record
+the version and every file's sha256 in `data/raw/.corpora-version.json`. They make no request when
+the local copy already matches.
+
+They never replace or delete local changes. If a file in `data/raw/` differs from the record, is
+missing, or a file was added, they stop and list them: move the edits out, or pack and publish them as
+a new corpora version. A `data/raw/` from before the record is kept and recorded if it matches the
+locked version byte for byte, and refused otherwise. To iterate on Northwind meanwhile, run with
+`GROUNDWORK_CORPORA=local`: nothing is checked, the scripts say so loudly, and the results must not be
+labelled with a corpora version.
 
 To make a new corpora version (maintainer only), from `backend/`:
 

@@ -31,7 +31,7 @@ from pydantic import BaseModel, ConfigDict
 from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
 from groundwork.domain.models import Document, ScoredPassage
-from groundwork.ingestion.corpora_bundle import LOCK_FILE, ensure_locked
+from groundwork.ingestion.corpora_bundle import ensure_corpora
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.ingestion.pipeline import ingest_file
@@ -389,8 +389,7 @@ def gate_table(answerable: list[float], off_topic: list[float], in_domain: list[
 def main() -> None:
     settings = Settings()
     questions = load_questions(EVAL_DIR / "questions.jsonl")
-    raw_dir = settings.data_dir / "raw"
-    print(ensure_locked(raw_dir, EVAL_DIR.parent / LOCK_FILE))
+    raw_dir = ensure_corpora(settings)
     entries = corpus_entries(raw_dir, eval_collections(questions))
     keys = DocumentKeys(entries)
     by_key = {(e.meta.collection_id, e.key): e for e in entries}

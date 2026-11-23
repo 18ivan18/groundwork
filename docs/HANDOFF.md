@@ -325,7 +325,8 @@ the final corpus.
   corpora version, the tarball `corpora-vN.tar.gz` on the GitHub Release `corpora-vN`, built by
   `scripts/build_corpora.py` with the manifests inside and published by hand (`gh release create`).
   `backend/conf/corpora.lock.json` names the version, URL and sha256; the ingest and eval scripts
-  download, verify and install it into the git-ignored `data/raw/` when it is missing or different.
+  download, verify and install it into the git-ignored `data/raw/` when it is missing or another
+  version, and stop rather than replace local changes there (D27).
   The M1 baseline is measured on `corpora-v1`:
   - `sec-10k`: the existing six filings, access `everyone`, fetched by `scripts/fetch_filings.py`.
   - `engineering`: about 150 Markdown pages from the Kubernetes website docs (CC BY 4.0), pinned to

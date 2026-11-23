@@ -154,6 +154,9 @@ def fetch(client: httpx.Client, url: str) -> httpx.Response:
     return response
 
 
+MISSING_USER_AGENT = 'SEC_USER_AGENT is required by EDGAR. Set it in .env: "Your Name your@email"'
+
+
 def sec_client(user_agent: str) -> httpx.Client:
     """A client for EDGAR, which requires a User-Agent naming the requester."""
     return httpx.Client(headers={"User-Agent": user_agent}, timeout=60)
@@ -205,7 +208,7 @@ def fetch_filings(client: httpx.Client, folder: Path) -> Manifest:
 def main() -> None:
     settings = Settings()
     if not settings.sec_user_agent:
-        sys.exit('SEC_USER_AGENT is required by EDGAR. Set it in .env: "Your Name your@email"')
+        sys.exit(MISSING_USER_AGENT)
     with sec_client(settings.sec_user_agent) as client:
         fetch_filings(client, settings.data_dir / "raw" / SEC_COLLECTION)
 
