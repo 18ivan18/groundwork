@@ -5,8 +5,9 @@ that need no database; the contract tests in tests/unit/test_store.py run agains
 """
 
 from collections.abc import Sequence
-from dataclasses import dataclass
-from typing import Protocol
+from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass, fields
+from typing import Any, Protocol
 
 from groundwork.domain.models import Chunk, Document, DocumentMeta, SearchFilters
 from groundwork.retrieval.indexes import IndexInfo
@@ -22,6 +23,28 @@ class DenseHit:
 def normalized_groups(groups: Sequence[str]) -> tuple[str, ...]:
     """Sorted and without duplicates, as the documents table stores them."""
     return tuple(sorted(set(groups)))
+
+
+def _tags(meta: DocumentMeta) -> dict[str, Any]:
+    values = {field.name: getattr(meta, field.name) for field in fields(DocumentMeta)}
+    values["metadata"] = dict(meta.metadata)
+    values["access_groups"] = normalized_groups(meta.access_groups)
+    return values
+
+
+@dataclass(frozen=True)
+class CorpusDocument:
+    """A document stored by a corpus sync. Its collection and key identify it."""
+
+    document: Document
+    key: str
+    content_hash: str
+    # Whether this index holds its chunks: another index may hold them instead.
+    in_index: bool
+
+    def is_current(self, content_hash: str, meta: DocumentMeta) -> bool:
+        """Whether it was stored from these bytes and tags, access groups included."""
+        return self.content_hash == content_hash and _tags(self.document) == _tags(meta)
 
 
 def matches(document: Document, filters: SearchFilters | None) -> bool:
@@ -51,7 +74,11 @@ class ChunkStore(Protocol):
 
     async def find_document(self, content_hash: str, meta: DocumentMeta) -> str | None:
         """The id of the document with these bytes, collection, groups and owner, if this index
-        holds its chunks."""
+        holds its chunks: an upload if there is one, else a corpus document."""
+        ...
+
+    async def find_upload(self, content_hash: str, meta: DocumentMeta) -> str | None:
+        """As `find_document`, but never a corpus document."""
         ...
 
     async def add(
@@ -61,12 +88,30 @@ class ChunkStore(Protocol):
         chunks: Sequence[Chunk],
         embeddings: Sequence[Sequence[float]],
         *,
+        manifest_key: str | None = None,
         publish: bool = False,
     ) -> Document:
         """Store a document and its chunks, which get their ids here: the chunk at position i
-        becomes `<doc_id>:<i>`. A document stored before keeps its tags, and its chunks in this
-        index are replaced. The same transaction records that the index has writes to publish,
-        or with `publish` publishes them."""
+        becomes `<doc_id>:<i>`. The same transaction records that the index has writes to publish,
+        or with `publish` publishes them.
+
+        Without a manifest key the document is an upload. One stored before keeps its tags, and
+        its chunks in this index are replaced. With one it is that key's corpus document, and one
+        stored from other bytes or tags is removed from every index in the same transaction.
+        Neither ever becomes the other."""
+        ...
+
+    async def corpus_documents(self) -> list[CorpusDocument]:
+        """Every corpus document, including those only other indexes hold chunks of."""
+        ...
+
+    async def remove_corpus_documents(self, doc_ids: Sequence[str]) -> None:
+        """Remove corpus documents from every index, in one transaction that also records that
+        each index which held one has writes to publish. Ids of uploads are ignored."""
+        ...
+
+    def syncing(self) -> AbstractAsyncContextManager[None]:
+        """Held for the length of a corpus sync: another one waits, whichever index it is for."""
         ...
 
     async def search(
@@ -100,4 +145,9 @@ class ChunkStore(Protocol):
         """Move the generation, so that BM25 finds what was written to the index since the last
         publication, whichever process wrote it. Returns the new generation, or None if there
         was nothing to publish."""
+        ...
+
+    async def publish_all(self) -> dict[str, int]:
+        """As `publish`, for every index with writes to publish, not only this one. The new
+        generation of each, by index name."""
         ...

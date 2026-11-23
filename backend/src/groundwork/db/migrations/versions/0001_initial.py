@@ -41,6 +41,8 @@ def upgrade() -> None:
 
     CREATE TABLE documents (
         id bigserial PRIMARY KEY,
+        -- The key a corpus document was ingested under; NULL for uploads.
+        manifest_key text,
         content_hash text NOT NULL,
         collection_id text NOT NULL REFERENCES collections,
         title text NOT NULL,
@@ -55,11 +57,19 @@ def upgrade() -> None:
         owner_id text REFERENCES users,
         licence text,
         planted text,
-        created_at timestamptz NOT NULL DEFAULT now(),
-        -- NULLS NOT DISTINCT: corpus documents have no owner, and without it re-ingesting a corpus
-        -- would insert every document again.
-        UNIQUE NULLS NOT DISTINCT (content_hash, collection_id, access_groups, owner_id)
+        created_at timestamptz NOT NULL DEFAULT now()
     );
+    -- What makes two documents one: for a corpus document its collection and key, for an upload
+    -- its bytes, collection, groups and owner. Two indexes rather than one constraint, so that a
+    -- corpus document and an upload of the same bytes are never one row: neither can take over or
+    -- remove the other.
+    CREATE UNIQUE INDEX documents_corpus ON documents (collection_id, manifest_key)
+        WHERE manifest_key IS NOT NULL;
+    -- NULLS NOT DISTINCT: uploads have no owner before M3, and without it uploading a file twice
+    -- would insert it twice.
+    CREATE UNIQUE INDEX documents_upload
+        ON documents (content_hash, collection_id, access_groups, owner_id) NULLS NOT DISTINCT
+        WHERE manifest_key IS NULL;
 
     CREATE TABLE indexes (
         id serial PRIMARY KEY,

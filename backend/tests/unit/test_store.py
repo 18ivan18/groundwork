@@ -2,11 +2,13 @@
 
 import math
 from collections.abc import AsyncIterator, Callable
+from dataclasses import replace
 from datetime import date
 
 import pytest
 from conftest import empty_database
 from psycopg.conninfo import make_conninfo
+from psycopg.errors import DataException
 
 from groundwork.db.pool import Pool, open_pool
 from groundwork.domain.models import Chunk, DocumentMeta, SearchFilters
@@ -258,6 +260,134 @@ async def test_publishing_a_write_publishes_the_ones_before_it(store: ChunkStore
 
     assert await store.generation() == 1
     assert await store.publish() is None
+
+
+# Corpus documents
+
+
+async def test_a_corpus_document_and_an_upload_of_the_same_bytes_are_two_documents(
+    store: ChunkStore,
+) -> None:
+    corpus = await store.add(meta("a"), "same", chunks("a"), [vector(1)], manifest_key="a")
+    upload = await store.add(meta("a"), "same", chunks("a"), [vector(1)])
+
+    assert corpus.doc_id != upload.doc_id
+    assert [item.document.doc_id for item in await store.corpus_documents()] == [corpus.doc_id]
+    # An upload of those bytes again is the upload, not the corpus document.
+    assert await store.find_document("same", meta("a")) == upload.doc_id
+    assert (await store.add(meta("a"), "same", chunks("a"), [vector(1)])).doc_id == upload.doc_id
+
+
+async def test_find_upload_never_finds_a_corpus_document(store: ChunkStore) -> None:
+    corpus = await store.add(meta("a"), "same", chunks("a"), [vector(1)], manifest_key="a")
+
+    assert await store.find_document("same", meta("a")) == corpus.doc_id
+    assert await store.find_upload("same", meta("a")) is None
+
+    upload = await store.add(meta("a"), "same", chunks("a"), [vector(1)])
+
+    assert await store.find_upload("same", meta("a")) == upload.doc_id
+
+
+async def test_a_corpus_document_stored_again_unchanged_keeps_its_id(store: ChunkStore) -> None:
+    first = await store.add(
+        meta("a", groups=("hr", "everyone")),
+        "h",
+        chunks("a", "b"),
+        [vector(1)] * 2,
+        manifest_key="a",
+    )
+
+    again = await store.add(
+        meta("a", groups=("everyone", "hr")), "h", chunks("c"), [vector(1)], manifest_key="a"
+    )
+
+    assert again.doc_id == first.doc_id
+    assert [chunk.text for chunk, _ in await store.all_passages()] == ["c"]
+
+
+async def test_one_key_in_two_collections_is_two_documents(store: ChunkStore) -> None:
+    await store.add(meta("a"), "h1", chunks("a"), [vector(1)], manifest_key="a")
+    await store.add(meta("a", collection="news"), "h2", chunks("b"), [vector(1)], manifest_key="a")
+
+    assert await store.count_documents() == 2
+
+
+async def test_a_changed_corpus_document_replaces_the_old_one_to_publish(store: ChunkStore) -> None:
+    old = await store.add(meta("a"), "h1", chunks("old"), [vector(1)], manifest_key="a")
+    await store.publish()
+
+    new = await store.add(meta("a"), "h2", chunks("new"), [vector(1)], manifest_key="a")
+
+    # A new id, so that a BM25 index from before cannot lead to the new text.
+    assert new.doc_id != old.doc_id
+    [item] = await store.corpus_documents()
+    assert (item.document, item.key, item.content_hash, item.in_index) == (new, "a", "h2", True)
+    assert [chunk.text for chunk, _ in await store.all_passages()] == ["new"]
+    assert await store.publish() == 2
+
+
+async def test_removed_corpus_documents_are_gone_and_to_publish(store: ChunkStore) -> None:
+    gone = await store.add(meta("a"), "h1", chunks("a"), [vector(1)], manifest_key="a")
+    kept = await store.add(meta("b"), "h2", chunks("b"), [vector(1)], manifest_key="b")
+    await store.publish()
+
+    await store.remove_corpus_documents([gone.doc_id, "12345"])
+
+    assert [document for document, _ in await store.documents()] == [kept]
+    assert [item.document for item in await store.corpus_documents()] == [kept]
+    assert await store.get([f"{gone.doc_id}:0"]) == {}
+    assert await store.publish_all() == {store.index.name: 2}
+
+
+async def test_removing_corpus_documents_never_removes_an_upload(store: ChunkStore) -> None:
+    upload = await store.add(meta("a"), "h1", chunks("a"), [vector(1)])
+    await store.publish()
+
+    await store.remove_corpus_documents([upload.doc_id])
+
+    assert [document for document, _ in await store.documents()] == [upload]
+    assert await store.publish() is None
+
+
+async def test_removing_nothing_leaves_nothing_to_publish(store: ChunkStore) -> None:
+    await store.remove_corpus_documents([])
+
+    assert await store.publish_all() == {}
+
+
+async def test_removed_documents_are_published_by_another_store_instance(
+    open_store: OpenStore,
+) -> None:
+    store = open_store()
+    gone = await store.add(meta("a"), "h1", chunks("a"), [vector(1)], manifest_key="a")
+    await store.publish()
+    await store.remove_corpus_documents([gone.doc_id])
+
+    assert await open_store().publish() == 2
+
+
+@pytest.mark.db
+async def test_a_failed_replacement_changes_no_index(pool: Pool) -> None:
+    spec = IndexSpec(name="a", chunker="window", embedder_model="fake", dimension=DIMENSION)
+    a = PgVectorStore(pool, await ensure_index(pool, spec))
+    b = PgVectorStore(pool, await ensure_index(pool, replace(spec, name="b")))
+    for store in (a, b):
+        await store.add(meta("old"), "h1", chunks("old"), [vector(1)], manifest_key="a")
+        await store.publish()
+
+    # The last chunk's vector has the wrong length, so its insert fails after the first's.
+    with pytest.raises(DataException):
+        await a.add(
+            meta("new"), "h2", chunks("new", "er"), [vector(1), [1.0] * 5], manifest_key="a"
+        )
+
+    for store in (a, b):
+        [(document, count)] = await store.documents()
+        assert (document.title, count) == ("old", 1)
+        assert await store.publish() is None
+    [item] = await a.corpus_documents()
+    assert item.content_hash == "h1"
 
 
 # Dense search through the HNSW index: Postgres only.

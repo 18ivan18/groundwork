@@ -5,7 +5,8 @@ statement after five runs, and a generic plan for `index_id = $1` cannot use the
 index, so a parameter there would quietly turn the vector search into a sequential scan.
 """
 
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Iterable, Sequence
+from contextlib import asynccontextmanager
 from typing import Any
 
 import numpy as np
@@ -25,11 +26,14 @@ from groundwork.domain.models import (
 )
 from groundwork.retrieval import indexes
 from groundwork.retrieval.indexes import IndexInfo, vector_cast
-from groundwork.retrieval.store import DenseHit, normalized_groups
+from groundwork.retrieval.store import CorpusDocument, DenseHit, normalized_groups
 
 # pgvector's default and limit for hnsw.ef_search, the most chunks one pass over the graph finds.
 _DEFAULT_EF_SEARCH = 40
 _MAX_EF_SEARCH = 1000
+
+# The advisory lock a corpus sync holds. Any number that nothing else in this database locks.
+_SYNC_LOCK = 139_000_001
 
 _DOCUMENT_COLUMNS = (
     "d.id, d.title, d.collection_id, d.doc_type, d.doc_date, d.filename, d.metadata, "
@@ -112,12 +116,18 @@ class PgVectorStore:
         return self._pool
 
     async def find_document(self, content_hash: str, meta: DocumentMeta) -> str | None:
+        return await self._find(content_hash, meta, "")
+
+    async def find_upload(self, content_hash: str, meta: DocumentMeta) -> str | None:
+        return await self._find(content_hash, meta, "AND d.manifest_key IS NULL ")
+
+    async def _find(self, content_hash: str, meta: DocumentMeta, only: str) -> str | None:
         async with self._pool.connection() as connection:
             cursor = await connection.execute(
                 f"SELECT d.id FROM documents d WHERE d.content_hash = %s AND d.collection_id = %s "
-                f"AND d.access_groups = %s AND d.owner_id IS NOT DISTINCT FROM %s "
+                f"AND d.access_groups = %s AND d.owner_id IS NOT DISTINCT FROM %s {only}"
                 f"AND EXISTS (SELECT 1 FROM chunks c WHERE c.index_id = {self._id} "
-                f"AND c.document_id = d.id)",
+                f"AND c.document_id = d.id) ORDER BY d.manifest_key IS NOT NULL, d.id LIMIT 1",
                 (
                     content_hash,
                     meta.collection_id,
@@ -135,12 +145,36 @@ class PgVectorStore:
         chunks: Sequence[Chunk],
         embeddings: Sequence[Sequence[float]],
         *,
+        manifest_key: str | None = None,
         publish: bool = False,
     ) -> Document:
         if len(chunks) != len(embeddings):
             raise ValueError("Every chunk needs one embedding")
         async with self._pool.connection() as connection, connection.transaction():
-            document = await self._upsert_document(connection, meta, content_hash)
+            # Every writer locks in the same order, so two can't deadlock: the collection, the
+            # document, its chunks, and last the rows of the indexes, by id.
+            await connection.execute(
+                "INSERT INTO collections (id, name) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                (meta.collection_id, meta.collection_id),
+            )
+            changed = {self._id}
+            if manifest_key is None:
+                document = await self._upsert_upload(connection, meta, content_hash)
+            else:
+                stored = await self._corpus_documents(
+                    connection,
+                    "WHERE d.collection_id = %s AND d.manifest_key = %s FOR UPDATE OF d",
+                    (meta.collection_id, manifest_key),
+                )
+                if stored and stored[0].is_current(content_hash, meta):
+                    document = stored[0].document
+                else:
+                    changed |= await self._remove(
+                        connection, [item.document.doc_id for item in stored]
+                    )
+                    document = await self._insert_document(
+                        connection, meta, content_hash, manifest_key
+                    )
             rows = [
                 (
                     self._id,
@@ -180,27 +214,39 @@ class PgVectorStore:
                 f"AND ordinal >= %s",
                 (int(document.doc_id), len(chunks)),
             )
-            await indexes.mark_unpublished(connection, self._id)
+            await self._mark_unpublished(connection, changed)
             if publish:
                 await indexes.publish(connection, self._id)
         return document
 
-    async def _upsert_document(
+    async def _upsert_upload(
         self, connection: AsyncConnection[TupleRow], meta: DocumentMeta, content_hash: str
     ) -> Document:
-        await connection.execute(
-            "INSERT INTO collections (id, name) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-            (meta.collection_id, meta.collection_id),
-        )
         # The no-op update makes RETURNING give the existing row, whose tags are kept.
-        cursor = await connection.execute(
-            "INSERT INTO documents AS d (content_hash, collection_id, title, filename, doc_type, "
-            "doc_date, metadata, access_groups, owner_id) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+        return await self._insert_document(
+            connection,
+            meta,
+            content_hash,
+            None,
             "ON CONFLICT (content_hash, collection_id, access_groups, owner_id) "
-            "DO UPDATE SET content_hash = EXCLUDED.content_hash "
+            "WHERE manifest_key IS NULL DO UPDATE SET content_hash = EXCLUDED.content_hash ",
+        )
+
+    async def _insert_document(
+        self,
+        connection: AsyncConnection[TupleRow],
+        meta: DocumentMeta,
+        content_hash: str,
+        manifest_key: str | None,
+        on_conflict: str = "",
+    ) -> Document:
+        cursor = await connection.execute(
+            "INSERT INTO documents AS d (manifest_key, content_hash, collection_id, title, "
+            "filename, doc_type, doc_date, metadata, access_groups, owner_id) "
+            f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) {on_conflict}"
             f"RETURNING {_DOCUMENT_COLUMNS}",
             (
+                manifest_key,
                 content_hash,
                 meta.collection_id,
                 meta.title,
@@ -215,6 +261,64 @@ class PgVectorStore:
         row = await cursor.fetchone()
         assert row is not None
         return _document(row)
+
+    async def corpus_documents(self) -> list[CorpusDocument]:
+        async with self._pool.connection() as connection:
+            return await self._corpus_documents(
+                connection, "WHERE d.manifest_key IS NOT NULL ORDER BY d.id"
+            )
+
+    async def _corpus_documents(
+        self, connection: AsyncConnection[TupleRow], where: str, params: Sequence[Any] = ()
+    ) -> list[CorpusDocument]:
+        cursor = await connection.execute(
+            f"SELECT {_DOCUMENT_COLUMNS}, d.manifest_key, d.content_hash, "
+            f"EXISTS (SELECT 1 FROM chunks c WHERE c.index_id = {self._id} "
+            f"AND c.document_id = d.id) FROM documents d {where}",
+            params,
+        )
+        return [
+            CorpusDocument(_document(row[:10]), key=row[10], content_hash=row[11], in_index=row[12])
+            for row in await cursor.fetchall()
+        ]
+
+    async def remove_corpus_documents(self, doc_ids: Sequence[str]) -> None:
+        async with self._pool.connection() as connection, connection.transaction():
+            await self._mark_unpublished(connection, await self._remove(connection, doc_ids))
+
+    @staticmethod
+    async def _remove(connection: AsyncConnection[TupleRow], doc_ids: Sequence[str]) -> set[int]:
+        """Delete corpus documents and their chunks. The ids of the indexes that held any."""
+        # Locked first: nothing can add chunks of these documents between here and the commit.
+        cursor = await connection.execute(
+            "SELECT id FROM documents WHERE id = ANY(%s) AND manifest_key IS NOT NULL "
+            "ORDER BY id FOR UPDATE",
+            ([int(doc_id) for doc_id in doc_ids],),
+        )
+        ids = [doc_id for (doc_id,) in await cursor.fetchall()]
+        cursor = await connection.execute(
+            "WITH gone AS (DELETE FROM chunks WHERE document_id = ANY(%s) RETURNING index_id) "
+            "SELECT DISTINCT index_id FROM gone",
+            (ids,),
+        )
+        held = {int(index_id) for (index_id,) in await cursor.fetchall()}
+        await connection.execute("DELETE FROM documents WHERE id = ANY(%s)", (ids,))
+        return held
+
+    @staticmethod
+    async def _mark_unpublished(
+        connection: AsyncConnection[TupleRow], index_ids: Iterable[int]
+    ) -> None:
+        for index_id in sorted(index_ids):
+            await indexes.mark_unpublished(connection, index_id)
+
+    @asynccontextmanager
+    async def syncing(self) -> AsyncIterator[None]:
+        # Keeps one connection for the whole sync. The lock goes with its transaction, so also
+        # when the process dies.
+        async with self._pool.connection() as connection, connection.transaction():
+            await connection.execute("SELECT pg_advisory_xact_lock(%s)", (_SYNC_LOCK,))
+            yield
 
     def search_sql(
         self, query_embedding: Sequence[float], n: int, filters: SearchFilters | None = None
@@ -331,6 +435,21 @@ class PgVectorStore:
     async def publish(self) -> int | None:
         async with self._pool.connection() as connection:
             return await indexes.publish(connection, self._id)
+
+    async def publish_all(self) -> dict[str, int]:
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                "SELECT id, name FROM indexes WHERE unpublished ORDER BY id"
+            )
+            rows = await cursor.fetchall()
+        published = {}
+        for index_id, name in rows:
+            # One transaction each: holding several rows could deadlock with another writer.
+            async with self._pool.connection() as connection:
+                generation = await indexes.publish(connection, index_id)
+            if generation is not None:
+                published[name] = generation
+        return published
 
     async def _count(self, sql: str, params: tuple[Any, ...] = ()) -> int:
         async with self._pool.connection() as connection:

@@ -1,7 +1,9 @@
 """A chunk store in memory: exact cosine search over a list. For tests that need no database."""
 
+import asyncio
 import itertools
-from collections.abc import Iterator, Sequence
+from collections.abc import AsyncIterator, Iterator, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
@@ -15,9 +17,7 @@ from groundwork.domain.models import (
     make_chunk_id,
 )
 from groundwork.retrieval.indexes import IndexInfo, IndexSpec
-from groundwork.retrieval.store import DenseHit, matches, normalized_groups
-
-_Identity = tuple[str, str, tuple[str, ...], str | None]
+from groundwork.retrieval.store import CorpusDocument, DenseHit, matches, normalized_groups
 
 
 def memory_index(dimension: int, name: str = "memory") -> IndexInfo:
@@ -31,17 +31,26 @@ def _unit(vector: Sequence[float]) -> np.ndarray:
     return array / norm if norm else array
 
 
+@dataclass(frozen=True)
+class _Stored:
+    document: Document
+    content_hash: str
+    # None for an upload.
+    manifest_key: str | None
+
+
 @dataclass
 class MemoryData:
     """What a MemoryStore holds. Two stores given the same data behave like two processes on one
     database."""
 
     ids: Iterator[int] = field(default_factory=lambda: itertools.count(1))
-    documents: dict[_Identity, Document] = field(default_factory=dict)
+    documents: dict[str, _Stored] = field(default_factory=dict)
     # doc_id -> its chunks and their unit vectors, in order.
     chunks: dict[str, list[tuple[Chunk, np.ndarray]]] = field(default_factory=dict)
     generation: int = 0
     unpublished: bool = False
+    sync_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
 class MemoryStore:
@@ -53,14 +62,34 @@ class MemoryStore:
     def index(self) -> IndexInfo:
         return self._index
 
-    @staticmethod
-    def _identity(content_hash: str, meta: DocumentMeta) -> _Identity:
+    def _identical(self, content_hash: str, meta: DocumentMeta) -> list[_Stored]:
+        """The documents with these bytes, collection, groups and owner, uploads first."""
         groups = normalized_groups(meta.access_groups)
-        return (content_hash, meta.collection_id, groups, meta.owner_id)
+        identity = (content_hash, meta.collection_id, groups, meta.owner_id)
+        found = [
+            stored
+            for stored in self._data.documents.values()
+            if identity
+            == (
+                stored.content_hash,
+                stored.document.collection_id,
+                stored.document.access_groups,
+                stored.document.owner_id,
+            )
+        ]
+        return sorted(found, key=lambda stored: stored.manifest_key is not None)
 
     async def find_document(self, content_hash: str, meta: DocumentMeta) -> str | None:
-        document = self._data.documents.get(self._identity(content_hash, meta))
-        return document.doc_id if document and self._data.chunks.get(document.doc_id) else None
+        for stored in self._identical(content_hash, meta):
+            if self._data.chunks.get(stored.document.doc_id):
+                return stored.document.doc_id
+        return None
+
+    async def find_upload(self, content_hash: str, meta: DocumentMeta) -> str | None:
+        for stored in self._identical(content_hash, meta):
+            if stored.manifest_key is None and self._data.chunks.get(stored.document.doc_id):
+                return stored.document.doc_id
+        return None
 
     async def add(
         self,
@@ -69,12 +98,23 @@ class MemoryStore:
         chunks: Sequence[Chunk],
         embeddings: Sequence[Sequence[float]],
         *,
+        manifest_key: str | None = None,
         publish: bool = False,
     ) -> Document:
         if len(chunks) != len(embeddings):
             raise ValueError("Every chunk needs one embedding")
-        identity = self._identity(content_hash, meta)
-        document = self._data.documents.get(identity)
+        document: Document | None = None
+        if manifest_key is None:
+            for stored in self._identical(content_hash, meta):
+                if stored.manifest_key is None:
+                    document = stored.document
+        else:
+            for item in await self.corpus_documents():
+                if (item.document.collection_id, item.key) == (meta.collection_id, manifest_key):
+                    if item.is_current(content_hash, meta):
+                        document = item.document
+                    else:
+                        await self.remove_corpus_documents([item.document.doc_id])
         if document is None:
             document = Document(
                 title=meta.title,
@@ -83,12 +123,12 @@ class MemoryStore:
                 doc_date=meta.doc_date,
                 filename=meta.filename,
                 metadata=dict(meta.metadata),
-                access_groups=identity[2],
+                access_groups=normalized_groups(meta.access_groups),
                 owner_id=meta.owner_id,
                 doc_id=str(next(self._data.ids)),
                 ingested_at=datetime.now(UTC),
             )
-            self._data.documents[identity] = document
+            self._data.documents[document.doc_id] = _Stored(document, content_hash, manifest_key)
         self._data.chunks[document.doc_id] = [
             (
                 replace(chunk, chunk_id=make_chunk_id(document.doc_id, i), doc_id=document.doc_id),
@@ -101,8 +141,32 @@ class MemoryStore:
             self._publish()
         return document
 
+    async def corpus_documents(self) -> list[CorpusDocument]:
+        return [
+            CorpusDocument(
+                stored.document,
+                key=stored.manifest_key,
+                content_hash=stored.content_hash,
+                in_index=bool(self._data.chunks.get(doc_id)),
+            )
+            for doc_id, stored in self._data.documents.items()
+            if stored.manifest_key is not None
+        ]
+
+    async def remove_corpus_documents(self, doc_ids: Sequence[str]) -> None:
+        for doc_id in doc_ids:
+            if doc_id in self._data.documents and self._data.documents[doc_id].manifest_key:
+                del self._data.documents[doc_id]
+                if self._data.chunks.pop(doc_id, []):
+                    self._data.unpublished = True
+
+    @asynccontextmanager
+    async def syncing(self) -> AsyncIterator[None]:
+        async with self._data.sync_lock:
+            yield
+
     def _by_id(self) -> dict[str, Document]:
-        return {document.doc_id: document for document in self._data.documents.values()}
+        return {doc_id: stored.document for doc_id, stored in self._data.documents.items()}
 
     def _passages(
         self, filters: SearchFilters | None = None
@@ -165,6 +229,10 @@ class MemoryStore:
 
     async def publish(self) -> int | None:
         return self._publish()
+
+    async def publish_all(self) -> dict[str, int]:
+        generation = self._publish()
+        return {} if generation is None else {self._index.name: generation}
 
     def _publish(self) -> int | None:
         if not self._data.unpublished:
