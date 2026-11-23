@@ -2,6 +2,7 @@
 
 import asyncio
 import itertools
+import uuid
 from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field, replace
@@ -16,7 +17,7 @@ from groundwork.domain.models import (
     SearchFilters,
     make_chunk_id,
 )
-from groundwork.retrieval.indexes import IndexInfo, IndexSpec
+from groundwork.retrieval.indexes import IndexInfo, IndexSpec, Publication
 from groundwork.retrieval.store import CorpusDocument, DenseHit, matches, normalized_groups
 
 
@@ -49,6 +50,7 @@ class MemoryData:
     # doc_id -> its chunks and their unit vectors, in order.
     chunks: dict[str, list[tuple[Chunk, np.ndarray]]] = field(default_factory=dict)
     generation: int = 0
+    token: str = field(default_factory=lambda: str(uuid.uuid4()))
     unpublished: bool = False
     sync_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
@@ -227,6 +229,9 @@ class MemoryStore:
     async def generation(self) -> int:
         return self._data.generation
 
+    async def publication(self) -> Publication:
+        return Publication(self._data.generation, self._data.token, self._data.unpublished)
+
     async def publish(self) -> int | None:
         return self._publish()
 
@@ -238,5 +243,6 @@ class MemoryStore:
         if not self._data.unpublished:
             return None
         self._data.generation += 1
+        self._data.token = str(uuid.uuid4())
         self._data.unpublished = False
         return self._data.generation

@@ -10,7 +10,7 @@ from dataclasses import dataclass, fields
 from typing import Any, Protocol
 
 from groundwork.domain.models import Chunk, Document, DocumentMeta, SearchFilters
-from groundwork.retrieval.indexes import IndexInfo
+from groundwork.retrieval.indexes import IndexInfo, Publication
 
 
 @dataclass(frozen=True)
@@ -139,6 +139,10 @@ class ChunkStore(Protocol):
     async def generation(self) -> int:
         """Changes when writes are published, so a BM25 index built from the chunks knows it is
         old."""
+        ...
+
+    async def publication(self) -> Publication:
+        """The last publication: what a saved BM25 index must match to be loaded."""
         ...
 
     async def publish(self) -> int | None:

@@ -3,15 +3,12 @@
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import psycopg
 import pytest
-from alembic import command
-from alembic.config import Config as AlembicConfig
-from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 from groundwork.config import Settings
+from groundwork.db import databases
 from groundwork.db.pool import Pool, open_pool
 from groundwork.ingestion.corpora_bundle import LOCAL_CORPORA_ENV
 
@@ -35,44 +32,29 @@ TEST_DATABASE_URL = os.environ.get(
 def database_url() -> str:
     """The migrated test database. Skips the test without Postgres, or fails it under
     REQUIRE_DB=1, so CI cannot pass by skipping."""
-    admin = make_conninfo(TEST_DATABASE_URL, dbname="postgres")
-    name = conninfo_to_dict(TEST_DATABASE_URL)["dbname"]
     try:
-        with psycopg.connect(admin, autocommit=True, connect_timeout=3) as connection:
-            exists = connection.execute(
-                "SELECT 1 FROM pg_database WHERE datname = %s", (name,)
-            ).fetchone()
-            if not exists:
-                connection.execute(f'CREATE DATABASE "{name}"')
+        databases.create_and_migrate(TEST_DATABASE_URL)
     except psycopg.OperationalError as error:
         if os.environ.get("REQUIRE_DB") == "1":
             raise
         pytest.skip(f"No Postgres at TEST_DATABASE_URL: {error}")
-    previous = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
-    try:
-        command.upgrade(AlembicConfig(str(Path(__file__).parents[1] / "alembic.ini")), "head")
-    finally:
-        if previous is None:
-            del os.environ["DATABASE_URL"]
-        else:
-            os.environ["DATABASE_URL"] = previous
     return TEST_DATABASE_URL
+
+
+async def recreate(pool: Pool) -> None:
+    """Empty the test database and start its ids again, as in a newly created one."""
+    async with pool.connection() as connection:
+        await connection.execute(
+            "TRUNCATE indexes, documents, collections, users RESTART IDENTITY CASCADE"
+        )
 
 
 @asynccontextmanager
 async def empty_database(database_url: str) -> AsyncIterator[Pool]:
     """A pool on the test database, emptied first."""
     opened = await open_pool(database_url, max_size=4)
-    async with opened.connection() as connection:
-        await connection.execute("TRUNCATE indexes, documents, collections, users CASCADE")
-        # Partial HNSW indexes outlive the rows they were built for.
-        cursor = await connection.execute(
-            "SELECT indexname FROM pg_indexes WHERE indexname LIKE 'chunks_hnsw_%'"
-        )
-        for (index_name,) in await cursor.fetchall():
-            await connection.execute(f'DROP INDEX "{index_name}"')
     try:
+        await databases.empty_database(opened, databases.database_name(database_url))
         yield opened
     finally:
         await opened.close()

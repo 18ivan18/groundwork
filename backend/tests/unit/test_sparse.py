@@ -1,11 +1,19 @@
+import itertools
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+from conftest import recreate
+
+from groundwork.db.pool import Pool
 from groundwork.domain.models import Chunk, Document, SearchFilters
 from groundwork.retrieval.embedder import FakeEmbedder
-from groundwork.retrieval.memory_store import MemoryStore, memory_index
+from groundwork.retrieval.indexes import IndexSpec, ensure_index
+from groundwork.retrieval.memory_store import MemoryData, MemoryStore, memory_index
+from groundwork.retrieval.pgvector_store import PgVectorStore
 from groundwork.retrieval.sparse import Positions, SparseCache, SparseIndex
+from groundwork.retrieval.store import ChunkStore
 
 DOCUMENT = Document(
     title="Report",
@@ -98,6 +106,9 @@ def test_groups_get_one_bit_each_per_build() -> None:
     assert positions.group_bits.tolist() == [0b01, 0b11]
 
 
+INDEX = memory_index(FakeEmbedder().dimension)
+
+
 class GenerationStore(MemoryStore):
     """Counts how often BM25 is rebuilt from it."""
 
@@ -109,13 +120,13 @@ class GenerationStore(MemoryStore):
 
 
 async def store_with(*texts: str) -> GenerationStore:
-    store = GenerationStore(memory_index(FakeEmbedder().dimension))
+    store = GenerationStore(INDEX)
     chunks = [Chunk("x", "x", text, (), None, 0, 1) for text in texts]
     await store.add(DOCUMENT, "hash", chunks, FakeEmbedder().embed_documents(list(texts)))
     return store
 
 
-async def add_beta(store: GenerationStore) -> None:
+async def add_beta(store: MemoryStore) -> None:
     await store.add(OTHER, "beta", [Chunk("x", "x", "BETA anvils", (), None, 0, 1)], [[1.0] * 64])
 
 
@@ -137,15 +148,118 @@ async def test_the_cache_rebuilds_only_when_the_generation_moves(tmp_path: Path)
     assert store.builds == 2
 
 
+def saved_generations(root: Path) -> list[int]:
+    return sorted(int(path.name.split("-")[0]) for path in (root / "1").iterdir())
+
+
 async def test_a_second_worker_loads_the_saved_generation(tmp_path: Path) -> None:
     store = await store_with("ACME sells anvils")
+    await store.publish()
     await SparseCache(store, tmp_path).current()
 
     loaded = await SparseCache(store, tmp_path).current()
 
     assert store.builds == 1
     assert ids(loaded.search("anvils", 5)) == ["1:0"]
-    assert sorted(p.name for p in (tmp_path / "1").iterdir()) == ["0"]
+    assert saved_generations(tmp_path) == [1]
+
+
+async def publish_document(store: ChunkStore, title: str, text: str) -> None:
+    """Store one document and publish it."""
+    document = replace(DOCUMENT, title=title)
+    chunk = Chunk("x", "x", text, (), None, 0, 1)
+    vectors = FakeEmbedder().embed_documents([text])
+    await store.add(document, title, [chunk], vectors, publish=True)
+
+
+def backup_of(data: MemoryData) -> MemoryData:
+    return replace(
+        data,
+        ids=itertools.count(len(data.documents) + 1),
+        documents=dict(data.documents),
+        chunks=dict(data.chunks),
+    )
+
+
+async def found(store: ChunkStore, root: Path, query: str) -> list[str]:
+    """What a worker started now finds through BM25."""
+    return ids((await SparseCache(store, root).current()).search(query, 5))
+
+
+async def test_a_recreated_database_is_not_served_the_old_index(tmp_path: Path) -> None:
+    """Both databases reach generation 1 of index 1, and number their first document 1."""
+    old, new = GenerationStore(INDEX), GenerationStore(INDEX)
+    await publish_document(old, "anvils", "ACME sells anvils")
+    assert await found(old, tmp_path, "anvils") == ["1:0"]
+
+    await publish_document(new, "roofs", "The warehouse roof leaks")
+
+    assert await found(new, tmp_path, "anvils") == []
+    assert await found(new, tmp_path, "roof") == ["1:0"]
+
+
+@pytest.mark.db
+async def test_a_recreated_postgres_database_is_not_served_the_old_index(
+    pool: Pool, tmp_path: Path
+) -> None:
+    await recreate(pool)
+    spec = IndexSpec(name="test", chunker="window", embedder_model="fake", dimension=64)
+    old = PgVectorStore(pool, await ensure_index(pool, spec))
+    await publish_document(old, "anvils", "ACME sells anvils")
+    assert await found(old, tmp_path, "anvils") == ["1:0"]
+
+    await recreate(pool)
+    new = PgVectorStore(pool, await ensure_index(pool, spec))
+    await publish_document(new, "roofs", "The warehouse roof leaks")
+
+    assert (new.index.id, await new.generation()) == (old.index.id, 1)
+    assert await found(new, tmp_path, "anvils") == []
+    assert await found(new, tmp_path, "roof") == ["1:0"]
+
+
+async def test_a_restored_database_is_not_served_a_later_index(tmp_path: Path) -> None:
+    data = MemoryData()
+    store = MemoryStore(INDEX, data)
+    await publish_document(store, "lease", "The lease ends in May")
+    backup = backup_of(data)
+    await publish_document(store, "anvils", "ACME sells anvils")
+    assert await found(store, tmp_path, "anvils") == ["2:0"]
+
+    restored = MemoryStore(INDEX, backup)
+    await publish_document(restored, "roofs", "The warehouse roof leaks")
+
+    assert await found(restored, tmp_path, "anvils") == []
+    assert await found(restored, tmp_path, "roof") == ["2:0"]
+
+
+async def test_unpublished_writes_are_not_saved_under_the_publication_before_them(
+    tmp_path: Path,
+) -> None:
+    """A backup from before an interrupted ingest has the publication BM25 was built under, but
+    not the writes it was built from."""
+    data = MemoryData()
+    store = MemoryStore(INDEX, data)
+    await publish_document(store, "lease", "The lease ends in May")
+    backup = backup_of(data)
+    await add_beta(store)
+    assert await found(store, tmp_path, "anvils") == ["2:0"]
+
+    assert await found(MemoryStore(INDEX, backup), tmp_path, "anvils") == []
+
+
+async def test_a_running_worker_notices_a_restored_database(tmp_path: Path) -> None:
+    """The generation it has loaded comes back with other documents."""
+    data = MemoryData()
+    store = MemoryStore(INDEX, data)
+    backup = backup_of(data)
+    await publish_document(store, "anvils", "ACME sells anvils")
+    cache = SparseCache(store, tmp_path, check_seconds=0)
+    assert ids((await cache.current()).search("anvils", 5)) == ["1:0"]
+
+    vars(data).update(vars(backup))
+    await publish_document(store, "roofs", "The warehouse roof leaks")
+
+    assert ids((await cache.current()).search("anvils", 5)) == []
 
 
 async def test_old_generations_are_removed(tmp_path: Path) -> None:
@@ -155,7 +269,19 @@ async def test_old_generations_are_removed(tmp_path: Path) -> None:
         await add_beta(store)
         await store.publish()
 
-    assert sorted(p.name for p in (tmp_path / "1").iterdir()) == ["1", "2"]
+    assert saved_generations(tmp_path) == [1, 2]
+
+
+async def test_indexes_of_recreated_databases_do_not_pile_up(
+    tmp_path: Path,
+) -> None:
+    """Each of them reaches generation 1 again."""
+    for _ in range(3):
+        store = GenerationStore(INDEX)
+        await publish_document(store, "anvils", "ACME sells anvils")
+        await SparseCache(store, tmp_path).current()
+
+    assert saved_generations(tmp_path) == [1]
 
 
 def test_document_title_and_section_are_searchable() -> None:

@@ -1,8 +1,9 @@
 """EXPLAIN ANALYZE the dense query the store runs, for docs/RETRIEVAL.md.
 
-Run from backend/: uv run python scripts/explain_search.py [--index NAME] [--query TEXT]
+Run from backend/: uv run python scripts/explain_search.py [--eval] [--index NAME] [--query TEXT]
 
-Prints, for one index (the active one unless --index names another):
+Prints, for one index (the active one unless --index names another; with --eval, an index the
+last eval run left in the eval database):
 1. the plain top-20 query,
 2. the same with a selective collection filter and pgvector's iterative scan,
 3. the plain query at three hnsw.ef_search values, with the overlap of their results,
@@ -26,6 +27,7 @@ from psycopg import AsyncClientCursor, AsyncConnection
 
 from groundwork.config import Settings
 from groundwork.container import build_embedder
+from groundwork.db.databases import eval_database_url
 from groundwork.db.pool import open_pool
 from groundwork.domain.models import SearchFilters
 from groundwork.retrieval.indexes import active_index, get_index
@@ -74,15 +76,21 @@ SAMPLE_QUESTIONS = [
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--index")
+    parser.add_argument(
+        "--eval", action="store_true", help="Read the eval database. Needs --index."
+    )
     parser.add_argument("--query", default="How many weeks of parental leave do employees get?")
     parser.add_argument("--collection", default="northwind")
     parser.add_argument("--questions", type=Path, help="Compare HNSW with exact search on these.")
     args = parser.parse_args()
+    if args.eval and not args.index:
+        parser.error("--eval needs --index: no index is active in the eval database")
 
     settings = Settings()
+    database_url = eval_database_url(settings.database_url) if args.eval else settings.database_url
     embedder = build_embedder(settings)
     vector = embedder.embed_query(args.query)
-    pool = await open_pool(settings.database_url)
+    pool = await open_pool(database_url)
     try:
         index = await (get_index(pool, args.index) if args.index else active_index(pool))
         assert index is not None, "no such index"
@@ -97,7 +105,7 @@ async def main() -> None:
         # SET LOCAL ends with it, and nothing is prepared: a prepared statement keeps its plan
         # when settings change.
         async with await AsyncConnection.connect(
-            settings.database_url, autocommit=True, prepare_threshold=None
+            database_url, autocommit=True, prepare_threshold=None
         ) as connection:
             await register_vector_async(connection)
             await connection.execute(plain_sql, plain)  # warm the cache

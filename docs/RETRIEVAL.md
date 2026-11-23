@@ -5,7 +5,8 @@ from the 205 documents of `corpora-v1` in four collections, `bge-small-en-v1.5` 
 pgvector 0.8.7, HNSW with `m = 16`, `ef_construction = 64`. Every number here comes from
 
 ```sh
-uv run python scripts/explain_search.py --index eval-window-400-header-bge-small \
+uv run python eval/run_eval.py    # leaves its indexes in the eval database
+uv run python scripts/explain_search.py --eval --index window-400-header-bge-small \
     --questions eval/questions.jsonl
 ```
 
