@@ -2,16 +2,26 @@
 corpora bundle."""
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 
-def write_collection(raw: Path, name: str, documents: list[dict[str, Any]], **fields: Any) -> Path:
-    """A collection folder under raw: each document's file holds "text", beside a manifest."""
+def write_collection(
+    raw: Path,
+    name: str,
+    documents: list[dict[str, Any]],
+    *,
+    texts: Mapping[str, str] | None = None,
+    **fields: Any,
+) -> Path:
+    """A collection folder under raw: each document's file beside a manifest. A file holds its
+    entry in `texts`, or "text"."""
+    texts = texts or {}
     folder = raw / name
     folder.mkdir(parents=True)
     for document in documents:
-        (folder / document["filename"]).write_text("text")
+        (folder / document["filename"]).write_text(texts.get(document["filename"], "text"))
     manifest = {
         "collection": name,
         "description": "Test documents.",

@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -7,10 +6,9 @@ import pytest
 from groundwork.domain.models import DocumentMeta, content_hash, make_chunk_id, parse_chunk_id
 from groundwork.ingestion import pipeline
 from groundwork.ingestion.loaders import LoadedDocument
-from groundwork.ingestion.pipeline import ingest_corpus, ingest_file, prepare_document
+from groundwork.ingestion.pipeline import ingest_file, prepare_document
 from groundwork.retrieval.embedder import FakeEmbedder
-from groundwork.retrieval.memory_store import MemoryData, MemoryStore, memory_index
-from groundwork.retrieval.sparse import SparseCache
+from groundwork.retrieval.memory_store import MemoryStore, memory_index
 
 META = DocumentMeta(
     title="ACME Corp · Form 10-K",
@@ -155,83 +153,3 @@ def test_prepare_returns_no_chunks_for_too_little_text() -> None:
     )
 
     assert (prepared.chunks, prepared.embeddings, progress) == ([], [], [])
-
-
-class BrokenOnRoadrunners(FakeEmbedder):
-    def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
-        if any("roadrunners" in text for text in texts):
-            raise RuntimeError("out of memory")
-        return super().embed_documents(texts)
-
-
-@pytest.fixture
-def corpus(tmp_path: Path) -> list[tuple[Path, DocumentMeta]]:
-    entries = []
-    for name in ("anvils", "roadrunners"):
-        path = tmp_path / f"{name}.txt"
-        path.write_text(f"Item 1. Business\n\n{f'ACME Corp knows all about {name}. ' * 40}")
-        entries.append((path, replace(META, title=name, filename=path.name)))
-    return entries
-
-
-async def ingest_all(
-    corpus: list[tuple[Path, DocumentMeta]], embedder: FakeEmbedder, store: MemoryStore
-) -> int | None:
-    return await ingest_corpus(corpus, embedder, store, chunk_tokens=100, chunk_overlap=10)
-
-
-async def found_by_bm25(store: MemoryStore, root: Path, query: str) -> bool:
-    index = await SparseCache(store, root / "bm25", check_seconds=0).current()
-    return bool(index.search(query, 1))
-
-
-async def test_a_bulk_ingest_publishes_once(
-    corpus: list[tuple[Path, DocumentMeta]], store: MemoryStore
-) -> None:
-    assert await ingest_all(corpus, FakeEmbedder(), store) == 1
-
-    assert await store.generation() == 1
-
-
-async def test_a_rerun_with_nothing_new_publishes_nothing(
-    corpus: list[tuple[Path, DocumentMeta]], store: MemoryStore
-) -> None:
-    await ingest_all(corpus, FakeEmbedder(), store)
-
-    assert await ingest_all(corpus, FakeEmbedder(), store) is None
-    assert await store.generation() == 1
-
-
-async def test_after_an_ingest_fails_partway_and_is_rerun_bm25_finds_every_document(
-    corpus: list[tuple[Path, DocumentMeta]], store: MemoryStore, tmp_path: Path
-) -> None:
-    assert not await found_by_bm25(store, tmp_path, "anvils")
-
-    with pytest.raises(RuntimeError, match="out of memory"):
-        await ingest_all(corpus, BrokenOnRoadrunners(), store)
-
-    assert await found_by_bm25(store, tmp_path, "anvils")
-    assert await store.generation() == 1
-
-    await ingest_all(corpus, FakeEmbedder(), store)
-
-    assert await found_by_bm25(store, tmp_path, "anvils")
-    assert await found_by_bm25(store, tmp_path, "roadrunners")
-    assert await store.generation() == 2
-
-
-async def test_a_killed_ingest_is_published_by_the_next_one(
-    corpus: list[tuple[Path, DocumentMeta]], tmp_path: Path
-) -> None:
-    data = MemoryData()
-    killed = MemoryStore(memory_index(FakeEmbedder().dimension), data)
-    # Saves an empty BM25 index, as an API running before the ingest does.
-    assert not await found_by_bm25(killed, tmp_path, "anvils")
-    for path, meta in corpus:
-        await ingest_file(path, meta, FakeEmbedder(), killed, chunk_tokens=100, chunk_overlap=10)
-
-    rerun = MemoryStore(memory_index(FakeEmbedder().dimension), data)
-    assert await ingest_all(corpus, FakeEmbedder(), rerun) == 1
-
-    assert await found_by_bm25(rerun, tmp_path, "anvils")
-    assert await found_by_bm25(rerun, tmp_path, "roadrunners")
