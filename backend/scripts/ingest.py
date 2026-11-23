@@ -5,12 +5,14 @@ With no active index yet, it creates and activates the window index the chunking
 describe. The index's generation moves once, at the end, so each API worker rebuilds BM25 once.
 
 First makes data/raw/ hold the corpora version locked in conf/corpora.lock.json, downloading it
-if needed. GROUNDWORK_CORPORA=local skips that and uses data/raw/ as it is, unchecked.
+if needed. GROUNDWORK_CORPORA=local skips that and uses data/raw/ as it is, unchecked. Fails if it
+holds no corpus documents, so an empty library never looks like success.
 
 Run from backend/: uv run python scripts/ingest.py
 """
 
 import asyncio
+import sys
 import time
 
 from groundwork.config import Settings
@@ -25,6 +27,9 @@ from groundwork.retrieval.pgvector_store import PgVectorStore
 async def main() -> None:
     settings = Settings()
     raw_dir = ensure_corpora(settings)
+    corpus = load_corpus(raw_dir)
+    if not corpus:
+        sys.exit(f"No corpus documents in {raw_dir}, so nothing was indexed.")
     embedder = build_embedder(settings)
     pool = await open_pool(settings.database_url)
     try:
@@ -32,7 +37,7 @@ async def main() -> None:
         chunk_tokens, chunk_overlap = chunking(store.index, settings)
         print(f"Index: {store.index.name}")
         added = 0
-        for path, meta in load_corpus(raw_dir):
+        for path, meta in corpus:
             started = time.perf_counter()
             result = await ingest_file(
                 path,
