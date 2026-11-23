@@ -1,7 +1,8 @@
 """Ingestion steps from a file to the index, shared by the corpus script and uploads."""
 
 import asyncio
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +26,9 @@ EMBED_BATCH = 64
 
 # Receives the share of chunks embedded so far, from 0.0 to 1.0.
 ProgressCallback = Callable[[float], None]
+
+# Receives each file, what became of it and the seconds it took.
+ResultCallback = Callable[[Path, "IngestResult", float], None]
 
 
 @dataclass(frozen=True)
@@ -131,8 +135,8 @@ async def ingest_file(
     chunk_tokens: int,
     chunk_overlap: int,
 ) -> IngestResult:
-    """Chunk, embed and store a file, unless the store already holds it. Does not bump the
-    index's generation: the caller does that once, after its last file."""
+    """Chunk, embed and store a file, unless the store already holds it. Does not publish:
+    the caller does that once, after its last file."""
     raw = path.read_bytes()
     digest = content_hash(raw)
     if doc_id := await store.find_document(digest, meta):
@@ -152,3 +156,32 @@ async def ingest_file(
         return IngestResult(doc_id=None, chunks=0, skipped=False)
     document = await store.add(meta, digest, prepared.chunks, prepared.embeddings)
     return IngestResult(doc_id=document.doc_id, chunks=len(prepared.chunks), skipped=False)
+
+
+async def ingest_corpus(
+    corpus: Iterable[tuple[Path, DocumentMeta]],
+    embedder: Embedder,
+    store: ChunkStore,
+    *,
+    chunk_tokens: int,
+    chunk_overlap: int,
+    on_result: ResultCallback | None = None,
+) -> int | None:
+    """Ingest every file, then publish once: also after a failure, and also what an earlier
+    process stored and never published. The new generation, or None if nothing was published."""
+    try:
+        for path, meta in corpus:
+            started = time.perf_counter()
+            result = await ingest_file(
+                path,
+                meta,
+                embedder,
+                store,
+                chunk_tokens=chunk_tokens,
+                chunk_overlap=chunk_overlap,
+            )
+            if on_result:
+                on_result(path, result, time.perf_counter() - started)
+    finally:
+        generation = await store.publish()
+    return generation
