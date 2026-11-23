@@ -5,8 +5,8 @@ top n are taken. Arrays aligned with bm25s's positions (each chunk's document, a
 collection, type, date, metadata and groups) turn search filters into that mask, so a filter never
 leaves fewer than n results behind.
 
-`SparseCache` keeps one SparseIndex per index generation on disk, under
-`<root>/<index id>/<generation>/`, and each API worker reloads it when the generation changes.
+`SparseCache` keeps one SparseIndex per publication of an index on disk, under
+`<root>/<index id>/<generation>-<token>/`, and each API worker reloads it when that changes.
 """
 
 import asyncio
@@ -27,6 +27,7 @@ import numpy as np
 import Stemmer
 
 from groundwork.domain.models import Chunk, Document, SearchFilters, indexed_text
+from groundwork.retrieval.indexes import Publication
 from groundwork.retrieval.store import ChunkStore, matches
 
 logger = logging.getLogger(__name__)
@@ -209,12 +210,15 @@ async def build_sparse(store: ChunkStore) -> SparseIndex:
 
 
 class SparseCache:
-    """The BM25 index for the store's current generation.
+    """The BM25 index for the store's last publication.
 
-    The generation is read at most once per `check_seconds`. When it has changed, the index for
-    the new generation is loaded from disk, or built from the store and saved there for the other
-    workers. Two workers building the same generation at once both succeed: each writes to its
-    own temporary folder, and whichever renames second finds the folder there and keeps it.
+    The publication is read at most once per `check_seconds`. When its generation or its token has
+    changed, the index for the new one is loaded from disk, or built from the store and saved
+    there for the other workers, unless the store holds writes not yet published. The token keeps
+    a recreated or restored database from loading what was saved for another one that had reached
+    the same generation. Two workers building the same publication at once both succeed: each
+    writes to its own temporary folder, and whichever renames second finds the folder there and
+    keeps it.
     """
 
     def __init__(
@@ -230,7 +234,7 @@ class SparseCache:
         self._check_seconds = check_seconds
         self._clock = clock
         self._index: SparseIndex | None = None
-        self._generation: int | None = None
+        self._key: tuple[int, str] | None = None
         self._checked_at = 0.0
         self._lock = asyncio.Lock()
 
@@ -238,20 +242,31 @@ class SparseCache:
         if self._index is not None and self._clock() - self._checked_at < self._check_seconds:
             return self._index
         async with self._lock:
-            generation = await self._store.generation()
+            publication = await self._store.publication()
             self._checked_at = self._clock()
-            if self._index is None or generation != self._generation:
-                self._index = await self._load_or_build(generation)
-                self._generation = generation
+            key = (publication.generation, publication.token)
+            if self._index is None or key != self._key:
+                self._index = await self._load_or_build(publication)
+                self._key = key
             return self._index
 
-    async def _load_or_build(self, generation: int) -> SparseIndex:
-        path = self._root / str(generation)
+    async def _load_or_build(self, publication: Publication) -> SparseIndex:
+        path = self._root / f"{publication.generation}-{publication.token}"
         if path.exists():
             return await asyncio.to_thread(SparseIndex.load, path)
-        index = await build_sparse(self._store)
-        await asyncio.to_thread(self._save, index, path)
-        logger.info("Built BM25 for index %s generation %s", self._store.index.name, generation)
+        passages = await self._store.all_passages()
+        # Read after the passages: if nothing was written since the publication even now, they
+        # hold exactly what it published. Otherwise the index is this worker's only, because a
+        # backup could bring the publication back without those writes.
+        after = await self._store.publication()
+        index = await asyncio.to_thread(SparseIndex.build, passages)
+        if after == publication and not after.written_since:
+            await asyncio.to_thread(self._save, index, path)
+        logger.info(
+            "Built BM25 for index %s generation %s",
+            self._store.index.name,
+            publication.generation,
+        )
         return index
 
     def _save(self, index: SparseIndex, path: Path) -> None:
@@ -266,7 +281,12 @@ class SparseCache:
                 raise
         finally:
             shutil.rmtree(staging, ignore_errors=True)
-        # Keep the previous generation for a worker still reading it; older ones go.
+        # Keep the previous generation for a worker still reading it; older ones go. So does this
+        # generation with another token: it is from before the database was recreated or restored.
+        current = int(path.name.partition("-")[0])
         for old in path.parent.iterdir():
-            if old.name.isdigit() and int(old.name) < int(path.name) - 1:
+            number = old.name.partition("-")[0]
+            if not number.isdigit() or old == path:
+                continue
+            if int(number) < current - 1 or int(number) == current:
                 shutil.rmtree(old, ignore_errors=True)

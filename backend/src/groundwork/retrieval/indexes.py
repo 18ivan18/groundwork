@@ -240,7 +240,8 @@ async def mark_unpublished(connection: AsyncConnection[TupleRow], index_id: int)
 
 async def publish(connection: AsyncConnection[TupleRow], index_id: int) -> int | None:
     """Move the index's generation and give it a new token, so each API worker rebuilds BM25, and
-    clear its record of unpublished writes. The new generation, or None if there was nothing to publish.
+    clear its record of unpublished writes. The new generation, or None if there was nothing to
+    publish.
 
     Takes a connection so that a write can be published in its own transaction."""
     cursor = await connection.execute(

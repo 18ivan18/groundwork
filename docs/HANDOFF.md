@@ -220,6 +220,7 @@ indexes      (id serial PK, name text UNIQUE, chunker text, chunker_params jsonb
               contextualizer text, contextualizer_params jsonb, embedder_model text, dimension int,
               status text CHECK (status IN ('building','ready','retired')),
               generation bigint NOT NULL DEFAULT 0,
+              generation_token uuid NOT NULL DEFAULT gen_random_uuid(),  -- new with each generation
               unpublished bool NOT NULL DEFAULT false,    -- has writes BM25 has not seen
               is_active bool NOT NULL DEFAULT false,
               created_at timestamptz DEFAULT now())
@@ -390,18 +391,21 @@ alone.
   becomes index `window-400-header-bge-small`.
 - Writes are one transaction per document (replaces the reverse-batch trick from Chroma); upsert on
   `(index_id, document_id, ordinal)`; the document row is the "fully indexed" marker.
-- **bm25s per index**, built from `chunks`, saved under `data/bm25/<index_id>/<generation>/`,
-  loaded lazily. Each API worker checks the index's `generation` (cached for a second) before a search
-  and reloads when it changed. Keep the in-memory side arrays (chunk id, collection, date, access
-  groups as a bitmask) aligned with bm25s positions so filters apply before the top-n cut. Check
-  whether the installed bm25s supports a mask on `retrieve` (`weight_mask`); otherwise keep today's
+- **bm25s per index**, built from `chunks`, saved under
+  `data/bm25/<index_id>/<generation>-<token>/`, loaded lazily. Each API worker checks the index's
+  `generation` and `generation_token` (cached for a second) before a search and reloads when they
+  changed. The token is random and new with each publication, and a saved index is loaded only when
+  its index id, generation and token all match, so a recreated or restored database is never served
+  one saved for another state. An index built while there are unpublished writes is not saved. Keep
+  the in-memory side arrays (chunk id, collection, date, access groups as a bitmask) aligned with
+  bm25s positions so filters apply before the top-n cut. Check whether the installed bm25s supports a mask on `retrieve` (`weight_mask`); otherwise keep today's
   score-all-then-filter loop and note its cost. The group bitmask needs a **group → bit mapping built
   per generation** from the groups present in the index, because M3 adds a `private:<user>` group per
   uploader and the set of groups is not fixed.
 - **Publishing once per job, not per document:** every write that changes an index's chunks sets
-  `unpublished` in the same transaction. Publishing moves the generation and clears it, and does
-  nothing when there is nothing to publish. A corpus ingest publishes when it ends, also after a
-  failure, so bm25s is rebuilt once rather than once per file; an upload publishes in the transaction
+  `unpublished` in the same transaction. Publishing moves the generation, gives it a new
+  token and clears `unpublished`, and does nothing when there is nothing to publish. A corpus ingest
+  publishes when it ends, also after a failure, so bm25s is rebuilt once rather than once per file; an upload publishes in the transaction
   that stores it; ingest and API start publish what a crashed process left.
 - **Comparison retriever:** `ts_rank` on `tsv` as a fourth sparse option in the eval only (D17).
 - `docs/RETRIEVAL.md`: `EXPLAIN ANALYZE` of a dense query showing the HNSW index used, the same query

@@ -60,6 +60,14 @@ def database_url() -> str:
     return TEST_DATABASE_URL
 
 
+async def recreate(pool: Pool) -> None:
+    """Empty the test database and start its ids again, as in a newly created one."""
+    async with pool.connection() as connection:
+        await connection.execute(
+            "TRUNCATE indexes, documents, collections, users RESTART IDENTITY CASCADE"
+        )
+
+
 @asynccontextmanager
 async def empty_database(database_url: str) -> AsyncIterator[Pool]:
     """A pool on the test database, emptied first."""
