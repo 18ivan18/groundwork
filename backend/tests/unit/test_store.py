@@ -1,11 +1,14 @@
 """The ChunkStore contract, run against the in-memory store and against Postgres."""
 
+import math
 from collections.abc import AsyncIterator
 from datetime import date
 
 import pytest
 from conftest import empty_database
+from psycopg.conninfo import make_conninfo
 
+from groundwork.db.pool import Pool, open_pool
 from groundwork.domain.models import Chunk, DocumentMeta, SearchFilters
 from groundwork.retrieval.indexes import IndexSpec, ensure_index
 from groundwork.retrieval.memory_store import MemoryStore, memory_index
@@ -201,3 +204,82 @@ async def test_an_empty_store_finds_nothing(store: ChunkStore) -> None:
 async def test_a_chunk_count_must_match_its_embeddings(store: ChunkStore) -> None:
     with pytest.raises(ValueError, match="one embedding"):
         await store.add(meta("acme"), "h1", chunks("a", "b"), [vector(1)])
+
+
+# Dense search through the HNSW index: Postgres only.
+
+
+def arc(count: int) -> list[list[float]]:
+    """Distinct directions fanning out from vector(1), nearest first."""
+    return [vector(math.cos(i / count), math.sin(i / count)) for i in range(count)]
+
+
+@pytest.fixture
+async def hnsw_pool(database_url: str, pool: Pool) -> AsyncIterator[Pool]:
+    """One connection that has to use the HNSW index. The test tables are tiny, so the planner
+    would rightly sort every chunk by distance; taking the sort away leaves the graph."""
+    options = "-c enable_seqscan=off -c enable_sort=off"
+    opened = await open_pool(make_conninfo(database_url, options=options), max_size=1)
+    try:
+        yield opened
+    finally:
+        await opened.close()
+
+
+async def hnsw_store(pool: Pool) -> PgVectorStore:
+    spec = IndexSpec(name="test", chunker="window", embedder_model="fake", dimension=DIMENSION)
+    return PgVectorStore(pool, await ensure_index(pool, spec))
+
+
+async def unaided_count(pool: Pool, store: PgVectorStore, n: int) -> int:
+    """How many chunks the bare query finds on the pool's connection, without the settings
+    `search` adds. 40, pgvector's default, shows the query goes through the HNSW index and the
+    connection still has that default: a sort would find all n."""
+    sql, params = store.search_sql(vector(1), n)
+    async with pool.connection() as connection:
+        return len(await (await connection.execute(sql, params)).fetchall())
+
+
+@pytest.mark.db
+async def test_dense_search_returns_more_than_40_candidates(hnsw_pool: Pool) -> None:
+    store = await hnsw_store(hnsw_pool)
+    await store.add(meta("acme"), "h1", chunks(*["text"] * 200), arc(200))
+    assert await unaided_count(hnsw_pool, store, 60) == 40
+
+    hits = await store.search(vector(1), 60)
+
+    assert len(hits) == 60
+
+
+@pytest.mark.db
+async def test_dense_search_asks_for_no_more_than_pgvector_allows(hnsw_pool: Pool) -> None:
+    store = await hnsw_store(hnsw_pool)
+    await store.add(meta("acme"), "h1", chunks(*["text"] * 200), arc(200))
+
+    assert len(await store.search(vector(1), 1001)) == 200
+
+
+@pytest.mark.db
+async def test_a_large_search_does_not_change_the_next_one_on_its_connection(
+    hnsw_pool: Pool,
+) -> None:
+    store = await hnsw_store(hnsw_pool)
+    await store.add(meta("acme"), "h1", chunks(*["text"] * 200), arc(200))
+
+    assert len(await store.search(vector(1), 60)) == 60
+
+    assert await unaided_count(hnsw_pool, store, 60) == 40
+
+
+@pytest.mark.db
+async def test_a_filtered_search_scans_on_until_it_has_more_than_40_candidates(
+    hnsw_pool: Pool,
+) -> None:
+    store = await hnsw_store(hnsw_pool)
+    directions = arc(300)
+    await store.add(meta("near"), "h1", chunks(*["near"] * 200), directions[:200])
+    await store.add(meta("far", collection="news"), "h2", chunks(*["far"] * 100), directions[200:])
+
+    hits = await store.search(vector(1), 60, SearchFilters(collections=("news",)))
+
+    assert [hit.chunk.text for hit in hits] == ["far"] * 60

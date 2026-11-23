@@ -79,7 +79,16 @@ The share of exact search's top 20 that HNSW returns, for one question:
 | 100 | 19 / 20 | 1.63 ms |
 
 `ef_search` must be at least the limit (20) to fill it from the graph alone. The default is
-kept.
+kept at 20 candidates, and at any number up to 40.
+
+Without an iterative scan the graph returns at most `ef_search` rows, so a search for more than
+40 candidates sets `hnsw.ef_search` to that number, up to pgvector's limit of 1000. Filtered
+searches do the same and keep their iterative scan. The setting is `SET LOCAL`, so it ends with
+the search's transaction. Exact search doesn't use the graph, so it is never set there.
+
+An unfiltered search can return fewer rows than it asked for when it wants more than 1000, or
+when some of the rows the graph finds were deleted and not yet vacuumed. The second is true at 20
+candidates too.
 
 ## 4. HNSW against exact search, all 126 questions
 
