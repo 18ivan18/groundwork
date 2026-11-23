@@ -60,13 +60,13 @@ def retitle_northwind(raw: Path, titles: dict[str, str]) -> None:
 
 @pytest.fixture
 def raw(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, database_url: str) -> Path:
-    """Local corpora for the gate, with the test database as the app's."""
+    """Local corpora for the gate, with the test database as the app's. The gate prints its
+    scores, then fails because local corpora can't be compared with the baseline."""
     raw = tmp_path / "data" / "raw"
     folder = write_collection(raw, "sec-10k", [doc("acme.md", title="Anvil revenue")])
     (folder / "acme.md").write_text("ACME sold ten anvils to a coyote in the desert last year.")
     (tmp_path / "questions.jsonl").write_text("\n".join(map(json.dumps, QUESTIONS)))
     monkeypatch.setattr(run_eval, "EVAL_DIR", tmp_path)
-    monkeypatch.setattr(run_eval, "BASELINE", tmp_path / "baseline.json")
     monkeypatch.setattr(run_eval, "build_embedder", lambda settings: FakeEmbedder())
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
@@ -107,11 +107,11 @@ async def test_each_run_scores_the_corpora_as_they_are_and_leaves_the_app_alone(
     before = await app_data(pool)
 
     write_northwind(raw, {"a.md": "Parental leave", "b.md": "Travel"})
-    await run_eval.ci(update_baseline=True)
+    await run_eval.ci(update_baseline=False)
     assert "northwind: Success@1 0.000" in capsys.readouterr().out
 
     retitle_northwind(raw, {"a.md": "Travel", "b.md": "Parental leave"})
-    await run_eval.ci(update_baseline=True)
+    await run_eval.ci(update_baseline=False)
     assert "northwind: Success@1 1.000" in capsys.readouterr().out
 
     assert await app_data(pool) == before
@@ -150,7 +150,7 @@ async def test_the_last_runs_index_stays_until_the_next_run(
     raw: Path, database_url: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
     write_northwind(raw, {"a.md": "Parental leave", "b.md": "Travel"})
-    await run_eval.ci(update_baseline=True)
+    await run_eval.ci(update_baseline=False)
 
     opened = await open_pool(eval_database_url(database_url))
     try:
