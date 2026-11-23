@@ -3,11 +3,13 @@
 Run from backend/: uv run python eval/run_eval.py
 
 It first makes data/raw/ hold the locked corpora version, as scripts/ingest.py does. Needs Postgres
-(`docker compose up db`) with the migrations applied.
+(`docker compose up db`).
 
-For each chunk size the collections the questions are about are indexed into an index of their own,
-`eval-window-<size>-...`, which is kept: a later run only ingests the documents that changed, and
-the app's index is untouched.
+Every run, the CI gate's included, chunks, embeds and indexes the corpora from scratch in the eval
+database: the app's database name with `_eval` added, on the same server. It is created and
+migrated if needed and emptied when a run starts, so only one run can use it at a time, and the
+app's database is untouched. The full run builds one index per chunk size, over the collections
+the questions are about. They stay until the next run, for scripts/explain_search.py --eval.
 
 A question counts as found when a passage from one of its `documents` (manifest keys) contains one
 of its `evidence` patterns. That is stricter than matching a section, which can span dozens of
@@ -33,7 +35,7 @@ import statistics
 import sys
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, get_args
 
@@ -42,7 +44,8 @@ from tsrank import ts_rank_search
 
 from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
-from groundwork.db.pool import Pool, open_pool
+from groundwork.db.databases import open_eval_database
+from groundwork.db.pool import Pool
 from groundwork.domain.models import Document, ScoredPassage
 from groundwork.ingestion.corpora_bundle import ensure_corpora
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
@@ -50,7 +53,7 @@ from groundwork.ingestion.loaders import load_file
 from groundwork.ingestion.pipeline import ingest_file
 from groundwork.retrieval.embedder import Embedder
 from groundwork.retrieval.hybrid import HybridRetriever, SearchMode
-from groundwork.retrieval.indexes import drop_index, ensure_index, window_spec
+from groundwork.retrieval.indexes import ensure_index, window_spec
 from groundwork.retrieval.pgvector_store import PgVectorStore
 from groundwork.retrieval.reranker import Reranker
 from groundwork.retrieval.sparse import FixedSparse, build_sparse
@@ -286,15 +289,11 @@ async def eval_store(
     chunk_tokens: int,
     *,
     exact: bool = False,
-    prefix: str = "eval",
 ) -> PgVectorStore:
-    """The eval index for this chunk size, holding exactly `entries`. Documents already in it
-    are skipped; an index holding others (a file changed since) is rebuilt. The CI gate indexes
-    fewer collections, so it uses its own `prefix` rather than rebuilding the full eval's index."""
+    """A new index over `entries` for this chunk size, in the emptied eval database."""
     spec = window_spec(
         chunk_tokens, settings.chunk_overlap, settings.embedding_model, embedder.dimension
     )
-    spec = replace(spec, name=f"{prefix}-{spec.name}")
     store = PgVectorStore(pool, await ensure_index(pool, spec), exact=exact)
     for entry in entries:
         await ingest_file(
@@ -304,12 +303,6 @@ async def eval_store(
             store,
             chunk_tokens=chunk_tokens,
             chunk_overlap=settings.chunk_overlap,
-        )
-    if await store.count_documents() > len(entries):
-        print(f"{spec.name} holds documents no longer in the corpus: rebuilding it.")
-        await drop_index(pool, store.index.id)
-        return await eval_store(
-            pool, settings, entries, embedder, chunk_tokens, exact=exact, prefix=prefix
         )
     return store
 
@@ -459,10 +452,10 @@ async def ci(update_baseline: bool) -> int:
     # makes them misses, which would read as a regression here.
     answerable = [q for q in questions if q.answerable and q.type != "restricted"]
     embedder = build_embedder(settings)
-    pool = await open_pool(settings.database_url)
+    pool = await open_eval_database(settings.database_url)
     try:
         store = await eval_store(
-            pool, settings, entries, embedder, settings.chunk_tokens, exact=True, prefix="ci"
+            pool, settings, entries, embedder, settings.chunk_tokens, exact=True
         )
         retriever = await build_retriever(settings, store, embedder, build_reranker(settings))
         found: dict[str, list[EvidenceRanks]] = {}
@@ -506,7 +499,7 @@ async def main() -> None:
     gate_sections: list[str] = []
     latencies: list[str] = []
     ts_rows: list[Row] = []
-    pool = await open_pool(settings.database_url)
+    pool = await open_eval_database(settings.database_url)
     for chunk_tokens in CHUNK_SIZES:
         dense = await eval_store(pool, settings, entries, embedder, chunk_tokens)
         retriever = await build_retriever(settings, dense, embedder, reranker)
