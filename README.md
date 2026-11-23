@@ -23,17 +23,25 @@ docker compose up --build
 Open <http://localhost:8080>. The API docs are at <http://localhost:8080/api/docs>.
 
 The first start builds the images, downloads the corpora (see [Corpora](#corpora)) and indexes them.
-Later starts take about 10 seconds. The corpora, uploads and the index live in the `data` volume, so
-`docker compose down` keeps them and `docker compose down -v` removes them.
+Later starts take about 10 seconds. `docker compose down` keeps the volumes and `docker compose down -v`
+removes them, uploads included:
+
+| Volume | Holds | If it is deleted |
+|---|---|---|
+| `pgdata` | The Postgres database: every document, uploads included, with its chunks and vectors | The next start indexes the corpora again. Uploads are gone from the library and must be uploaded again |
+| `data` | The corpora (`raw/`), the original files of uploads (`uploads/`) and the saved BM25 indexes (`bm25/`) | The corpora are downloaded and BM25 is built again. Uploads stay searchable, but their original files are gone |
+| `ollama` | Models for the optional local LLM | They must be pulled again |
 
 ### Local development
 
-Settings come from the same `.env` in the repository root. Requires [uv](https://docs.astral.sh/uv/)
-and Node 22.
+Settings come from the same `.env` in the repository root. Requires Docker for Postgres,
+[uv](https://docs.astral.sh/uv/) and Node 22.
 
 ```bash
+docker compose up -d --wait db      # Postgres on port 5434, as in DATABASE_URL
 cd backend
 uv sync
+uv run alembic upgrade head         # applies the migrations
 uv run python scripts/ingest.py     # downloads the locked corpora version on the first run
 uv run uvicorn groundwork.main:create_app --factory
 
@@ -232,8 +240,9 @@ from a text passage instead, but the loader bug is still open. Each is a single 
   and its 2026 10-K (HTML). A question without a year can get both, with the period of each figure
   stated. There is no period filter yet.
 - **Formats:** TXT, Markdown, HTML (inline XBRL included) and PDF with a text layer. Scanned PDFs need OCR, which is not supported.
-- **Updating an existing Docker install:** the filings are copied into the `data` volume only when
-  it is empty, so an older volume keeps its old manifest. Run `docker compose down -v` once.
+- **Updating an existing Docker install:** a `data` volume from before the corpora left git has no
+  record of its version, so ingest stops if its files differ from the locked version. Run
+  `docker compose down -v` once. It also removes uploads.
 - **Embedders:** a comparison of `bge-small` with Qwen3-0.6B and harrier-0.6b is planned.
 - **Tables:** in HTML a table is kept in one chunk when it fits (88% of them). A longer table, and
   most tables in the TXT filings, can lose the header row in later chunks.
@@ -256,7 +265,8 @@ cd frontend && npm run lint && npm run typecheck && npm test
 ```
 
 - **Backend (323 tests):** loaders (TXT and HTML), chunking, sections, RRF, re-ranking, citations, prompts, settings, the QA service with
-  fakes, and the API through `TestClient`. No network or API keys needed.
+  fakes, and the API through `TestClient`. No network or API keys needed. The `db` tests need Postgres
+  (`docker compose up -d --wait db`) and are skipped without it, unless `REQUIRE_DB=1`.
 - **Frontend (38 tests):** citation rendering, retrieval details, API client errors, response schema checks and upload queue state. These are
   deliberately few. The full flow was checked by hand-written scripts in a real browser rather than
   automated tests in the repository.
@@ -264,7 +274,8 @@ cd frontend && npm run lint && npm run typecheck && npm test
 - **Answer quality:** `eval/run_answer_eval.py ask` runs every question through the real LLM, paced
   under the rate limit and resumable, and saves raw answers in `eval/answer_runs/`.
   `eval/run_answer_eval.py score` checks them offline and writes `eval/answer_results.md`.
-- CI runs the backend and frontend checks and builds both Docker images on every push.
+- CI runs the backend and frontend checks, the retrieval gate (`eval/run_eval.py --ci`) and builds both
+  Docker images on every push.
 
 ## AI assistance
 

@@ -40,8 +40,8 @@ services:
       db:
         condition: service_healthy
 
-  # Indexes data/raw/ and exits. Documents already indexed are skipped, so later starts take
-  # a few seconds.
+  # Downloads the locked corpora version into the `data` volume if it isn't there, indexes it and
+  # exits. Documents already indexed are skipped, so later starts take a few seconds.
   ingest:
     <<: *backend
     pull_policy: never
@@ -52,7 +52,7 @@ services:
 
   api:
     <<: *backend
-    # Uses the image that `ingest` builds. Building it in both would race on the same tag.
+    # Uses the image that `migrate` builds. Building it in both would race on the same tag.
     pull_policy: never
     depends_on:
       ingest:
@@ -98,6 +98,8 @@ services:
       retries: 3
 
 volumes:
+  # The corpora, the original files of uploads and the saved BM25 indexes.
   data:
+  # Postgres: every document, uploads included, with its chunks and vectors.
   pgdata:
   ollama:
