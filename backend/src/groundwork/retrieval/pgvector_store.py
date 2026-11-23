@@ -27,6 +27,10 @@ from groundwork.retrieval import indexes
 from groundwork.retrieval.indexes import IndexInfo, vector_cast
 from groundwork.retrieval.store import DenseHit, normalized_groups
 
+# pgvector's default and limit for hnsw.ef_search, the most chunks one pass over the graph finds.
+_DEFAULT_EF_SEARCH = 40
+_MAX_EF_SEARCH = 1000
+
 _DOCUMENT_COLUMNS = (
     "d.id, d.title, d.collection_id, d.doc_type, d.doc_date, d.filename, d.metadata, "
     "d.access_groups, d.owner_id, d.created_at"
@@ -130,6 +134,8 @@ class PgVectorStore:
         content_hash: str,
         chunks: Sequence[Chunk],
         embeddings: Sequence[Sequence[float]],
+        *,
+        publish: bool = False,
     ) -> Document:
         if len(chunks) != len(embeddings):
             raise ValueError("Every chunk needs one embedding")
@@ -174,6 +180,9 @@ class PgVectorStore:
                 f"AND ordinal >= %s",
                 (int(document.doc_id), len(chunks)),
             )
+            await indexes.mark_unpublished(connection, self._id)
+            if publish:
+                await indexes.publish(connection, self._id)
         return document
 
     async def _upsert_document(
@@ -238,10 +247,14 @@ class PgVectorStore:
         async with self._pool.connection() as connection, connection.transaction():
             if self._exact:
                 await connection.execute("SET LOCAL enable_indexscan = off")
-            elif filters is not None:
-                # pgvector 0.8: keep scanning the graph until n rows pass the filter, rather than
-                # filtering the first ef_search rows and returning fewer than n.
-                await connection.execute("SET LOCAL hnsw.iterative_scan = strict_order")
+            else:
+                if n > _DEFAULT_EF_SEARCH:
+                    ef_search = min(int(n), _MAX_EF_SEARCH)
+                    await connection.execute(f"SET LOCAL hnsw.ef_search = {ef_search}")
+                if filters is not None:
+                    # pgvector 0.8: keep scanning the graph until n rows pass the filter, rather
+                    # than filtering the first ef_search rows and returning fewer than n.
+                    await connection.execute("SET LOCAL hnsw.iterative_scan = strict_order")
             cursor = await connection.execute(sql, params)
             rows = await cursor.fetchall()
         hits = []
@@ -315,8 +328,9 @@ class PgVectorStore:
     async def generation(self) -> int:
         return await indexes.generation(self._pool, self._id)
 
-    async def bump_generation(self) -> int:
-        return await indexes.bump_generation(self._pool, self._id)
+    async def publish(self) -> int | None:
+        async with self._pool.connection() as connection:
+            return await indexes.publish(connection, self._id)
 
     async def _count(self, sql: str, params: tuple[Any, ...] = ()) -> int:
         async with self._pool.connection() as connection:

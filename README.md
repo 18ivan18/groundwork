@@ -78,7 +78,9 @@ gh release create corpora-vN <tarball> ...   # the command the script prints; pu
 Then write the version, the asset's URL
 (`https://github.com/18ivan18/groundwork/releases/download/corpora-vN/corpora-vN.tar.gz`) and the
 printed sha256 into `conf/corpora.lock.json`. A new corpora version needs an
-eval rerun unless the script reports it byte-identical to the local corpora.
+eval rerun unless the script reports it byte-identical to the local corpora. The CI gate fails until
+`eval/baseline.json` names the new version: `uv run python eval/run_eval.py --ci --update-baseline`
+rewrites it, and the change is reviewed with the lock.
 
 ## Configuration
 

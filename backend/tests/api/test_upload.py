@@ -120,6 +120,21 @@ def test_uploaded_document_is_searchable_by_both_retrievers(harness: Harness) ->
     assert harness.search("blacksmiths", 3, mode="dense")
 
 
+def test_a_stored_upload_is_published_even_if_the_next_step_crashes(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def crash() -> int | None:
+        raise RuntimeError("the process died")
+
+    monkeypatch.setattr(harness.store, "publish", crash)
+
+    harness.upload()
+
+    assert harness.search("blacksmiths", 3, mode="dense")
+    assert harness.search("blacksmiths", 3, mode="sparse")
+    assert harness.generation() == 1
+
+
 def test_uploads_can_be_searched_on_their_own(harness: Harness) -> None:
     harness.upload()
     uploads_only = SearchFilters(collections=("uploads",))

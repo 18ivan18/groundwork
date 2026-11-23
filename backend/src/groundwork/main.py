@@ -48,6 +48,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             index = await app_index(pool, settings, embedder.dimension)
             app.state.container = Container(settings, PgVectorStore(pool, index), app.state.users)
         container: Container = app.state.container
+        # Documents stored by a process that died before publishing them.
+        await container.store.publish()
         services = build_services(settings, container.store, embedder, llm=llm)
         app.state.qa_service = services.qa
         app.state.upload_service = services.uploads

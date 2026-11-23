@@ -214,17 +214,28 @@ async def generation(pool: Pool, index_id: int) -> int:
     return int(row[0])
 
 
-async def bump_generation(pool: Pool, index_id: int) -> int:
-    """Called once when an ingest job finishes, so each API worker rebuilds BM25 once."""
-    async with pool.connection() as connection:
-        cursor = await connection.execute(
-            "UPDATE indexes SET generation = generation + 1 WHERE id = %s RETURNING generation",
-            (index_id,),
-        )
-        row = await cursor.fetchone()
-    if row is None:
-        raise LookupError(f"No index {index_id}")
-    return int(row[0])
+async def mark_unpublished(connection: AsyncConnection[TupleRow], index_id: int) -> None:
+    """Record that this index has writes BM25 has not seen. Called in the transaction of any write
+    that changes the index's chunks, as its last step: it locks the index's row until the commit.
+
+    Unconditional on purpose, also when the index is marked already: skipping the update would
+    skip the lock, and a publish between it and the commit would clear the mark of a write it
+    could not see."""
+    await connection.execute("UPDATE indexes SET unpublished = true WHERE id = %s", (index_id,))
+
+
+async def publish(connection: AsyncConnection[TupleRow], index_id: int) -> int | None:
+    """Move the index's generation, so each API worker rebuilds BM25, and clear its record of
+    unpublished writes. The new generation, or None if there was nothing to publish.
+
+    Takes a connection so that a write can be published in its own transaction."""
+    cursor = await connection.execute(
+        "UPDATE indexes SET generation = generation + 1, unpublished = false "
+        "WHERE id = %s AND unpublished RETURNING generation",
+        (index_id,),
+    )
+    row = await cursor.fetchone()
+    return int(row[0]) if row else None
 
 
 async def drop_index(pool: Pool, index_id: int) -> None:

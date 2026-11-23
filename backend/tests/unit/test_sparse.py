@@ -115,15 +115,19 @@ async def store_with(*texts: str) -> GenerationStore:
     return store
 
 
+async def add_beta(store: GenerationStore) -> None:
+    await store.add(OTHER, "beta", [Chunk("x", "x", "BETA anvils", (), None, 0, 1)], [[1.0] * 64])
+
+
 async def test_the_cache_rebuilds_only_when_the_generation_moves(tmp_path: Path) -> None:
     store = await store_with("ACME sells anvils")
     now = [0.0]
     cache = SparseCache(store, tmp_path, check_seconds=1.0, clock=lambda: now[0])
 
     first = await cache.current()
-    await store.add(OTHER, "beta", [Chunk("x", "x", "BETA anvils", (), None, 0, 1)], [[1.0] * 64])
+    await add_beta(store)
     same = await cache.current()
-    await store.bump_generation()
+    await store.publish()
     still_cached = await cache.current()
     now[0] = 2.0
     rebuilt = await cache.current()
@@ -148,7 +152,8 @@ async def test_old_generations_are_removed(tmp_path: Path) -> None:
     store = await store_with("ACME sells anvils")
     for _ in range(3):
         await SparseCache(store, tmp_path).current()
-        await store.bump_generation()
+        await add_beta(store)
+        await store.publish()
 
     assert sorted(p.name for p in (tmp_path / "1").iterdir()) == ["1", "2"]
 

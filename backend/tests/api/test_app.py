@@ -1,11 +1,16 @@
+import asyncio
 from pathlib import Path
 
 import pytest
+from api_helpers import add_document
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from groundwork import container
 from groundwork.config import Settings
 from groundwork.main import create_app
+from groundwork.retrieval.embedder import FakeEmbedder
+from groundwork.retrieval.memory_store import MemoryStore
 
 ORIGIN = "http://localhost:5173"
 
@@ -67,3 +72,16 @@ def test_startup_fails_fast_without_an_llm_model(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="requires LLM_MODEL"), TestClient(app):
         pass
+
+
+def test_startup_publishes_what_an_earlier_process_left(
+    tmp_path: Path, store: MemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(container, "build_embedder", lambda settings: FakeEmbedder())
+    settings = Settings(_env_file=None, data_dir=tmp_path, llm_model="any", reranker_model="")
+    asyncio.run(add_document(store, "killed ingest", 1))
+
+    with TestClient(create_app(settings, store=store)):
+        assert asyncio.run(store.generation()) == 1
+
+    assert asyncio.run(store.publish()) is None

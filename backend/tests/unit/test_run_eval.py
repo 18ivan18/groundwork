@@ -6,10 +6,16 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 from run_eval import (
+    BASELINE,
+    CI_COLLECTIONS,
+    EVAL_DIR,
+    Baseline,
     DocumentKeys,
     Question,
     baseline_check,
     candidate_recall,
+    ci,
+    corpora_label,
     eval_collections,
     evidence_ranks,
     first_hit_rank,
@@ -24,6 +30,7 @@ from run_eval import (
 from tsrank import or_query
 
 from groundwork.domain.models import Chunk, Document, DocumentMeta, ScoredPassage
+from groundwork.ingestion.corpora_bundle import LOCK_FILE, read_lock, release_tag
 from groundwork.ingestion.corpus import CorpusEntry
 
 FILES = {"acme-2025": "acme-2025.htm", "acme-2001": "acme-2001.txt", "beta-2025": "beta-2025.htm"}
@@ -260,18 +267,83 @@ def test_report_groups_split_a_collection_only_where_it_varies() -> None:
     }
 
 
-def test_the_ci_gate_allows_three_points_of_noise() -> None:
-    baseline = {"northwind": 0.80, "sec-10k": 0.90}
+def baseline(**success: float) -> Baseline:
+    return Baseline(corpora_version="corpora-v1", success=success)
 
-    assert baseline_check({"northwind": 0.77, "sec-10k": 0.95}, baseline) == []
-    [failure] = baseline_check({"northwind": 0.76, "sec-10k": 0.90}, baseline)
+
+def test_the_ci_gate_allows_three_points_of_noise() -> None:
+    expected = baseline(northwind=0.80, engineering=0.90)
+
+    assert baseline_check({"northwind": 0.77, "engineering": 0.95}, expected, "corpora-v1") == []
+    [failure] = baseline_check({"northwind": 0.76, "engineering": 0.90}, expected, "corpora-v1")
     assert failure.startswith("northwind: Success@6 0.760")
 
 
 def test_the_ci_gate_fails_a_collection_without_a_baseline() -> None:
-    [failure] = baseline_check({"books": 0.5}, {})
+    [failure] = baseline_check({"books": 0.5}, baseline(), "corpora-v1")
 
     assert "no baseline" in failure
+
+
+def test_the_ci_gate_fails_a_baseline_collection_without_results() -> None:
+    expected = baseline(northwind=0.80, engineering=0.90)
+
+    [failure] = baseline_check({"northwind": 0.80}, expected, "corpora-v1")
+
+    assert failure.startswith("engineering: no results")
+
+
+def test_the_ci_gate_fails_on_another_corpora_version_and_says_how_to_update() -> None:
+    [failure] = baseline_check({"northwind": 0.80}, baseline(northwind=0.80), "corpora-v2")
+
+    assert "corpora-v1" in failure
+    assert "corpora-v2" in failure
+    assert "--ci --update-baseline" in failure
+
+
+def test_the_ci_gate_fails_on_local_corpora_and_does_not_suggest_a_new_baseline() -> None:
+    [failure] = baseline_check({"northwind": 0.80}, baseline(northwind=0.80), None)
+
+    assert "local and unchecked" in failure
+    assert "corpora-v1" in failure
+    assert "--update-baseline" not in failure
+
+
+async def test_a_baseline_is_never_made_from_local_corpora(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GROUNDWORK_CORPORA", "local")
+    monkeypatch.setattr("run_eval.BASELINE", tmp_path / "baseline.json")
+
+    assert await ci(update_baseline=True) == 1
+
+    assert "local and unchecked" in capsys.readouterr().out
+    assert not (tmp_path / "baseline.json").exists()
+
+
+def test_the_committed_baseline_is_of_the_locked_corpora_version() -> None:
+    committed = Baseline.model_validate_json(BASELINE.read_text())
+
+    lock = read_lock(EVAL_DIR.parent / LOCK_FILE)
+    assert committed.corpora_version == release_tag(lock.version)
+    assert set(committed.success) == set(CI_COLLECTIONS)
+
+
+@pytest.mark.parametrize(
+    ("version", "label"),
+    [
+        ("corpora-v1", "Corpora version: `corpora-v1`."),
+        (
+            None,
+            "Corpora: **local and unchecked** (`GROUNDWORK_CORPORA=local`). These results belong "
+            "to no corpora version.",
+        ),
+    ],
+)
+def test_a_report_names_its_corpora_version_or_says_the_corpora_were_local(
+    version: str | None, label: str
+) -> None:
+    assert corpora_label(version) == label
 
 
 def test_ts_rank_queries_or_the_words() -> None:
