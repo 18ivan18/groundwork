@@ -141,6 +141,7 @@ def test_fixture_manifests_are_valid_and_hashed(name: str) -> None:
 def test_filings_keep_their_metadata() -> None:
     filings = [meta for _, meta in load_corpus(FIXTURES, frozenset({SEC_COLLECTION}))]
 
+    assert len(filings) == 3
     assert {meta.doc_type for meta in filings} == {"10-K"}
     assert {meta.metadata["form"] for meta in filings} == {"10-K", "10-K405"}
     assert {meta.metadata["ticker"] for meta in filings} == {"AAPL", "MSFT", "NVDA"}
