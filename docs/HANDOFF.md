@@ -207,14 +207,17 @@ Write the migration from the schema below.
 ```sql
 users        (id text PK, display_name text, groups text[] NOT NULL)     -- seeded from conf/users.yaml
 collections  (id text PK, name text, description text, default_access_groups text[])
-documents    (id bigserial PK, content_hash text NOT NULL, collection_id text REFERENCES collections,
+documents    (id bigserial PK, manifest_key text,       -- the corpus document's key; NULL for uploads
+              content_hash text NOT NULL, collection_id text REFERENCES collections,
               title text, filename text, mime text, doc_type text, doc_date date,
               metadata jsonb DEFAULT '{}', access_groups text[] NOT NULL, owner_id text REFERENCES users,
               licence text, planted text,                 -- e.g. 'injection', 'contradiction-old'
-              created_at timestamptz DEFAULT now(),
-              UNIQUE NULLS NOT DISTINCT (content_hash, collection_id, access_groups, owner_id))
-              -- see rule 8. NULLS NOT DISTINCT (Postgres 15+): corpus documents have no owner, and
-              -- without it re-ingesting a corpus would insert duplicates. access_groups is stored
+              created_at timestamptz DEFAULT now())
+              -- two partial unique indexes: a corpus document is identified by (collection_id,
+              -- manifest_key) WHERE manifest_key IS NOT NULL; an upload by (content_hash,
+              -- collection_id, access_groups, owner_id) NULLS NOT DISTINCT WHERE manifest_key IS NULL.
+              -- See rule 8. NULLS NOT DISTINCT (Postgres 15+): an upload has no owner before M3, and
+              -- without it uploading a file twice would insert duplicates. access_groups is stored
               -- sorted and de-duplicated (a CHECK or the insert code), so {hr,everyone} = {everyone,hr}.
 indexes      (id serial PK, name text UNIQUE, chunker text, chunker_params jsonb,
               contextualizer text, contextualizer_params jsonb, embedder_model text, dimension int,
@@ -403,6 +406,13 @@ alone.
   nothing when there is nothing to publish. A corpus ingest publishes when it ends, also after a
   failure, so bm25s is rebuilt once rather than once per file; an upload publishes in the transaction
   that stores it; ingest and API start publish what a crashed process left.
+- **Corpus sync** (`ingestion/sync.py`): an ingest makes the index hold exactly the corpus documents
+  the manifests describe, beside the uploads, which it never changes. Documents that left the corpus
+  are removed first, from every index. A changed one (bytes, tags or access groups) is removed from
+  every index and stored again in this one, in one transaction, after its text is embedded; another
+  index gets it at its own next sync. An upload in this index with the same bytes, collection, groups
+  and owner stands in for a corpus document. Every index that lost chunks is published. One sync runs
+  at a time on a database; a sync with no corpus documents is refused.
 - **Comparison retriever:** `ts_rank` on `tsv` as a fourth sparse option in the eval only (D17).
 - `docs/RETRIEVAL.md`: `EXPLAIN ANALYZE` of a dense query showing the HNSW index used, the same query
   with a selective filter, and what changes with `hnsw.ef_search`. Include the **sixth run of the same
@@ -415,8 +425,9 @@ alone.
 
 **Tests:** store contract tests run against Postgres (marked `db`; required in CI, skipped locally
 without a database, as in the scaffold (S11 in `docs/DECISIONS.md`)); idempotent re-ingest, including an ownerless
-corpus document (the `NULLS NOT DISTINCT` constraint); a publication reloads BM25; a bulk ingest
-publishes once; the dense query plan uses the partial HNSW index after six executions.
+document (the partial unique indexes); corpus sync through manifests and the real retriever; a
+publication reloads BM25; a bulk ingest publishes once; the dense query plan uses the partial HNSW
+index after six executions.
 **Measure:** every retrieval number from M1 within noise on Postgres; exact versus HNSW top-20
 differences per run (expect a few questions, as with Chroma); `ts_rank` versus bm25s table.
 **Done when:** Chroma is gone, the eval matches, and the CI gate fails a deliberately broken branch.
