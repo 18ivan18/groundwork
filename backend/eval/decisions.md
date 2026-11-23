@@ -381,6 +381,13 @@ tokens, re-ranked:
 
 ## Postgres in place of Chroma (M2)
 
+**Measured on corpora version `corpora-v1`**: every number in this section, `results.md`,
+`baseline.json` and `docs/RETRIEVAL.md`. The runs read the corpora then committed in
+`backend/data/raw/`, the same 209 files as in M1's baseline above, which `corpora-v1` was packed
+from. The answer runs
+`2026-11-18-answer-1-ab` and `2026-11-18-answer-2` are labelled for the same reason: their commit
+holds the same files. Older answer runs had only the six filings and stay unlabelled.
+
 The same eval on pgvector (HNSW, `m = 16`, `ef_construction = 64`, `ef_search = 40`) against the
 M1 baseline on Chroma. **Success@6 is identical in every row**, for every collection, mode and
 chunk size. Differences appear only deeper: at 200 tokens sec-10k S@8 0.91 → 0.89 and MRR
@@ -412,7 +419,8 @@ sparse candidate before deciding bm25s stays; D17 is unchanged for now.
 ### The CI gate
 
 `eval/baseline.json`: Success@6 at 400 tokens, exact search, re-ranked, sec-10k 0.867 (45
-questions), northwind 1.000 (23; restricted questions excluded). With
+questions), northwind 1.000 (23; restricted questions excluded). The file names its corpora version,
+and the gate fails if that isn't the locked one or if a collection in it has no results. With
 `RETRIEVAL_CANDIDATES=3` instead of 20, sec-10k falls to 0.756 and the gate fails:
 
 ```

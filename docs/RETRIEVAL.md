@@ -1,8 +1,8 @@
 # Retrieval on Postgres
 
 How the dense query runs on pgvector, measured on the evaluation's 400-token index: 4,800 chunks
-from 205 documents in four collections, `bge-small-en-v1.5` (384 dimensions), pgvector 0.8.7,
-HNSW with `m = 16`, `ef_construction = 64`. Every number here comes from
+from the 205 documents of `corpora-v1` in four collections, `bge-small-en-v1.5` (384 dimensions),
+pgvector 0.8.7, HNSW with `m = 16`, `ef_construction = 64`. Every number here comes from
 
 ```sh
 uv run python scripts/explain_search.py --index eval-window-400-header-bge-small \
