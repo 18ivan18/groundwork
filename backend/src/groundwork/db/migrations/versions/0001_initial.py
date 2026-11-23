@@ -72,8 +72,11 @@ def upgrade() -> None:
         dimension int NOT NULL CHECK (dimension > 0),
         status text NOT NULL DEFAULT 'building'
             CHECK (status IN ('building', 'ready', 'retired')),
-        -- Bumped when an ingest job finishes, so each API worker knows to reload BM25.
+        -- Moves when writes are published, so each API worker knows to reload BM25.
         generation bigint NOT NULL DEFAULT 0,
+        -- Set in the transaction of every write that changes this index's chunks and cleared by
+        -- publishing, so a later process can publish what a crashed one stored.
+        unpublished bool NOT NULL DEFAULT false,
         is_active bool NOT NULL DEFAULT false,
         created_at timestamptz NOT NULL DEFAULT now()
     );

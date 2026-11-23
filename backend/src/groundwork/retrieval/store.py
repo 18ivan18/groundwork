@@ -60,10 +60,13 @@ class ChunkStore(Protocol):
         content_hash: str,
         chunks: Sequence[Chunk],
         embeddings: Sequence[Sequence[float]],
+        *,
+        publish: bool = False,
     ) -> Document:
         """Store a document and its chunks, which get their ids here: the chunk at position i
         becomes `<doc_id>:<i>`. A document stored before keeps its tags, and its chunks in this
-        index are replaced."""
+        index are replaced. The same transaction records that the index has writes to publish,
+        or with `publish` publishes them."""
         ...
 
     async def search(
@@ -89,9 +92,12 @@ class ChunkStore(Protocol):
     async def count_document_chunks(self, doc_id: str) -> int: ...
 
     async def generation(self) -> int:
-        """Changes when the index's chunks do, so a BM25 index built from them knows it is old."""
+        """Changes when writes are published, so a BM25 index built from the chunks knows it is
+        old."""
         ...
 
-    async def bump_generation(self) -> int:
-        """Called once an ingest job has stored all its documents."""
+    async def publish(self) -> int | None:
+        """Move the generation, so that BM25 finds what was written to the index since the last
+        publication, whichever process wrote it. Returns the new generation, or None if there
+        was nothing to publish."""
         ...

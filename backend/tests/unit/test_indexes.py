@@ -1,9 +1,11 @@
 """The index registry, and the query plans D19 depends on."""
 
+import asyncio
 import json
 from dataclasses import replace
 
 import pytest
+from psycopg.errors import NumericValueOutOfRange
 
 from groundwork.db.pool import Pool
 from groundwork.domain.models import Chunk, DocumentMeta, SearchFilters
@@ -12,12 +14,11 @@ from groundwork.retrieval.indexes import (
     IndexSpec,
     activate,
     active_index,
-    bump_generation,
     drop_index,
     ensure_index,
-    generation,
     get_index,
     hnsw_index_name,
+    mark_unpublished,
     model_slug,
     window_spec,
 )
@@ -65,19 +66,73 @@ async def test_one_index_is_active(pool: Pool) -> None:
     assert (active.id, active.status) == (b.id, "ready")
 
 
-async def test_bump_generation(pool: Pool) -> None:
-    index = await ensure_index(pool, SPEC)
+def document(title: str) -> DocumentMeta:
+    return DocumentMeta(
+        title=title, collection_id="c", doc_type="x", doc_date=None, filename=title
+    )
 
-    assert await bump_generation(pool, index.id) == 1
-    assert await bump_generation(pool, index.id) == 2
-    assert await generation(pool, index.id) == 2
+
+CHUNK = Chunk("x", "x", "a", (), None, 0, 1)
+VECTOR = [1.0, 0.0, 0.0]
+
+
+async def test_publishing_one_index_leaves_the_others(pool: Pool) -> None:
+    a = PgVectorStore(pool, await ensure_index(pool, SPEC))
+    b = PgVectorStore(pool, await ensure_index(pool, replace(SPEC, name="other")))
+    await a.add(document("a"), "h", [CHUNK], [VECTOR])
+    await b.add(document("a"), "h", [CHUNK], [VECTOR])
+
+    assert await a.publish() == 1
+
+    assert await b.generation() == 0
+    assert await b.publish() == 1
+
+
+async def test_a_write_under_way_is_not_lost_by_a_publish(pool: Pool) -> None:
+    """The index is marked already, so nothing but the write's own mark can hold the publish back
+    until the write can be seen."""
+    index = await ensure_index(pool, SPEC)
+    await PgVectorStore(pool, index).add(document("a"), "h", [CHUNK], [VECTOR])
+    store = PgVectorStore(pool, index)
+
+    async with pool.connection() as connection, connection.transaction():
+        await mark_unpublished(connection, index.id)
+        publishing = asyncio.create_task(store.publish())
+        done, _ = await asyncio.wait([publishing], timeout=0.2)
+        assert not done
+
+    assert await publishing == 1
+    assert await store.publish() is None
+
+
+async def test_a_write_that_cannot_be_published_is_not_stored(pool: Pool) -> None:
+    index = await ensure_index(pool, SPEC)
+    store = PgVectorStore(pool, index)
+    async with pool.connection() as connection:
+        # The largest bigint, so the generation cannot move.
+        await connection.execute("UPDATE indexes SET generation = 9223372036854775807")
+
+    with pytest.raises(NumericValueOutOfRange):
+        await store.add(document("a"), "h", [CHUNK], [VECTOR], publish=True)
+
+    assert await store.find_document("h", document("a")) is None
+    assert await store.publish() is None
+
+
+async def test_publishing_a_dropped_index_does_nothing(pool: Pool) -> None:
+    index = await ensure_index(pool, SPEC)
+    store = PgVectorStore(pool, index)
+    await store.add(document("a"), "h", [CHUNK], [VECTOR])
+
+    await drop_index(pool, index.id)
+
+    assert await store.publish() is None
 
 
 async def test_drop_index_removes_its_chunks_and_hnsw_index(pool: Pool) -> None:
     index = await ensure_index(pool, SPEC)
     store = PgVectorStore(pool, index)
-    meta = DocumentMeta(title="t", collection_id="c", doc_type="x", doc_date=None, filename="t")
-    await store.add(meta, "h", [Chunk("x", "x", "a", (), None, 0, 1)], [[1.0, 0.0, 0.0]])
+    await store.add(document("t"), "h", [CHUNK], [VECTOR])
 
     await drop_index(pool, index.id)
 

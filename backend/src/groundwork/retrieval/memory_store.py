@@ -1,8 +1,8 @@
 """A chunk store in memory: exact cosine search over a list. For tests that need no database."""
 
 import itertools
-from collections.abc import Sequence
-from dataclasses import replace
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
 import numpy as np
@@ -31,14 +31,23 @@ def _unit(vector: Sequence[float]) -> np.ndarray:
     return array / norm if norm else array
 
 
+@dataclass
+class MemoryData:
+    """What a MemoryStore holds. Two stores given the same data behave like two processes on one
+    database."""
+
+    ids: Iterator[int] = field(default_factory=lambda: itertools.count(1))
+    documents: dict[_Identity, Document] = field(default_factory=dict)
+    # doc_id -> its chunks and their unit vectors, in order.
+    chunks: dict[str, list[tuple[Chunk, np.ndarray]]] = field(default_factory=dict)
+    generation: int = 0
+    unpublished: bool = False
+
+
 class MemoryStore:
-    def __init__(self, index: IndexInfo) -> None:
+    def __init__(self, index: IndexInfo, data: MemoryData | None = None) -> None:
         self._index = index
-        self._ids = itertools.count(1)
-        self._documents: dict[_Identity, Document] = {}
-        # doc_id -> its chunks and their unit vectors, in order.
-        self._chunks: dict[str, list[tuple[Chunk, np.ndarray]]] = {}
-        self._generation = 0
+        self._data = data if data is not None else MemoryData()
 
     @property
     def index(self) -> IndexInfo:
@@ -50,8 +59,8 @@ class MemoryStore:
         return (content_hash, meta.collection_id, groups, meta.owner_id)
 
     async def find_document(self, content_hash: str, meta: DocumentMeta) -> str | None:
-        document = self._documents.get(self._identity(content_hash, meta))
-        return document.doc_id if document and self._chunks.get(document.doc_id) else None
+        document = self._data.documents.get(self._identity(content_hash, meta))
+        return document.doc_id if document and self._data.chunks.get(document.doc_id) else None
 
     async def add(
         self,
@@ -59,11 +68,13 @@ class MemoryStore:
         content_hash: str,
         chunks: Sequence[Chunk],
         embeddings: Sequence[Sequence[float]],
+        *,
+        publish: bool = False,
     ) -> Document:
         if len(chunks) != len(embeddings):
             raise ValueError("Every chunk needs one embedding")
         identity = self._identity(content_hash, meta)
-        document = self._documents.get(identity)
+        document = self._data.documents.get(identity)
         if document is None:
             document = Document(
                 title=meta.title,
@@ -74,21 +85,24 @@ class MemoryStore:
                 metadata=dict(meta.metadata),
                 access_groups=identity[2],
                 owner_id=meta.owner_id,
-                doc_id=str(next(self._ids)),
+                doc_id=str(next(self._data.ids)),
                 ingested_at=datetime.now(UTC),
             )
-            self._documents[identity] = document
-        self._chunks[document.doc_id] = [
+            self._data.documents[identity] = document
+        self._data.chunks[document.doc_id] = [
             (
                 replace(chunk, chunk_id=make_chunk_id(document.doc_id, i), doc_id=document.doc_id),
                 _unit(embedding),
             )
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=True))
         ]
+        self._data.unpublished = True
+        if publish:
+            self._publish()
         return document
 
     def _by_id(self) -> dict[str, Document]:
-        return {document.doc_id: document for document in self._documents.values()}
+        return {document.doc_id: document for document in self._data.documents.values()}
 
     def _passages(
         self, filters: SearchFilters | None = None
@@ -96,7 +110,7 @@ class MemoryStore:
         documents = self._by_id()
         return [
             (chunk, documents[doc_id], vector)
-            for doc_id, items in sorted(self._chunks.items(), key=lambda item: int(item[0]))
+            for doc_id, items in sorted(self._data.chunks.items(), key=lambda item: int(item[0]))
             if matches(documents[doc_id], filters)
             for chunk, vector in items
         ]
@@ -129,22 +143,28 @@ class MemoryStore:
     async def documents(self) -> list[tuple[Document, int]]:
         documents = self._by_id()
         return sorted(
-            ((documents[doc_id], len(items)) for doc_id, items in self._chunks.items() if items),
+            ((documents[doc_id], len(items)) for doc_id, items in self._data.chunks.items() if items),
             key=lambda item: (item[0].title, int(item[0].doc_id)),
         )
 
     async def count_chunks(self) -> int:
-        return sum(len(items) for items in self._chunks.values())
+        return sum(len(items) for items in self._data.chunks.values())
 
     async def count_documents(self) -> int:
-        return sum(bool(items) for items in self._chunks.values())
+        return sum(bool(items) for items in self._data.chunks.values())
 
     async def count_document_chunks(self, doc_id: str) -> int:
-        return len(self._chunks.get(doc_id, []))
+        return len(self._data.chunks.get(doc_id, []))
 
     async def generation(self) -> int:
-        return self._generation
+        return self._data.generation
 
-    async def bump_generation(self) -> int:
-        self._generation += 1
-        return self._generation
+    async def publish(self) -> int | None:
+        return self._publish()
+
+    def _publish(self) -> int | None:
+        if not self._data.unpublished:
+            return None
+        self._data.generation += 1
+        self._data.unpublished = False
+        return self._data.generation

@@ -130,6 +130,8 @@ class PgVectorStore:
         content_hash: str,
         chunks: Sequence[Chunk],
         embeddings: Sequence[Sequence[float]],
+        *,
+        publish: bool = False,
     ) -> Document:
         if len(chunks) != len(embeddings):
             raise ValueError("Every chunk needs one embedding")
@@ -174,6 +176,9 @@ class PgVectorStore:
                 f"AND ordinal >= %s",
                 (int(document.doc_id), len(chunks)),
             )
+            await indexes.mark_unpublished(connection, self._id)
+            if publish:
+                await indexes.publish(connection, self._id)
         return document
 
     async def _upsert_document(
@@ -315,8 +320,9 @@ class PgVectorStore:
     async def generation(self) -> int:
         return await indexes.generation(self._pool, self._id)
 
-    async def bump_generation(self) -> int:
-        return await indexes.bump_generation(self._pool, self._id)
+    async def publish(self) -> int | None:
+        async with self._pool.connection() as connection:
+            return await indexes.publish(connection, self._id)
 
     async def _count(self, sql: str, params: tuple[Any, ...] = ()) -> int:
         async with self._pool.connection() as connection:

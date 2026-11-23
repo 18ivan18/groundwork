@@ -1,6 +1,6 @@
 """The ChunkStore contract, run against the in-memory store and against Postgres."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import date
 
 import pytest
@@ -8,7 +8,7 @@ from conftest import empty_database
 
 from groundwork.domain.models import Chunk, DocumentMeta, SearchFilters
 from groundwork.retrieval.indexes import IndexSpec, ensure_index
-from groundwork.retrieval.memory_store import MemoryStore, memory_index
+from groundwork.retrieval.memory_store import MemoryData, MemoryStore, memory_index
 from groundwork.retrieval.pgvector_store import PgVectorStore
 from groundwork.retrieval.store import ChunkStore
 
@@ -48,14 +48,25 @@ def vector(*values: float) -> list[float]:
     return [*values, *[0.0] * (DIMENSION - len(values))]
 
 
+# Opens another store on the same data, as another process would.
+OpenStore = Callable[[], ChunkStore]
+
+
 @pytest.fixture(params=["memory", pytest.param("postgres", marks=pytest.mark.db)])
-async def store(request: pytest.FixtureRequest) -> AsyncIterator[ChunkStore]:
+async def open_store(request: pytest.FixtureRequest) -> AsyncIterator[OpenStore]:
     if request.param == "memory":
-        yield MemoryStore(memory_index(DIMENSION))
+        data = MemoryData()
+        yield lambda: MemoryStore(memory_index(DIMENSION), data)
         return
     async with empty_database(request.getfixturevalue("database_url")) as pool:
         spec = IndexSpec(name="test", chunker="window", embedder_model="fake", dimension=DIMENSION)
-        yield PgVectorStore(pool, await ensure_index(pool, spec))
+        index = await ensure_index(pool, spec)
+        yield lambda: PgVectorStore(pool, index)
+
+
+@pytest.fixture
+def store(open_store: OpenStore) -> ChunkStore:
+    return open_store()
 
 
 async def test_added_chunks_get_ids_from_their_document(store: ChunkStore) -> None:
@@ -201,3 +212,46 @@ async def test_an_empty_store_finds_nothing(store: ChunkStore) -> None:
 async def test_a_chunk_count_must_match_its_embeddings(store: ChunkStore) -> None:
     with pytest.raises(ValueError, match="one embedding"):
         await store.add(meta("acme"), "h1", chunks("a", "b"), [vector(1)])
+
+
+async def test_publishing_moves_the_generation_once_per_batch_of_writes(store: ChunkStore) -> None:
+    await store.add(meta("acme"), "h1", chunks("a"), [vector(1)])
+    await store.add(meta("beta"), "h2", chunks("b"), [vector(1)])
+    assert await store.generation() == 0
+
+    assert await store.publish() == 1
+    assert await store.generation() == 1
+
+
+async def test_publishing_without_writes_does_nothing(store: ChunkStore) -> None:
+    assert await store.publish() is None
+
+    await store.add(meta("acme"), "h1", chunks("a"), [vector(1)])
+    await store.publish()
+
+    assert await store.publish() is None
+    assert await store.generation() == 1
+
+
+async def test_a_write_is_published_by_another_store_instance(open_store: OpenStore) -> None:
+    await open_store().add(meta("acme"), "h1", chunks("a"), [vector(1)])
+    later = open_store()
+
+    assert await later.publish() == 1
+    assert await open_store().publish() is None
+    assert await open_store().generation() == 1
+
+
+async def test_a_write_can_be_published_as_it_is_stored(store: ChunkStore) -> None:
+    await store.add(meta("acme"), "h1", chunks("a"), [vector(1)], publish=True)
+
+    assert await store.generation() == 1
+    assert await store.publish() is None
+
+
+async def test_publishing_a_write_publishes_the_ones_before_it(store: ChunkStore) -> None:
+    await store.add(meta("acme"), "h1", chunks("a"), [vector(1)])
+    await store.add(meta("beta"), "h2", chunks("b"), [vector(1)], publish=True)
+
+    assert await store.generation() == 1
+    assert await store.publish() is None

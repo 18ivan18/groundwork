@@ -138,8 +138,9 @@ class UploadService:
             # Checked again: the same file may have been stored while this one was embedding.
             doc_id = await self._store.find_document(digest, meta)
             if doc_id is None:
-                document = await self._store.add(meta, digest, prepared.chunks, prepared.embeddings)
+                # One upload is one job, so it is published as it is stored.
+                document = await self._store.add(
+                    meta, digest, prepared.chunks, prepared.embeddings, publish=True
+                )
                 doc_id = document.doc_id
-                # One upload is one job, so the generation moves once per file.
-                await self._store.bump_generation()
         self._jobs.update(job_id, "indexed", 100, chunks=len(prepared.chunks), doc_id=doc_id)
