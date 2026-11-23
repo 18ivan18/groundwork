@@ -6,9 +6,9 @@ directory, so the local raw directory is never overwritten. Northwind is fiction
 upstream; it is copied from data/raw/northwind/, so edit it there before packing a new version.
 
 With --from-local nothing is fetched: all four collections are packed from data/raw/ exactly as
-they are. corpora-v1 is made this way, from the committed bytes the eval baseline was measured on.
-A fetched build differs from them (the SEC fetcher strips a script tag EDGAR injects into the HTML
-filings), so a fetched corpora version needs an eval rerun.
+they are. corpora-v1 was made this way, from the bytes once committed in data/raw/ that the eval
+baseline was measured on. A fetched build differs from them (the SEC fetcher strips a script tag
+EDGAR injects into the HTML filings), so a fetched corpora version needs an eval rerun.
 
 The build then compares every packed file with the file at the same path under data/raw/ and says
 whether they are byte-identical: if they are, eval numbers measured on the local corpora hold for

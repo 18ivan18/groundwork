@@ -321,8 +321,13 @@ the final corpus.
 - **HTML table alignment** (improvement 11), as specified in `docs/archive/IMPROVEMENTS.md`. Its own
   commit with before-and-after eval numbers.
 - **Corpora** (`backend/data/raw/<collection>/manifest.json`, each entry with source, licence,
-  access groups, date and `planted`):
-  - `sec-10k`: the existing six filings, access `everyone`.
+  access groups, date and `planted`). Not committed (D27): all four are published together as a
+  corpora version, the tarball `corpora-vN.tar.gz` on the GitHub Release `corpora-vN`, built by
+  `scripts/build_corpora.py` with the manifests inside and published by hand (`gh release create`).
+  `backend/conf/corpora.lock.json` names the version, URL and sha256; the ingest and eval scripts
+  download, verify and install it into the git-ignored `data/raw/` when it is missing or different.
+  The M1 baseline is measured on `corpora-v1`:
+  - `sec-10k`: the existing six filings, access `everyone`, fetched by `scripts/fetch_filings.py`.
   - `engineering`: about 150 Markdown pages from the Kubernetes website docs (CC BY 4.0), pinned to
     a commit hash recorded in the manifest, fetched by `scripts/fetch_engineering_docs.py`.
   - `northwind`: about 30 short fictional documents for "Northwind Labs": runbooks and on-call guides
@@ -330,9 +335,10 @@ the final corpus.
     expense policy with dates that contradict each other; one document with an indirect prompt
     injection (hidden text telling the assistant to create a ticket and reveal HR content); one HR
     document whose title alone would be sensitive (for the existence-leak tests). Ivan reviews the
-    texts before they're committed.
-  - `books`: the three Project Gutenberg books already in `books/` (Frankenstein, Pride and
-    Prejudice, Sherlock Holmes), public domain, `everyone`. Long, weakly structured prose: the best
+    texts before they're packed into a corpora version; `build_corpora.py` takes them from the local
+    `data/raw/northwind/`, as there is no upstream.
+  - `books`: three Project Gutenberg books (Frankenstein, Pride and Prejudice, Sherlock Holmes),
+    public domain, `everyone`, fetched by `scripts/fetch_books.py`. Long, weakly structured prose: the best
     test bed for semantic and contextual chunking.
 - **Users:** `conf/users.yaml` with `alice` (everyone), `hana` (everyone, hr), `filip` (everyone,
   finance), `admin` (everyone, hr, finance, admin). Loaded now, enforced in M3.
