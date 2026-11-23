@@ -68,7 +68,6 @@ jobs:
         with:
           path: backend/data/raw
           key: corpora-${{ hashFiles('backend/conf/corpora.lock.json') }}
-      - run: uv run alembic upgrade head
       - run: uv run python eval/run_eval.py --ci
 
   frontend:
