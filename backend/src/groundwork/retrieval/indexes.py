@@ -58,6 +58,17 @@ class IndexInfo:
         return self.spec.dimension
 
 
+@dataclass(frozen=True)
+class Publication:
+    """The state of an index's chunks that BM25 is built from. The generation alone does not name
+    it: a recreated database, or one restored from a backup, counts through the same numbers."""
+
+    generation: int
+    token: str
+    # The index holds writes that are not in this publication.
+    written_since: bool
+
+
 def model_slug(model: str) -> str:
     """BAAI/bge-small-en-v1.5 -> bge-small"""
     name = model.rsplit("/", 1)[-1].lower()
@@ -203,15 +214,18 @@ async def active_index(pool: Pool) -> IndexInfo | None:
     return _from_row(row) if row else None
 
 
-async def generation(pool: Pool, index_id: int) -> int:
+async def publication(pool: Pool, index_id: int) -> Publication:
+    """The index's last publication."""
     async with pool.connection() as connection:
         cursor = await connection.execute(
-            "SELECT generation FROM indexes WHERE id = %s", (index_id,)
+            "SELECT generation, generation_token, unpublished FROM indexes WHERE id = %s",
+            (index_id,),
         )
         row = await cursor.fetchone()
     if row is None:
         raise LookupError(f"No index {index_id}")
-    return int(row[0])
+    generation, token, unpublished = row
+    return Publication(generation, str(token), unpublished)
 
 
 async def mark_unpublished(connection: AsyncConnection[TupleRow], index_id: int) -> None:
@@ -225,12 +239,13 @@ async def mark_unpublished(connection: AsyncConnection[TupleRow], index_id: int)
 
 
 async def publish(connection: AsyncConnection[TupleRow], index_id: int) -> int | None:
-    """Move the index's generation, so each API worker rebuilds BM25, and clear its record of
-    unpublished writes. The new generation, or None if there was nothing to publish.
+    """Move the index's generation and give it a new token, so each API worker rebuilds BM25, and
+    clear its record of unpublished writes. The new generation, or None if there was nothing to publish.
 
     Takes a connection so that a write can be published in its own transaction."""
     cursor = await connection.execute(
-        "UPDATE indexes SET generation = generation + 1, unpublished = false "
+        "UPDATE indexes SET generation = generation + 1, generation_token = gen_random_uuid(), "
+        "unpublished = false "
         "WHERE id = %s AND unpublished RETURNING generation",
         (index_id,),
     )

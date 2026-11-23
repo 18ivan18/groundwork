@@ -74,6 +74,9 @@ def upgrade() -> None:
             CHECK (status IN ('building', 'ready', 'retired')),
         -- Moves when writes are published, so each API worker knows to reload BM25.
         generation bigint NOT NULL DEFAULT 0,
+        -- Random, and new with each generation: a recreated or restored database can reach a
+        -- generation number again, but never with the same token. A saved BM25 index names both.
+        generation_token uuid NOT NULL DEFAULT gen_random_uuid(),
         -- Set in the transaction of every write that changes this index's chunks and cleared by
         -- publishing, so a later process can publish what a crashed one stored.
         unpublished bool NOT NULL DEFAULT false,

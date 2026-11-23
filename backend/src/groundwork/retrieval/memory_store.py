@@ -1,6 +1,7 @@
 """A chunk store in memory: exact cosine search over a list. For tests that need no database."""
 
 import itertools
+import uuid
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -14,7 +15,7 @@ from groundwork.domain.models import (
     SearchFilters,
     make_chunk_id,
 )
-from groundwork.retrieval.indexes import IndexInfo, IndexSpec
+from groundwork.retrieval.indexes import IndexInfo, IndexSpec, Publication
 from groundwork.retrieval.store import DenseHit, matches, normalized_groups
 
 _Identity = tuple[str, str, tuple[str, ...], str | None]
@@ -41,6 +42,7 @@ class MemoryData:
     # doc_id -> its chunks and their unit vectors, in order.
     chunks: dict[str, list[tuple[Chunk, np.ndarray]]] = field(default_factory=dict)
     generation: int = 0
+    token: str = field(default_factory=lambda: str(uuid.uuid4()))
     unpublished: bool = False
 
 
@@ -163,6 +165,9 @@ class MemoryStore:
     async def generation(self) -> int:
         return self._data.generation
 
+    async def publication(self) -> Publication:
+        return Publication(self._data.generation, self._data.token, self._data.unpublished)
+
     async def publish(self) -> int | None:
         return self._publish()
 
@@ -170,5 +175,6 @@ class MemoryStore:
         if not self._data.unpublished:
             return None
         self._data.generation += 1
+        self._data.token = str(uuid.uuid4())
         self._data.unpublished = False
         return self._data.generation

@@ -24,7 +24,7 @@ from groundwork.domain.models import (
     parse_chunk_id,
 )
 from groundwork.retrieval import indexes
-from groundwork.retrieval.indexes import IndexInfo, vector_cast
+from groundwork.retrieval.indexes import IndexInfo, Publication, vector_cast
 from groundwork.retrieval.store import DenseHit, normalized_groups
 
 # pgvector's default and limit for hnsw.ef_search, the most chunks one pass over the graph finds.
@@ -326,7 +326,10 @@ class PgVectorStore:
         )
 
     async def generation(self) -> int:
-        return await indexes.generation(self._pool, self._id)
+        return (await self.publication()).generation
+
+    async def publication(self) -> Publication:
+        return await indexes.publication(self._pool, self._id)
 
     async def publish(self) -> int | None:
         async with self._pool.connection() as connection:

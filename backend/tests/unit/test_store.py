@@ -260,6 +260,41 @@ async def test_publishing_a_write_publishes_the_ones_before_it(store: ChunkStore
     assert await store.publish() is None
 
 
+async def test_each_publication_gets_its_own_token(store: ChunkStore) -> None:
+    new = await store.publication()
+    await store.add(meta("acme"), "h1", chunks("a"), [vector(1)])
+    await store.publish()
+    first = await store.publication()
+    await store.add(meta("beta"), "h2", chunks("b"), [vector(1)], publish=True)
+    second = await store.publication()
+
+    assert [p.generation for p in (new, first, second)] == [0, 1, 2]
+    assert len({new.token, first.token, second.token}) == 3
+
+
+async def test_the_token_changes_only_by_publishing(open_store: OpenStore) -> None:
+    store = open_store()
+    before = await store.publication()
+    await store.add(meta("acme"), "h1", chunks("a"), [vector(1)])
+    assert (await store.publication()).token == before.token
+
+    await store.publish()
+    published = await store.publication()
+    await store.publish()
+
+    assert await open_store().publication() == published
+
+
+async def test_a_publication_tells_whether_the_index_was_written_since(store: ChunkStore) -> None:
+    assert not (await store.publication()).written_since
+
+    await store.add(meta("acme"), "h1", chunks("a"), [vector(1)])
+    assert (await store.publication()).written_since
+
+    await store.publish()
+    assert not (await store.publication()).written_since
+
+
 # Dense search through the HNSW index: Postgres only.
 
 
