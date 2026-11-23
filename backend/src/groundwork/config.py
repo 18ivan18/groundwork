@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     embedding_device: str = "cpu"
 
     data_dir: Path = Path("./data")
+    users_file: Path = Path("./conf/users.yaml")
     chunk_tokens: int = 400
     chunk_overlap: int = 60
     retrieval_candidates: int = 20

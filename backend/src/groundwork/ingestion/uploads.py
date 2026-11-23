@@ -7,7 +7,7 @@ from datetime import date
 from functools import partial
 from pathlib import Path, PureWindowsPath
 
-from groundwork.domain.models import DocType, DocumentMeta, make_doc_id
+from groundwork.domain.models import DocumentMeta, make_doc_id
 from groundwork.ingestion.jobs import Job, JobRegistry
 from groundwork.ingestion.loaders import LoadedDocument, NoTextError, loader_for
 from groundwork.ingestion.pipeline import prepare_document
@@ -59,9 +59,9 @@ class UploadService:
         filename: str,
         raw: bytes,
         *,
-        company: str,
-        doc_type: DocType,
-        period_end: date | None,
+        collection_id: str,
+        doc_type: str,
+        doc_date: date | None,
         schedule: Schedule,
     ) -> Job:
         """Validate a file and schedule its indexing.
@@ -92,11 +92,9 @@ class UploadService:
 
         meta = DocumentMeta(
             title=name,
-            company=company,
-            ticker=None,
+            collection_id=collection_id,
             doc_type=doc_type,
-            period_end=period_end,
-            source="upload",
+            doc_date=doc_date,
             filename=name,
         )
         job = self._jobs.create(doc_id)

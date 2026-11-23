@@ -1,13 +1,22 @@
 """Split sections into overlapping windows that end on sentence or paragraph boundaries."""
 
 import re
+from bisect import bisect_right
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
 from groundwork.domain.models import Chunk, make_chunk_id
-from groundwork.ingestion.sections import Section
+from groundwork.ingestion.loaders.base import PageSpan
+from groundwork.ingestion.structure import Section
 
+# The last window of a long section is often a few words that only make sense with the window
+# before it, which the overlap already carries: below MIN_CHUNK_TOKENS it is dropped.
 MIN_CHUNK_TOKENS = 30
+# A short section that fits in one window is kept whole, down to MIN_SECTION_TOKENS: runbooks and
+# policies have sections of a sentence or two. Below that it is a heading with "None." or a page
+# footer.
+MIN_SECTION_TOKENS = 8
 
 # A period after these does not end a sentence. Without this check a chunk can end on "Mr.",
 # cutting the name away from what the passage says about that person.
@@ -93,6 +102,13 @@ def _pack(units: list[_Unit], chunk_tokens: int, overlap: int) -> list[list[_Uni
     return windows
 
 
+def page_at(page_spans: Sequence[PageSpan], position: int) -> int | None:
+    """The page a character is on, or None for formats without pages. A position in the break
+    between two pages counts as the earlier page."""
+    index = bisect_right([span.char_start for span in page_spans], position) - 1
+    return page_spans[index].page if index >= 0 else None
+
+
 def chunk_document(
     doc_id: str,
     text: str,
@@ -101,13 +117,17 @@ def chunk_document(
     *,
     chunk_tokens: int,
     chunk_overlap: int,
+    page_spans: Sequence[PageSpan] = (),
 ) -> list[Chunk]:
-    """Chunk each section separately, so that no chunk mixes two sections."""
+    """Chunk each section separately, so that no chunk mixes two sections. A chunk's page is the
+    one it starts on."""
     chunks: list[Chunk] = []
     for section in sections:
         units = _units(text, section, counter, chunk_tokens)
-        for window in _pack(units, chunk_tokens, chunk_overlap):
-            if sum(unit.tokens for unit in window) < MIN_CHUNK_TOKENS:
+        windows = _pack(units, chunk_tokens, chunk_overlap)
+        minimum = MIN_SECTION_TOKENS if len(windows) == 1 else MIN_CHUNK_TOKENS
+        for window in windows:
+            if sum(unit.tokens for unit in window) < minimum:
                 continue
             start, end = window[0].start, window[-1].end
             chunks.append(
@@ -115,8 +135,8 @@ def chunk_document(
                     chunk_id=make_chunk_id(doc_id, len(chunks)),
                     doc_id=doc_id,
                     text=text[start:end],
-                    section=section.title,
-                    page=None,
+                    section_path=section.path,
+                    page=page_at(page_spans, start),
                     char_start=start,
                     char_end=end,
                 )

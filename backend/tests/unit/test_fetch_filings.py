@@ -1,8 +1,10 @@
 import hashlib
+from dataclasses import replace
+from datetime import date
 from typing import Any
 
 import pytest
-from fetch_filings import Filing, find_latest_filing, manifest_entry
+from fetch_filings import Filing, find_latest_filing, manifest_entry, strip_edgar_script
 
 
 def submissions(forms: list[tuple[str, str]]) -> dict[str, Any]:
@@ -107,11 +109,68 @@ def test_source_url_strips_cik_padding_and_accession_dashes() -> None:
 def test_manifest_entry_has_required_metadata() -> None:
     entry = manifest_entry(make_filing(), b"content")
 
-    assert entry["company"] == "ACME Corp"
-    assert entry["ticker"] == "ACME"
-    assert entry["form"] == "10-K"
-    assert entry["period_end"] == "2025-09-27"
-    assert entry["filing_date"] == "2025-10-31"
-    assert entry["filename"] == "ACME-10-K-2025-09-27.htm"
-    assert entry["source_url"].endswith("/acme-20250927.htm")
-    assert entry["sha256"] == hashlib.sha256(b"content").hexdigest()
+    assert entry.title == "ACME Corp · Form 10-K"
+    assert entry.metadata == {"company": "ACME Corp", "ticker": "ACME", "form": "10-K"}
+    assert entry.doc_type == "10-K"
+    assert entry.doc_date == date(2025, 9, 27)
+    assert entry.provenance["filing_date"] == "2025-10-31"
+    assert entry.filename == "ACME-10-K-2025-09-27.htm"
+    assert entry.source_url is not None
+    assert entry.source_url.endswith("/acme-20250927.htm")
+
+
+def test_a_10k405_is_filed_under_10k_and_keeps_its_form() -> None:
+    entry = manifest_entry(replace(make_filing(), form="10-K405"), b"content")
+
+    assert (entry.doc_type, entry.metadata["form"]) == ("10-K", "10-K405")
+    assert entry.sha256 == hashlib.sha256(b"content").hexdigest()
+
+
+# The tail of a 10-K as EDGAR serves it: the filing ends at its last page footer and EDGAR adds a
+# script tag, whose path rotates over time, just before </body>.
+FILING_TAIL = (
+    b'<div style="text-align:center"><span>Apple Inc. | 2026 Form 10-K | 63</span></div>'
+    b"</div></div>"
+)
+EDGAR_SCRIPT = (
+    b'<script type="text/javascript"  '
+    b'src="/7lZ1Ku/BO/Vw/Fq7R/M779h-6pJM/pOpOzL4DcbLNGt9D/MENZaywUEwE/JzUgeAU/PGhQ"></script>'
+)
+
+
+def test_strips_the_script_edgar_injects_before_the_body_end() -> None:
+    served = FILING_TAIL + EDGAR_SCRIPT + b"</body></html>"
+
+    assert strip_edgar_script(served) == FILING_TAIL + b"</body></html>"
+
+
+def test_strips_only_the_tag_and_keeps_the_whitespace_around_it() -> None:
+    served = FILING_TAIL + b"\n " + EDGAR_SCRIPT + b"</body>\n</html>"
+
+    assert strip_edgar_script(served) == FILING_TAIL + b"\n </body>\n</html>"
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        pytest.param(FILING_TAIL + b"</body></html>", id="nothing injected"),
+        pytest.param(
+            b'<script type="text/javascript" src="/js/viewer.js"></script>'
+            + FILING_TAIL
+            + b"</body></html>",
+            id="the filing's own script",
+        ),
+        pytest.param(
+            EDGAR_SCRIPT + FILING_TAIL + b"</body></html>",
+            id="the same tag away from the body end",
+        ),
+        pytest.param(
+            FILING_TAIL
+            + EDGAR_SCRIPT.replace(b"></script>", b">init()</script>")
+            + b"</body></html>",
+            id="a script with code in it",
+        ),
+    ],
+)
+def test_leaves_everything_else_untouched(document: bytes) -> None:
+    assert strip_edgar_script(document) == document

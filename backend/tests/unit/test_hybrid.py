@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -13,14 +13,19 @@ from groundwork.retrieval.hybrid import HybridRetriever
 from groundwork.retrieval.sparse import SparseIndex
 
 
-def make_document(doc_id: str, ticker: str, doc_type: str = "10-K") -> Document:
+def make_document(
+    doc_id: str,
+    ticker: str,
+    doc_type: str = "10-K",
+    collection_id: str = "filings",
+    doc_date: date | None = None,
+) -> Document:
     return Document(
         title=f"{ticker} report",
-        company=ticker,
-        ticker=ticker,
-        doc_type=doc_type,  # type: ignore[arg-type]
-        period_end=None,
-        source="upload",
+        collection_id=collection_id,
+        doc_type=doc_type,
+        doc_date=doc_date,
+        metadata={"ticker": ticker},
         filename=f"{doc_id}.txt",
         doc_id=doc_id,
         ingested_at=datetime(2025, 1, 1, tzinfo=UTC),
@@ -29,7 +34,7 @@ def make_document(doc_id: str, ticker: str, doc_type: str = "10-K") -> Document:
 
 def add(index: DenseIndex, document: Document, *texts: str) -> None:
     chunks = [
-        Chunk(f"{document.doc_id}:{i}", document.doc_id, text, None, None, 0, 1)
+        Chunk(f"{document.doc_id}:{i}", document.doc_id, text, (), None, 0, 1)
         for i, text in enumerate(texts)
     ]
     index.add(document, chunks, FakeEmbedder().embed_documents(texts))
@@ -38,8 +43,10 @@ def add(index: DenseIndex, document: Document, *texts: str) -> None:
 @pytest.fixture
 def dense(tmp_path: Path) -> DenseIndex:
     index = DenseIndex(tmp_path / "chroma", "fake-model")
-    add(index, make_document("a", "ACME"), "ACME sells anvils", "ACME roof leaks")
-    add(index, make_document("b", "BETA", "8-K"), "BETA sells anvils", "BETA hires engineers")
+    acme = make_document("a", "ACME", doc_date=date(2024, 1, 31))
+    beta = make_document("b", "BETA", "8-K", collection_id="news", doc_date=date(2025, 6, 30))
+    add(index, acme, "ACME sells anvils", "ACME roof leaks")
+    add(index, beta, "BETA sells anvils", "BETA hires engineers")
     return index
 
 
@@ -70,7 +77,7 @@ def test_sparse_mode_finds_chunks_without_any_dense_data(dense: DenseIndex) -> N
     assert [p.chunk.chunk_id for p in passages] == ["b:1"]
     assert passages[0].dense_rank is None
     assert passages[0].dense_similarity is None
-    assert passages[0].document.ticker == "BETA"
+    assert passages[0].document.metadata["ticker"] == "BETA"
 
 
 def test_chunk_found_only_by_bm25_is_fetched_in_hybrid_mode(
@@ -82,7 +89,7 @@ def test_chunk_found_only_by_bm25_is_fetched_in_hybrid_mode(
     passage = retriever.search("engineers", 4)[0]
 
     assert passage.chunk.text == "BETA hires engineers"
-    assert passage.document.ticker == "BETA"
+    assert passage.document.metadata["ticker"] == "BETA"
     assert passage.dense_rank is None
     assert passage.sparse_rank == 1
 
@@ -91,22 +98,45 @@ def test_k_limits_results(dense: DenseIndex) -> None:
     assert len(make_retriever(dense).search("anvils", 2)) == 2
 
 
-@pytest.mark.parametrize("mode", ["hybrid", "dense", "sparse"])
-def test_ticker_filter_applies_in_every_mode(dense: DenseIndex, mode: str) -> None:
-    filters = SearchFilters(tickers=("BETA",))
+# Each filter field, alone, keeps only BETA's passages.
+FILTERS_FOR_BETA = {
+    "collection": SearchFilters(collections=("news",)),
+    "doc_type": SearchFilters(doc_types=("8-K",)),
+    "date_from": SearchFilters(date_from=date(2025, 1, 1)),
+    "date_to_inclusive": SearchFilters(date_from=date(2025, 6, 30), date_to=date(2025, 6, 30)),
+    "metadata": SearchFilters(metadata={"ticker": "BETA"}),
+}
 
-    passages = make_retriever(dense).search("anvils", 4, filters, mode)  # type: ignore[arg-type]
+
+@pytest.mark.parametrize("mode", ["hybrid", "dense", "sparse"])
+@pytest.mark.parametrize("name", FILTERS_FOR_BETA)
+def test_each_filter_applies_in_every_mode(dense: DenseIndex, mode: str, name: str) -> None:
+    passages = make_retriever(dense).search(
+        "anvils",
+        4,
+        FILTERS_FOR_BETA[name],
+        mode,  # type: ignore[arg-type]
+    )
 
     assert passages
-    assert {p.document.ticker for p in passages} == {"BETA"}
+    assert {p.document.metadata["ticker"] for p in passages} == {"BETA"}
 
 
-def test_ticker_and_doc_type_filters_combine(dense: DenseIndex) -> None:
-    filters = SearchFilters(tickers=("ACME", "BETA"), doc_types=("8-K",))
+def test_filters_combine(dense: DenseIndex) -> None:
+    filters = SearchFilters(collections=("filings", "news"), doc_types=("8-K",))
 
     passages = make_retriever(dense).search("anvils", 4, filters)
 
     assert {p.document.doc_type for p in passages} == {"8-K"}
+
+
+def test_an_undated_document_never_matches_a_date_range(tmp_path: Path) -> None:
+    index = DenseIndex(tmp_path / "chroma", "fake-model")
+    add(index, make_document("u", "UNDATED"), "UNDATED sells anvils")
+
+    filters = SearchFilters(date_to=date(2100, 1, 1))
+
+    assert make_retriever(index).search("anvils", 4, filters) == []
 
 
 def test_empty_filters_restrict_nothing(dense: DenseIndex) -> None:
@@ -114,7 +144,9 @@ def test_empty_filters_restrict_nothing(dense: DenseIndex) -> None:
 
 
 def test_filter_matching_nothing_returns_nothing(dense: DenseIndex) -> None:
-    assert make_retriever(dense).search("anvils", 4, SearchFilters(tickers=("NOPE",))) == []
+    assert (
+        make_retriever(dense).search("anvils", 4, SearchFilters(metadata={"ticker": "NOPE"})) == []
+    )
 
 
 def test_sparse_index_is_rebuilt_when_it_falls_behind_chroma(

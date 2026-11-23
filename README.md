@@ -22,9 +22,9 @@ docker compose up --build
 
 Open <http://localhost:8080>. The API docs are at <http://localhost:8080/api/docs>.
 
-The first start builds the images, then indexes the filings. Later starts take about 10 seconds.
-Uploads and the index live in the `data` volume, so `docker compose down` keeps them and
-`docker compose down -v` removes them.
+The first start builds the images, downloads the corpora (see [Corpora](#corpora)) and indexes them.
+Later starts take about 10 seconds. The corpora, uploads and the index live in the `data` volume, so
+`docker compose down` keeps them and `docker compose down -v` removes them.
 
 ### Local development
 
@@ -34,13 +34,43 @@ and Node 22.
 ```bash
 cd backend
 uv sync
-uv run python scripts/ingest.py
+uv run python scripts/ingest.py     # downloads the locked corpora version on the first run
 uv run uvicorn groundwork.main:create_app --factory
 
 cd frontend          # in a second terminal
 npm install
 npm run dev          # http://localhost:5173, with /api proxied to port 8000
 ```
+
+### Corpora
+
+The corpora are not in git (D27 in `docs/DECISIONS.md`). All collections are published together as
+a **corpora version**: the tarball `corpora-vN.tar.gz`, with each collection's manifest inside, on
+the GitHub Release `corpora-vN`. `backend/conf/corpora.lock.json` names the version the code expects,
+with its URL and sha256; the scripts read it from `conf/` under the working directory (`backend/`, or
+`/app` in the image) and stop if it is missing. `scripts/ingest.py` and the eval scripts download the
+locked version into `backend/data/raw/` (ignored by git), check the sha256 and unpack it, then record
+the version and every file's sha256 in `data/raw/.corpora-version.json`. They make no request when
+the local copy already matches.
+
+They never replace or delete local changes. If a file in `data/raw/` differs from the record, is
+missing, or a file was added, they stop and list them: move the edits out, or pack and publish them as
+a new corpora version. A `data/raw/` from before the record is kept and recorded if it matches the
+locked version byte for byte, and refused otherwise. To iterate on Northwind meanwhile, run with
+`GROUNDWORK_CORPORA=local`: nothing is checked, the scripts say so loudly, and the results must not be
+labelled with a corpora version.
+
+To make a new corpora version (maintainer only), from `backend/`:
+
+```bash
+uv run python scripts/build_corpora.py N     # fetches upstream; needs SEC_USER_AGENT; Northwind from data/raw/
+gh release create corpora-vN <tarball> ...   # the command the script prints; publishing is manual
+```
+
+Then write the version, the asset's URL
+(`https://github.com/18ivan18/groundwork/releases/download/corpora-vN/corpora-vN.tar.gz`) and the
+printed sha256 into `conf/corpora.lock.json`. A new corpora version needs an
+eval rerun unless the script reports it byte-identical to the local corpora.
 
 ## Configuration
 
@@ -99,7 +129,7 @@ flowchart TD
 | **Citations checked on the server** | The model's citations are parsed, invalid numbers dropped, the rest renumbered. No valid citation counts as no answer. | A correct answer with no parsable citation is discarded |
 | **Two no-evidence layers** | A similarity gate stops off-topic questions without calling the LLM, and the model can refuse the rest | The gate cannot catch in-domain questions (see below) |
 | **Title and section added to indexed text** | Filings say "the Company", so chunks had no link to the company a question names. Stored and cited text stays verbatim. | Slightly more text to embed |
-| **SEC EDGAR filings as the corpus** | Real, relevant and public domain, so they can be committed | See the limitations on their age |
+| **SEC EDGAR filings as the corpus** | Real, relevant and public domain | See the limitations on their age. Kept out of git, in a versioned Release (D27) |
 | **Upload as a background job** | Embedding is slow, so the request returns at once and the UI polls | In-memory jobs, one uvicorn worker. Production would use a queue such as Celery, RQ or Arq with a persisted job table |
 | **Vite, React, shadcn/ui, TanStack Query** | Components live in the repository and can be styled to the design. TanStack Query replaces hand-written loading and polling code. | Tailwind and Radix become dependencies |
 | **Models baked into the image** | No download on first start | The embedder is 65 MB and the re-ranker 129 MB. The `api` image is 1.27 GB |
@@ -201,7 +231,7 @@ from a text passage instead, but the loader bug is still open. Each is a single 
 - **Two generations of filings:** the index holds each company's fiscal 2000–2001 10-K (plain text)
   and its 2026 10-K (HTML). A question without a year can get both, with the period of each figure
   stated. There is no period filter yet.
-- **Formats:** TXT, Markdown and HTML (inline XBRL included). PDF comes next, then OCR.
+- **Formats:** TXT, Markdown, HTML (inline XBRL included) and PDF with a text layer. Scanned PDFs need OCR, which is not supported.
 - **Updating an existing Docker install:** the filings are copied into the `data` volume only when
   it is empty, so an older volume keeps its old manifest. Run `docker compose down -v` once.
 - **Embedders:** a comparison of `bge-small` with Qwen3-0.6B and harrier-0.6b is planned.

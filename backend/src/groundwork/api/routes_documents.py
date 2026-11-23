@@ -6,22 +6,23 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile, status
 from fastapi import Path as PathParam
-from pydantic import StringConstraints
 
 from groundwork.api.deps import ContainerDep, UploadServiceDep
 from groundwork.api.schemas import (
+    CollectionId,
+    DocTypeText,
     DocumentResponse,
     ErrorResponse,
     JobResponse,
     UploadResponse,
 )
-from groundwork.domain.models import DocType
 from groundwork.ingestion.loaders import NoTextError, UnsupportedFormatError
 from groundwork.ingestion.uploads import FileTooLargeError
 
 router = APIRouter(tags=["documents"])
 
-Company = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+# Uploads go here unless the uploader names another collection.
+UPLOADS_COLLECTION = "uploads"
 
 
 @router.get(
@@ -54,21 +55,23 @@ def list_documents(container: ContainerDep) -> list[DocumentResponse]:
 )
 def upload_document(
     file: Annotated[UploadFile, File(description="The document to index.")],
-    company: Annotated[Company, Form(description="The company the document is about.")],
-    doc_type: Annotated[DocType, Form(description="The kind of document.")],
+    doc_type: Annotated[DocTypeText, Form(description="The kind of document, such as `runbook`.")],
     service: UploadServiceDep,
     background: BackgroundTasks,
-    period_end: Annotated[
-        date | None, Form(description="The last day of the period it covers.")
+    collection: Annotated[
+        CollectionId, Form(description="The collection to add it to.")
+    ] = UPLOADS_COLLECTION,
+    doc_date: Annotated[
+        date | None, Form(description="The date the document is about, if known.")
     ] = None,
 ) -> UploadResponse:
     try:
         job = service.accept(
             file.filename or "",
             file.file.read(),
-            company=company,
+            collection_id=collection,
             doc_type=doc_type,
-            period_end=period_end,
+            doc_date=doc_date,
             schedule=background.add_task,
         )
     except FileTooLargeError as error:

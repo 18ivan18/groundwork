@@ -11,7 +11,7 @@ from groundwork.retrieval.embedder import FakeEmbedder
 
 def add(app: FastAPI, doc_id: str, title: str, chunks: int) -> None:
     container: Container = app.state.container
-    items = [Chunk(f"{doc_id}:{i}", doc_id, "anvils", None, None, 0, 6) for i in range(chunks)]
+    items = [Chunk(f"{doc_id}:{i}", doc_id, "anvils", (), None, 0, 6) for i in range(chunks)]
     vectors = FakeEmbedder().embed_documents(["anvils"] * chunks)
     container.dense_index.add(replace(DOCUMENT, doc_id=doc_id, title=title), items, vectors)
 
@@ -30,11 +30,10 @@ def test_documents_are_listed_with_chunk_counts_by_title(app: FastAPI) -> None:
     assert body[0] == {
         "doc_id": "a",
         "title": "Alpha report",
-        "company": "ACME Corp",
-        "ticker": "ACME",
+        "collection_id": "sec-10k",
         "doc_type": "10-K",
-        "period_end": "2025-09-27",
-        "source": "edgar",
+        "doc_date": "2025-09-27",
+        "metadata": {"company": "ACME Corp", "ticker": "ACME"},
         "filename": "acme.txt",
         "ingested_at": "2025-11-01T00:00:00Z",
         "chunks": 3,

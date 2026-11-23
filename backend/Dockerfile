@@ -38,8 +38,10 @@ ENV PATH=/app/.venv/bin:$PATH \
 COPY --from=build --chown=app:app /opt/models /opt/models
 COPY --from=build --chown=app:app /app/.venv /app/.venv
 COPY --chown=app:app scripts ./scripts
-# Docker copies this into the empty `data` volume on first use, along with its ownership.
-COPY --chown=app:app data/raw ./data/raw
+COPY --chown=app:app conf ./conf
+# No corpora in the image: the first ingest downloads the locked corpora version into the `data`
+# volume (D27). Docker gives the empty volume this directory's ownership, so the app can write it.
+RUN install -d -o app -g app ./data
 
 USER app
 EXPOSE 8000

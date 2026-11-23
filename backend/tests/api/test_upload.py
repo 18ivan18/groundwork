@@ -7,6 +7,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import Response
+from pdf_builder import make_pdf
 
 from groundwork.api.deps import get_upload_service
 from groundwork.container import Container, rebuild_sparse_index
@@ -21,7 +22,7 @@ MAX_BYTES = 5000
 TEXT = (
     "Anvils are heavy steel blocks that ACME Corp sells to blacksmiths everywhere. " * 8
 ).encode()
-FORM = {"company": "ACME Corp", "doc_type": "other"}
+FORM = {"doc_type": "notes"}
 
 
 class Harness:
@@ -79,16 +80,24 @@ def test_upload_is_indexed_in_the_background(harness: Harness) -> None:
 
 
 def test_uploaded_document_joins_the_library_with_its_tags(harness: Harness) -> None:
-    harness.upload(doc_type="10-Q", period_end="2025-06-30")
+    harness.upload(collection="team-notes", doc_type="runbook", doc_date="2025-06-30")
 
     [document] = harness.client.get("/api/documents").json()
 
     assert document["title"] == "notes.txt"
-    assert document["company"] == "ACME Corp"
-    assert document["ticker"] is None
-    assert document["doc_type"] == "10-Q"
-    assert document["period_end"] == "2025-06-30"
-    assert document["source"] == "upload"
+    assert document["collection_id"] == "team-notes"
+    assert document["doc_type"] == "runbook"
+    assert document["doc_date"] == "2025-06-30"
+    assert document["metadata"] == {}
+
+
+def test_uploads_go_to_the_uploads_collection_by_default(harness: Harness) -> None:
+    harness.upload()
+
+    [document] = harness.client.get("/api/documents").json()
+
+    assert document["collection_id"] == "uploads"
+    assert document["doc_date"] is None
 
 
 def test_uploaded_document_is_searchable_by_both_retrievers(harness: Harness) -> None:
@@ -100,8 +109,8 @@ def test_uploaded_document_is_searchable_by_both_retrievers(harness: Harness) ->
 
 def test_uploads_can_be_searched_on_their_own(harness: Harness) -> None:
     harness.upload()
-    uploads_only = SearchFilters(sources=("upload",))
-    filings_only = SearchFilters(sources=("edgar",))
+    uploads_only = SearchFilters(collections=("uploads",))
+    filings_only = SearchFilters(collections=("sec-10k",))
 
     assert harness.retriever.search("blacksmiths", 3, uploads_only)
     assert harness.retriever.search("blacksmiths", 3, filings_only) == []
@@ -154,9 +163,9 @@ def test_identical_uploads_in_flight_index_once(harness: Harness) -> None:
         harness.service.accept(
             "notes.txt",
             TEXT,
-            company="ACME Corp",
-            doc_type="other",
-            period_end=None,
+            collection_id="uploads",
+            doc_type="notes",
+            doc_date=None,
             schedule=schedule,
         )
         for _ in range(2)
@@ -180,12 +189,33 @@ def test_file_at_the_limit_is_accepted(harness: Harness) -> None:
     assert harness.upload((TEXT * 10)[:MAX_BYTES]).status_code == 202
 
 
-@pytest.mark.parametrize("name", ["report.pdf", "archive.txt.zip", "noextension"])
+def test_pdf_upload_is_searchable_with_page_numbers(harness: Harness) -> None:
+    sentence = "Blacksmiths buy ACME anvils every spring for the season."
+    pdf = make_pdf([["Cover page."], [sentence] * 8])
+
+    response = harness.upload(pdf, "catalogue.pdf")
+
+    assert harness.job(response.json()["job_id"])["status"] == "indexed", response.json()
+    [passage] = harness.retriever.search("blacksmiths spring", 1, mode="sparse")
+    # The cover is too short to be a chunk of its own, so the passage starts on page 2.
+    assert passage.chunk.page == 2
+    assert passage.document.filename == "catalogue.pdf"
+
+
+def test_pdf_without_a_text_layer_is_rejected_at_once(harness: Harness) -> None:
+    response = harness.upload(make_pdf([None]), "scan.pdf")
+
+    assert response.status_code == 422
+    assert "no text layer" in response.json()["detail"]
+    assert harness.client.get("/api/documents").json() == []
+
+
+@pytest.mark.parametrize("name", ["report.docx", "archive.txt.zip", "noextension"])
 def test_unsupported_type_is_rejected(harness: Harness, name: str) -> None:
     response = harness.upload(name=name)
 
     assert response.status_code == 415
-    assert ".htm, .html, .md, .txt" in response.json()["detail"]
+    assert ".htm, .html, .md, .pdf, .txt" in response.json()["detail"]
 
 
 def test_file_with_no_text_is_rejected_at_once(harness: Harness) -> None:
@@ -274,10 +304,12 @@ def test_path_in_the_filename_cannot_escape_the_uploads_folder(
 @pytest.mark.parametrize(
     "form",
     [
-        {"company": ""},
-        {"company": "   "},
-        {"doc_type": "novel"},
-        {"period_end": "last year"},
+        {"doc_type": ""},
+        {"doc_type": "   "},
+        {"doc_type": "x" * 51},
+        {"collection": "Team Notes"},
+        {"collection": "../etc"},
+        {"doc_date": "last year"},
     ],
 )
 def test_invalid_tags_are_rejected(harness: Harness, form: dict[str, str]) -> None:

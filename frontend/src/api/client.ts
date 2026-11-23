@@ -106,10 +106,10 @@ export function askQuestion(body: AskRequest): Promise<AskResponse> {
 export function uploadDocument(file: File, tags: UploadTags): Promise<UploadResponse> {
   const form = new FormData();
   form.append("file", file);
-  form.append("company", tags.company);
+  form.append("collection", tags.collection);
   form.append("doc_type", tags.doc_type);
   // The API parses this field as a date, so an empty string would be rejected.
-  if (tags.period_end) form.append("period_end", tags.period_end);
+  if (tags.doc_date) form.append("doc_date", tags.doc_date);
   return request("/documents", UploadResponseSchema, { method: "POST", body: form });
 }
 

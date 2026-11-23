@@ -5,6 +5,8 @@ from typing import Any
 
 import pytest
 from run_answer_eval import (
+    Result,
+    SourceKeys,
     TokenPacer,
     answered_ids,
     ask_all,
@@ -15,22 +17,51 @@ from run_answer_eval import (
 )
 from run_eval import Question
 
-from groundwork.domain.models import Chunk, Document, ScoredPassage, SearchFilters
+from groundwork.domain.models import Chunk, Document, DocumentMeta, ScoredPassage, SearchFilters
+from groundwork.ingestion.corpus import CorpusEntry
 from groundwork.llm.base import Completion, LLMError, RateLimitError
 from groundwork.llm.fake import FakeLLM
 from groundwork.qa.service import QAService
 from groundwork.retrieval.hybrid import SearchResult
 
+
+def filing(key: str, filename: str, period_end: str) -> CorpusEntry:
+    meta = DocumentMeta(
+        title="ACME · Form 10-K",
+        collection_id="sec-10k",
+        doc_type="10-K",
+        doc_date=date.fromisoformat(period_end),
+        filename=filename,
+        metadata={"ticker": "ACME"},
+    )
+    return CorpusEntry(Path(filename), key, meta)
+
+
+KEYS = SourceKeys(
+    [
+        filing("acme-2025", "acme-2025.htm", "2025-01-31"),
+        filing("acme-2001", "acme-2001.txt", "2001-01-31"),
+    ]
+)
+FORMATS = {("sec-10k", "acme-2025"): ".htm", ("sec-10k", "acme-2001"): ".txt"}
 NEW = Question(
     id="q1",
+    collection="sec-10k",
     question="How many anvils did ACME sell?",
-    ticker="ACME",
-    period_end="2025-01-31",
-    evidence="sold 10 anvils",
-    expected=["10 anvils|ten anvils"],
+    type="single",
+    documents=("acme-2025",),
+    evidence=("sold 10 anvils",),
+    expected=("10 anvils|ten anvils",),
 )
-OLD = Question(id="q2", question="Old?", ticker="ACME", period_end="2001-01-31", evidence="x")
-OFF = Question(id="u1", question="Weather?", unanswerable="off_topic")
+OLD = Question(
+    id="q2",
+    collection="sec-10k",
+    question="Old?",
+    type="single",
+    documents=("acme-2001",),
+    evidence=("x",),
+)
+OFF = Question(id="u1", collection="sec-10k", question="Weather?", type="unanswerable_off_topic")
 
 
 # Pacing
@@ -93,11 +124,10 @@ def test_pacer_counts_unknown_usage_as_its_estimate() -> None:
 
 DOCUMENT = Document(
     title="ACME Corp · Form 10-K",
-    company="ACME Corp",
-    ticker="ACME",
+    collection_id="sec-10k",
     doc_type="10-K",
-    period_end=date(2025, 1, 31),
-    source="edgar",
+    doc_date=date(2025, 1, 31),
+    metadata={"company": "ACME Corp", "ticker": "ACME"},
     filename="acme.htm",
     doc_id="doc",
     ingested_at=datetime(2025, 1, 1, tzinfo=UTC),
@@ -106,7 +136,7 @@ DOCUMENT = Document(
 
 class StubRetriever:
     def retrieve(self, query: str, k: int, filters: SearchFilters | None = None) -> SearchResult:
-        chunk = Chunk("doc:0", "doc", "ACME sold 10 anvils.", "Item 7", None, 0, 20)
+        chunk = Chunk("doc:0", "doc", "ACME sold 10 anvils.", ("Item 7",), None, 0, 20)
         return SearchResult([ScoredPassage(chunk, DOCUMENT, 1, 1, 0.03, 0.9)], 0.9)
 
 
@@ -156,7 +186,7 @@ def test_only_asks_again_and_the_newest_record_counts(tmp_path: Path) -> None:
 
     records = read_run(path)
     assert len(records) == 2
-    [result, *_] = score_run([NEW], {"ACME 2025-01-31": ".htm"}, records)
+    [result, *_] = score_run([NEW], FORMATS, records, KEYS)
     assert result.correct
 
 
@@ -199,19 +229,29 @@ def record(answer: str, *sources: dict[str, Any], refusal: str | None = None) ->
     }
 
 
+def scored(answer: dict[str, Any] | None) -> Result:
+    return score_record(NEW, "HTM", answer, KEYS)
+
+
 def test_a_correct_answer_with_its_evidence_cited() -> None:
-    result = score_record(NEW, "HTM", record("ACME sold 10 anvils [1].", source("sold 10 anvils")))
+    result = score_record(
+        NEW, "HTM", record("ACME sold 10 anvils [1].", source("sold 10 anvils")), KEYS
+    )
 
     assert (result.answered, result.correct, result.evidence_cited) == (True, True, True)
     assert result.latency_ms == 950
 
 
 def test_any_alternative_of_a_fact_counts() -> None:
-    assert score_record(NEW, "HTM", record("Ten Anvils [1].", source("sold 10 anvils"))).correct
+    assert score_record(
+        NEW, "HTM", record("Ten Anvils [1].", source("sold 10 anvils")), KEYS
+    ).correct
 
 
 def test_a_missing_fact_is_named() -> None:
-    result = score_record(NEW, "HTM", record("ACME sold anvils [1].", source("sold 10 anvils")))
+    result = score_record(
+        NEW, "HTM", record("ACME sold anvils [1].", source("sold 10 anvils")), KEYS
+    )
 
     assert not result.correct
     assert result.missing_facts == ("10 anvils|ten anvils",)
@@ -219,13 +259,25 @@ def test_a_missing_fact_is_named() -> None:
 
 def test_unicode_spaces_and_hyphens_do_not_hide_a_fact() -> None:
     assert normalize_answer("10\u202fanvils, forty\u2011two") == "10 anvils, forty-two"
-    assert score_record(NEW, "HTM", record("10\u00a0anvils [1].", source("sold 10 anvils"))).correct
+    assert score_record(
+        NEW, "HTM", record("10\u00a0anvils [1].", source("sold 10 anvils")), KEYS
+    ).correct
+
+
+def test_sources_recorded_since_m1_are_found_by_file() -> None:
+    new_source = {"id": 1, "collection": "sec-10k", "filename": "acme-2025.htm", "ticker": None}
+    new_source["text"] = "sold 10 anvils"
+
+    result = scored(record("10 anvils [1].", new_source))
+
+    assert result.evidence_cited
+    assert result.cited_filings == ("acme-2025.htm",)
 
 
 def test_evidence_from_the_other_filing_is_not_cited_evidence() -> None:
     old_source = source("sold 10 anvils", period_end="2001-01-31")
 
-    result = score_record(NEW, "HTM", record("10 anvils [1].", old_source))
+    result = scored(record("10 anvils [1].", old_source))
 
     assert result.correct
     assert not result.evidence_cited
@@ -233,13 +285,13 @@ def test_evidence_from_the_other_filing_is_not_cited_evidence() -> None:
 
 
 def test_a_refusal_of_an_answerable_question() -> None:
-    result = score_record(NEW, "HTM", record("", refusal="model"))
+    result = scored(record("", refusal="model"))
 
     assert (result.answered, result.correct, result.refusal) == (False, False, "model")
 
 
 def test_an_unanswerable_question_that_was_refused() -> None:
-    result = score_record(OFF, "Off-topic", record("", refusal="gate"))
+    result = score_record(OFF, "Off-topic", record("", refusal="gate"), KEYS)
 
     assert not result.answered
     assert result.correct is None
@@ -249,17 +301,15 @@ def test_an_unanswerable_question_that_was_refused() -> None:
 def test_errors_and_questions_not_asked_are_reported() -> None:
     error = {"type": "error", "id": "q1", "error": "timed out"}
 
-    assert score_record(NEW, "HTM", error).error == "timed out"
-    assert not score_record(NEW, "HTM", None).asked
+    assert scored(error).error == "timed out"
+    assert not scored(None).asked
 
 
 def test_score_run_groups_by_filing_format_then_unanswerable_kind() -> None:
-    formats = {"ACME 2025-01-31": ".htm", "ACME 2001-01-31": ".txt"}
-
-    results = score_run([NEW, OLD, OFF], formats, [])
+    results = score_run([NEW, OLD, OFF], FORMATS, [], KEYS)
 
     assert [(r.id, r.question_set) for r in results] == [
-        ("q1", "HTM filings (1)"),
-        ("q2", "TXT filings (1)"),
+        ("q1", "sec-10k · HTM (1)"),
+        ("q2", "sec-10k · TXT (1)"),
         ("u1", "Off-topic (1)"),
     ]

@@ -1,7 +1,7 @@
 """Turn a raw file into plain text, choosing the loader by file suffix.
 
 Each format is a module with one `bytes -> LoadedDocument` function, registered in `LOADERS`.
-Adding a format (PDF next) means writing that function and adding its suffixes here: uploads,
+Adding a format means writing that function and adding its suffixes here: uploads,
 the corpus and the error messages all read the accepted types from this table.
 """
 
@@ -10,6 +10,7 @@ from pathlib import Path
 
 from groundwork.ingestion.loaders.base import (
     CELL_SEPARATOR,
+    Heading,
     LoadedDocument,
     Loader,
     NoTextError,
@@ -17,13 +18,20 @@ from groundwork.ingestion.loaders.base import (
     UnsupportedFormatError,
 )
 from groundwork.ingestion.loaders.html import load_html
-from groundwork.ingestion.loaders.text import decode_text, load_text, strip_edgar_markup
+from groundwork.ingestion.loaders.pdf import load_pdf
+from groundwork.ingestion.loaders.text import (
+    decode_text,
+    load_markdown,
+    load_text,
+    strip_edgar_markup,
+)
 
 LOADERS: Mapping[str, Loader] = {
     ".txt": load_text,
-    ".md": load_text,
+    ".md": load_markdown,
     ".htm": load_html,
     ".html": load_html,
+    ".pdf": load_pdf,
 }
 SUPPORTED_SUFFIXES = frozenset(LOADERS)
 
@@ -50,6 +58,7 @@ __all__ = [
     "CELL_SEPARATOR",
     "LOADERS",
     "SUPPORTED_SUFFIXES",
+    "Heading",
     "LoadedDocument",
     "Loader",
     "NoTextError",
@@ -59,6 +68,8 @@ __all__ = [
     "is_supported",
     "load_file",
     "load_html",
+    "load_markdown",
+    "load_pdf",
     "load_text",
     "loader_for",
     "strip_edgar_markup",
