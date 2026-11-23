@@ -1,5 +1,7 @@
 # Answer evaluation
 
+Corpora version: `corpora-v1`.
+
 Run `2026-11-18-answer-2`: model `openai/gpt-oss-120b` (openai_compatible), embedder `BAAI/bge-small-en-v1.5`, top_k 6, min_relevance 0.58, chunk_tokens 400, index of 4800 chunks, commit `9c48e70`. Raw answers: `eval/answer_runs/2026-11-18-answer-2.jsonl`.
 
 **Correct** means the answer states every expected fact of the question. **Evidence cited** means a cited passage from the filing the question names contains its evidence. **Cited only the other filing** counts answers whose sources from that company all come from its other generation of filings. The figure check (task 3) is not available yet.
