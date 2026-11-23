@@ -14,7 +14,9 @@ stops on a rate-limit or quota error instead of retrying into it. Run it again l
 `score` reads a run and checks each answer against the questions file. A fact counts as stated
 when one of its patterns matches the answer, so the patterns decide what "correct" means.
 
-Both first make data/raw/ hold the locked corpora version, as scripts/ingest.py does.
+Both first make data/raw/ hold the locked corpora version, as scripts/ingest.py does. `ask` records
+that version in the run, and the report names it: run scripts/ingest.py after the lock changes, or
+the app's index holds another version's documents. A run on local corpora says so instead.
 """
 
 import argparse
@@ -36,6 +38,7 @@ from run_eval import (
     UNANSWERABLE_TYPES,
     DocumentKey,
     Question,
+    corpora_label,
     eval_collections,
     load_questions,
     normalize,
@@ -47,7 +50,7 @@ from run_eval import (
 from groundwork.config import Settings
 from groundwork.container import build_services, open_app_store
 from groundwork.domain.models import ScoredPassage, SearchFilters, section_label
-from groundwork.ingestion.corpora_bundle import ensure_corpora
+from groundwork.ingestion.corpora_bundle import corpora_version, ensure_corpora
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.llm.base import LLMError, RateLimitError
@@ -472,9 +475,27 @@ def answers_section(results: Sequence[Result], questions: Sequence[Question]) ->
     return "\n\n".join(blocks)
 
 
+def run_corpora(header: Record) -> str:
+    """The sentence that names the corpora a run was asked on."""
+    if "corpora_version" not in header:
+        return "Corpora version: not recorded."
+    return corpora_label(header["corpora_version"])
+
+
+def report_corpora(header: Record, scored_on: str | None) -> str:
+    """The corpora a run was asked on, and those it was scored on when they are others."""
+    asked, scored = run_corpora(header), corpora_label(scored_on)
+    return asked if asked == scored else f"{asked} At scoring: {scored}"
+
+
 def report(
-    run_name: str, header: Record, results: Sequence[Result], questions: Sequence[Question]
+    run_name: str,
+    header: Record,
+    results: Sequence[Result],
+    questions: Sequence[Question],
+    scored_on: str | None,
 ) -> str:
+    """`scored_on` is the corpora version the questions were checked against, None if local."""
     answerable = [r for r in results if r.answerable]
     unanswerable = [r for r in results if not r.answerable]
     settings = ", ".join(
@@ -483,6 +504,7 @@ def report(
     return "\n\n".join(
         [
             "# Answer evaluation",
+            report_corpora(header, scored_on),
             f"Run `{run_name}`: model `{header['model']}` ({header['provider']}), embedder "
             f"`{header['embedding_model']}`, {settings}, index of {header['index_chunks']} chunks, "
             f"commit `{header['commit']}`. Raw answers: `eval/answer_runs/{run_name}.jsonl`.",
@@ -515,7 +537,7 @@ def git_commit() -> str:
     return result.stdout.strip() or "unknown"
 
 
-def run_header(settings: Settings, index_chunks: int) -> Record:
+def run_header(settings: Settings, index_chunks: int, version: str | None) -> Record:
     anthropic = settings.llm_provider == "anthropic"
     return {
         "type": "run",
@@ -527,9 +549,21 @@ def run_header(settings: Settings, index_chunks: int) -> Record:
         "min_relevance": settings.min_relevance,
         "chunk_tokens": settings.chunk_tokens,
         "index_chunks": index_chunks,
+        # None when the corpora were local. Absent from runs recorded before corpora versions.
+        "corpora_version": version,
         "commit": git_commit(),
         "started_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
+
+
+def resume_problem(recorded: Record, header: Record) -> str | None:
+    """Why a run with the `recorded` header can't go on with `header`'s settings: a report names
+    one model and one corpora version."""
+    if recorded["model"] != header["model"]:
+        return f"was run with model {recorded['model']}, not {header['model']}."
+    if run_corpora(recorded) != run_corpora(header):
+        return f"was run on other corpora. Run: {run_corpora(recorded)} Now: {run_corpora(header)}"
+    return None
 
 
 def default_run_name(model: str) -> str:
@@ -542,18 +576,20 @@ def latest_run() -> str | None:
     return runs[-1].stem if runs else None
 
 
-async def ask(settings: Settings, args: argparse.Namespace, questions: list[Question]) -> int:
+async def ask(
+    settings: Settings, args: argparse.Namespace, questions: list[Question], version: str | None
+) -> int:
     """Ask on the app's active index. The exit status: 2 when a rate limit stopped the run."""
     async with open_app_store(settings) as opened:
-        header = run_header(settings, await opened.store.count_chunks())
+        header = run_header(settings, await opened.store.count_chunks(), version)
         name = args.run or default_run_name(header["model"])
         path = RUNS_DIR / f"{name}.jsonl"
         records = read_run(path)
         if not records:
             RUNS_DIR.mkdir(exist_ok=True)
             append(path, header)
-        elif records[0]["model"] != header["model"]:
-            sys.exit(f"{path.name} was run with {records[0]['model']}, not {header['model']}.")
+        elif problem := resume_problem(records[0], header):
+            sys.exit(f"{path.name} {problem}")
         only = set(args.only.split(",")) if args.only else None
         qa = build_services(settings, opened.store, opened.embedder).qa
         pacer = TokenPacer(args.tokens_per_minute)
@@ -583,20 +619,21 @@ def main() -> None:
             sys.exit(f"No questions for {', '.join(sorted(unknown))}.")
         questions = [q for q in questions if q.collection in wanted]
     raw_dir = ensure_corpora(settings)
+    version = corpora_version(raw_dir)
     entries = corpus_entries(raw_dir, eval_collections(questions))
     by_key = {(e.meta.collection_id, e.key): e for e in entries}
     validate(questions, {key: normalize(load_file(e.path).text) for key, e in by_key.items()})
     formats = {key: e.path.suffix.lower() for key, e in by_key.items()}
 
     if args.command == "ask":
-        sys.exit(asyncio.run(ask(settings, args, questions)))
+        sys.exit(asyncio.run(ask(settings, args, questions, version)))
 
     name = args.run or latest_run()
     if name is None:
         sys.exit("No runs yet. Run `ask` first.")
     records = read_run(RUNS_DIR / f"{name}.jsonl")
     results = score_run(questions, formats, records, SourceKeys(entries))
-    text = report(name, records[0], results, questions)
+    text = report(name, records[0], results, questions, version)
     (EVAL_DIR / "answer_results.md").write_text(text + "\n")
     print(text.split("## Per question")[0])
 

@@ -33,7 +33,7 @@ written beside it.
 The ingest and eval scripts call `ensure_corpora` before they read the corpora. A missing lock file
 is an error. GROUNDWORK_CORPORA=local in the environment skips all of it and uses the raw directory
 as it is, unchecked, for a maintainer iterating on Northwind; results from such a run must not be
-labelled with a corpora version.
+labelled with a corpora version. `corpora_version` says which label a run's results get.
 """
 
 import gzip
@@ -162,7 +162,7 @@ def ensure_locked(raw_dir: Path, lock_file: Path, client: httpx.Client | None = 
     With GROUNDWORK_CORPORA=local in the environment nothing is checked or downloaded: raw_dir is
     used as it is, for a maintainer iterating on Northwind. Otherwise a missing lock file is a
     CorporaError. client defaults to a new one from http_client."""
-    if os.environ.get(LOCAL_CORPORA_ENV) == "local":
+    if _corpora_are_local():
         return (
             f"!!! CORPORA ARE LOCAL ({LOCAL_CORPORA_ENV}=local): using {raw_dir} as it is, "
             "unchecked. Results from this run must not be labelled with a corpora version."
@@ -184,6 +184,23 @@ def ensure_locked(raw_dir: Path, lock_file: Path, client: httpx.Client | None = 
     if outcome == "adopted":
         return f"Corpora: {raw_dir} already held {tag} byte for byte; recorded it as installed."
     return f"Corpora: {tag} already in {raw_dir}."
+
+
+def _corpora_are_local() -> bool:
+    return os.environ.get(LOCAL_CORPORA_ENV) == "local"
+
+
+def corpora_version(raw_dir: Path) -> str | None:
+    """The corpora version that results measured on raw_dir belong to, such as "corpora-v1", from
+    the lock it was installed from. None when the corpora are local (GROUNDWORK_CORPORA=local) and
+    so unchecked, whatever was once installed. Call it after ensure_corpora, which checks that
+    raw_dir still holds what its marker records."""
+    if _corpora_are_local():
+        return None
+    installed = installed_corpora(raw_dir)
+    if installed is None:
+        raise CorporaError(f"{raw_dir} has no {VERSION_MARKER} to name its corpora version")
+    return release_tag(installed.lock.version)
 
 
 class InstalledCorpora(BaseModel):

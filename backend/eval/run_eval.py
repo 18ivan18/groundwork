@@ -21,8 +21,12 @@ and the cut to `top_k`.
 
 `--ci` is the regression gate: Success@6 of the full pipeline on the sec-10k and northwind
 collections at the configured chunk size, with exact vector search so the result does not depend
-on the HNSW graph. It fails when a collection falls more than 3 points below eval/baseline.json.
-`--ci --update-baseline` rewrites that file: a deliberate, reviewed commit.
+on the HNSW graph. It fails when a collection falls more than 3 points below eval/baseline.json,
+when a collection in the baseline has no results, or when the baseline was measured on another
+corpora version. `--ci --update-baseline` rewrites that file: a deliberate, reviewed commit.
+
+Every report and the baseline name the corpora version they were measured on. A run on local
+corpora (GROUNDWORK_CORPORA=local) says so instead, fails the gate and can't make a baseline.
 """
 
 import argparse
@@ -44,7 +48,7 @@ from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
 from groundwork.db.pool import Pool, open_pool
 from groundwork.domain.models import Document, ScoredPassage
-from groundwork.ingestion.corpora_bundle import ensure_corpora
+from groundwork.ingestion.corpora_bundle import LOCAL_CORPORA_ENV, corpora_version, ensure_corpora
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.ingestion.pipeline import ingest_file
@@ -57,6 +61,7 @@ from groundwork.retrieval.sparse import FixedSparse, build_sparse
 
 EVAL_DIR = Path(__file__).parent
 BASELINE = EVAL_DIR / "baseline.json"
+UPDATE_BASELINE = "`uv run python eval/run_eval.py --ci --update-baseline`"
 CI_COLLECTIONS = ("sec-10k", "northwind")
 # Success@6 may fall this far below the baseline, in points, before CI fails.
 CI_TOLERANCE = 0.03
@@ -428,17 +433,58 @@ def gate_table(answerable: list[float], off_topic: list[float], in_domain: list[
     return "\n".join(lines)
 
 
+class Baseline(BaseModel):
+    """What the CI gate compares with: Success@6 per collection on one corpora version."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    corpora_version: str
+    success: dict[str, float]
+
+
+def corpora_label(version: str | None) -> str:
+    """The sentence that names a report's corpora version. None means the corpora were local."""
+    if version is None:
+        return (
+            f"Corpora: **local and unchecked** (`{LOCAL_CORPORA_ENV}=local`). "
+            "These results belong to no corpora version."
+        )
+    return f"Corpora version: `{version}`."
+
+
 def baseline_check(
-    found: dict[str, float], baseline: dict[str, float], tolerance: float = CI_TOLERANCE
+    found: dict[str, float],
+    baseline: Baseline,
+    version: str | None,
+    tolerance: float = CI_TOLERANCE,
 ) -> list[str]:
-    """One line per collection that fell more than `tolerance` below its baseline, or has none."""
+    """Why the gate fails, one line each: the baseline is of another corpora version than the one
+    measured (None: local corpora), or, for a collection, its Success@6 fell more than `tolerance`
+    below its baseline, or it has no baseline or no results."""
+    if version is None:
+        return [
+            f"The corpora are local and unchecked, so they can't be compared with the baseline of "
+            f"{baseline.corpora_version}. Unset {LOCAL_CORPORA_ENV} to gate the locked corpora."
+        ]
+    if version != baseline.corpora_version:
+        return [
+            f"The baseline was measured on {baseline.corpora_version}, but the locked corpora are "
+            f"{version}. If the new version is deliberate, run {UPDATE_BASELINE} and commit "
+            f"eval/{BASELINE.name} to be reviewed with the lock."
+        ]
     failures = []
-    for collection, value in sorted(found.items()):
-        if collection not in baseline:
+    for collection in sorted(found.keys() | baseline.success.keys()):
+        if collection not in baseline.success:
             failures.append(f"{collection}: no baseline. Run --ci --update-baseline.")
-        elif value < baseline[collection] - tolerance - 1e-9:
+        elif collection not in found:
             failures.append(
-                f"{collection}: Success@6 {value:.3f}, baseline {baseline[collection]:.3f}"
+                f"{collection}: no results, baseline {baseline.success[collection]:.3f}. "
+                f"If it was dropped deliberately, run {UPDATE_BASELINE}."
+            )
+        elif found[collection] < baseline.success[collection] - tolerance - 1e-9:
+            failures.append(
+                f"{collection}: Success@6 {found[collection]:.3f}, "
+                f"baseline {baseline.success[collection]:.3f}"
             )
     return failures
 
@@ -449,6 +495,11 @@ async def ci(update_baseline: bool) -> int:
         q for q in load_questions(EVAL_DIR / "questions.jsonl") if q.collection in CI_COLLECTIONS
     ]
     raw_dir = ensure_corpora(settings)
+    version = corpora_version(raw_dir)
+    print(corpora_label(version))
+    if update_baseline and version is None:
+        print("FAIL The baseline must name a corpora version, so local corpora can't make one.")
+        return 1
     entries = corpus_entries(raw_dir, frozenset(CI_COLLECTIONS))
     keys = DocumentKeys(entries)
     validate(
@@ -477,11 +528,12 @@ async def ci(update_baseline: bool) -> int:
     for collection, value in sorted(success.items()):
         count = len(found[collection])
         print(f"{collection}: Success@{settings.top_k} {value:.3f} ({count} questions)")
-    if update_baseline:
-        BASELINE.write_text(json.dumps(success, indent=2, sort_keys=True) + "\n")
+    if update_baseline and version is not None:
+        updated = Baseline(corpora_version=version, success=dict(sorted(success.items())))
+        BASELINE.write_text(updated.model_dump_json(indent=2) + "\n")
         print(f"Wrote {BASELINE.name}")
         return 0
-    failures = baseline_check(success, json.loads(BASELINE.read_text()))
+    failures = baseline_check(success, Baseline.model_validate_json(BASELINE.read_text()), version)
     for failure in failures:
         print(f"FAIL {failure}")
     return 1 if failures else 0
@@ -491,6 +543,7 @@ async def main() -> None:
     settings = Settings()
     questions = load_questions(EVAL_DIR / "questions.jsonl")
     raw_dir = ensure_corpora(settings)
+    version = corpora_version(raw_dir)
     entries = corpus_entries(raw_dir, eval_collections(questions))
     keys = DocumentKeys(entries)
     by_key = {(e.meta.collection_id, e.key): e for e in entries}
@@ -568,6 +621,7 @@ async def main() -> None:
     report = "\n\n".join(
         [
             "# Retrieval evaluation",
+            corpora_label(version),
             f"Embedder: `{settings.embedding_model}`. Overlap: {settings.chunk_overlap} tokens. "
             f"Candidates per retriever: {settings.retrieval_candidates}. RRF k: {settings.rrf_k}. "
             f"Re-ranker: `{settings.reranker_model or 'off'}` on the top "
