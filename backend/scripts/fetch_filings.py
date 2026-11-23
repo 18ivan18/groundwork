@@ -8,6 +8,7 @@ Run from backend/: uv run python scripts/fetch_filings.py
 """
 
 import hashlib
+import re
 import sys
 import time
 from collections.abc import Iterable, Sequence
@@ -47,6 +48,11 @@ PLAIN_TEXT_FORMS = ("10-K", "10-K405")
 DOC_TYPE_BY_FORM = {"10-K405": "10-K"}
 # EDGAR allows 10 requests per second; stay well under that.
 SECONDS_BETWEEN_REQUESTS = 0.2
+# EDGAR serves its HTML documents with a script tag added just before </body>, whose src path
+# rotates over time, so two fetches of the same filing differ. Only that exact tag is removed.
+_EDGAR_SCRIPT = re.compile(
+    rb'<script type="text/javascript"  src="/[A-Za-z0-9_/-]+"></script>(?=</body>)'
+)
 
 
 @dataclass(frozen=True)
@@ -116,6 +122,11 @@ def find_latest_filing(
     )
 
 
+def strip_edgar_script(content: bytes) -> bytes:
+    """The document without the script tag EDGAR injects before </body>; else unchanged."""
+    return _EDGAR_SCRIPT.sub(b"", content)
+
+
 def manifest_entry(filing: Filing, content: bytes) -> ManifestDocument:
     doc_type = DOC_TYPE_BY_FORM.get(filing.form, filing.form)
     return ManifestDocument(
@@ -143,40 +154,44 @@ def fetch(client: httpx.Client, url: str) -> httpx.Response:
     return response
 
 
-def main() -> None:
-    settings = Settings()
-    if not settings.sec_user_agent:
-        sys.exit('SEC_USER_AGENT is required by EDGAR. Set it in .env: "Your Name your@email"')
+MISSING_USER_AGENT = 'SEC_USER_AGENT is required by EDGAR. Set it in .env: "Your Name your@email"'
 
-    raw_dir = settings.data_dir / "raw" / SEC_COLLECTION
-    raw_dir.mkdir(parents=True, exist_ok=True)
 
+def sec_client(user_agent: str) -> httpx.Client:
+    """A client for EDGAR, which requires a User-Agent naming the requester."""
+    return httpx.Client(headers={"User-Agent": user_agent}, timeout=60)
+
+
+def fetch_filings(client: httpx.Client, folder: Path) -> Manifest:
+    """Download every company's filings into folder and write its manifest there."""
+    folder.mkdir(parents=True, exist_ok=True)
     entries = []
-    headers = {"User-Agent": settings.sec_user_agent}
-    with httpx.Client(headers=headers, timeout=60) as client:
-        for ticker, cik in COMPANIES.items():
-            submissions = fetch(client, f"https://data.sec.gov/submissions/CIK{cik}.json").json()
-            older_blocks = [
-                fetch(client, f"https://data.sec.gov/submissions/{file['name']}").json()
-                for file in submissions["filings"]["files"]
-            ]
-            filings = [
-                find_latest_filing(submissions, ticker, cik),
-                find_latest_filing(
-                    submissions,
-                    ticker,
-                    cik,
-                    forms=PLAIN_TEXT_FORMS,
-                    suffix=".txt",
-                    older_blocks=older_blocks,
-                ),
-            ]
-            for found in filings:
-                filing = replace(found, company=DISPLAY_NAMES[ticker])
-                content = fetch(client, filing.source_url).content
-                (raw_dir / filing.filename).write_bytes(content)
-                entries.append(manifest_entry(filing, content))
-                print(f"{filing.filename}: {len(content):,} bytes, filed {filing.filing_date}")
+    for ticker, cik in COMPANIES.items():
+        submissions = fetch(client, f"https://data.sec.gov/submissions/CIK{cik}.json").json()
+        older_blocks = [
+            fetch(client, f"https://data.sec.gov/submissions/{file['name']}").json()
+            for file in submissions["filings"]["files"]
+        ]
+        filings = [
+            find_latest_filing(submissions, ticker, cik),
+            find_latest_filing(
+                submissions,
+                ticker,
+                cik,
+                forms=PLAIN_TEXT_FORMS,
+                suffix=".txt",
+                older_blocks=older_blocks,
+            ),
+        ]
+        for found in filings:
+            filing = replace(found, company=DISPLAY_NAMES[ticker])
+            # Stripped before hashing and writing, so rebuilds are reproducible. Fetches from
+            # corpora-v2 on are stripped: corpora-v1 holds the committed bytes, which still have
+            # the tag, so a new corpora version needs an eval rerun.
+            content = strip_edgar_script(fetch(client, filing.source_url).content)
+            (folder / filing.filename).write_bytes(content)
+            entries.append(manifest_entry(filing, content))
+            print(f"{filing.filename}: {len(content):,} bytes, filed {filing.filing_date}")
 
     manifest = Manifest(
         collection=SEC_COLLECTION,
@@ -186,7 +201,16 @@ def main() -> None:
         licence="Public filings published by the SEC on EDGAR.",
         documents=tuple(entries),
     )
-    (raw_dir / MANIFEST).write_text(write_manifest(manifest))
+    (folder / MANIFEST).write_text(write_manifest(manifest))
+    return manifest
+
+
+def main() -> None:
+    settings = Settings()
+    if not settings.sec_user_agent:
+        sys.exit(MISSING_USER_AGENT)
+    with sec_client(settings.sec_user_agent) as client:
+        fetch_filings(client, settings.data_dir / "raw" / SEC_COLLECTION)
 
 
 if __name__ == "__main__":

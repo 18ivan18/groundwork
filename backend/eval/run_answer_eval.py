@@ -13,6 +13,8 @@ stops on a rate-limit or quota error instead of retrying into it. Run it again l
 
 `score` reads a run and checks each answer against the questions file. A fact counts as stated
 when one of its patterns matches the answer, so the patterns decide what "correct" means.
+
+Both first make data/raw/ hold the locked corpora version, as scripts/ingest.py does.
 """
 
 import argparse
@@ -45,6 +47,7 @@ from run_eval import (
 from groundwork.config import Settings
 from groundwork.container import build_services, open_app_store
 from groundwork.domain.models import ScoredPassage, SearchFilters, section_label
+from groundwork.ingestion.corpora_bundle import ensure_corpora
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.llm.base import LLMError, RateLimitError
@@ -579,7 +582,8 @@ def main() -> None:
         if unknown := wanted - {q.collection for q in questions}:
             sys.exit(f"No questions for {', '.join(sorted(unknown))}.")
         questions = [q for q in questions if q.collection in wanted]
-    entries = corpus_entries(settings.data_dir / "raw", eval_collections(questions))
+    raw_dir = ensure_corpora(settings)
+    entries = corpus_entries(raw_dir, eval_collections(questions))
     by_key = {(e.meta.collection_id, e.key): e for e in entries}
     validate(questions, {key: normalize(load_file(e.path).text) for key, e in by_key.items()})
     formats = {key: e.path.suffix.lower() for key, e in by_key.items()}

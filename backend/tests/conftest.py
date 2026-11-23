@@ -13,6 +13,7 @@ from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 from groundwork.config import Settings
 from groundwork.db.pool import Pool, open_pool
+from groundwork.ingestion.corpora_bundle import LOCAL_CORPORA_ENV
 
 
 @pytest.fixture(autouse=True)
@@ -20,6 +21,7 @@ def clean_settings_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stop a developer's shell variables from changing test results."""
     for field_name in Settings.model_fields:
         monkeypatch.delenv(field_name.upper(), raising=False)
+    monkeypatch.delenv(LOCAL_CORPORA_ENV, raising=False)
 
 
 # Postgres for the `db` tests: `docker compose up db` serves this. The tests use their own

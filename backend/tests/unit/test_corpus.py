@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from collection_builder import doc, write_collection
 
 from groundwork.domain.models import EVERYONE
 from groundwork.ingestion.corpus import (
@@ -14,29 +15,8 @@ from groundwork.ingestion.corpus import (
     read_manifest,
 )
 
-REPO_RAW = Path(__file__).parents[2] / "data" / "raw"
-
-
-def write_collection(raw: Path, name: str, documents: list[dict[str, Any]], **fields: Any) -> Path:
-    folder = raw / name
-    folder.mkdir(parents=True)
-    for document in documents:
-        (folder / document["filename"]).write_text("text")
-    manifest = {
-        "collection": name,
-        "description": "Test documents.",
-        "source": "Tests",
-        "licence": "CC0",
-        "documents": documents,
-        **fields,
-    }
-    (folder / "manifest.json").write_text(json.dumps(manifest))
-    return folder
-
-
-def doc(filename: str = "a.md", **fields: Any) -> dict[str, Any]:
-    key = filename.split(".")[0].lower() + "-" + filename.split(".")[-1].lower()
-    return {"key": key, "filename": filename, "title": "A", "doc_type": "runbook", **fields}
+# Small excerpts of each corpus format, with manifests shaped like the real ones.
+FIXTURES = Path(__file__).parents[1] / "fixtures" / "corpora"
 
 
 def test_documents_get_their_collection_and_manifest_fields(tmp_path: Path) -> None:
@@ -147,20 +127,21 @@ def test_a_changed_file_is_refused(tmp_path: Path) -> None:
         read_manifest(folder)
 
 
-# The committed corpora
+# The test fixtures
 
 
-@pytest.mark.parametrize("folder", sorted(p.parent for p in REPO_RAW.glob("*/manifest.json")))
-def test_committed_manifests_are_valid(folder: Path) -> None:
-    manifest = read_manifest(folder)
+@pytest.mark.parametrize("name", ["books", "engineering", SEC_COLLECTION])
+def test_fixture_manifests_are_valid_and_hashed(name: str) -> None:
+    manifest = read_manifest(FIXTURES / name)
 
     assert manifest.documents
+    assert all(document.sha256 for document in manifest.documents)
 
 
 def test_filings_keep_their_metadata() -> None:
-    filings = [meta for _, meta in load_corpus(REPO_RAW, frozenset({SEC_COLLECTION}))]
+    filings = [meta for _, meta in load_corpus(FIXTURES, frozenset({SEC_COLLECTION}))]
 
-    assert len(filings) == 6
+    assert len(filings) == 3
     assert {meta.doc_type for meta in filings} == {"10-K"}
     assert {meta.metadata["form"] for meta in filings} == {"10-K", "10-K405"}
     assert {meta.metadata["ticker"] for meta in filings} == {"AAPL", "MSFT", "NVDA"}
@@ -170,7 +151,7 @@ def test_filings_keep_their_metadata() -> None:
 
 
 def test_books_are_public_and_typed_as_books() -> None:
-    books = [meta for _, meta in load_corpus(REPO_RAW, frozenset({"books"}))]
+    books = [meta for _, meta in load_corpus(FIXTURES, frozenset({"books"}))]
 
     assert {meta.title for meta in books} == {
         "Pride and Prejudice",

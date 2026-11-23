@@ -1,13 +1,14 @@
 # Decisions
 
-Every decision that shapes groundwork, with the reasoning behind it. New decisions continue from D27 and
+Every decision that shapes groundwork, with the reasoning behind it. New decisions continue from D28 and
 are added here when they are made; `docs/HANDOFF.md` section 3 holds the same D15–D26 table.
 
 ## D1–D14: from NovaBridge
 
 From `docs/archive/HANDOFF-novabridge.md` section 3, unchanged. Later decisions replace some of them:
 D16 replaces D6 (Chroma) and the Chroma half of D5; D17 keeps bm25s from D5, derived from Postgres;
-D21 replaces the in-memory jobs of D10; D22 makes the sync interfaces of D2 async.
+D21 replaces the in-memory jobs of D10; D22 makes the sync interfaces of D2 async; D27 amends D9's
+"can be committed": the corpora live in a versioned GitHub Release, not in git.
 
 | # | Decision | Why |
 |---|---|---|
@@ -44,6 +45,12 @@ From `docs/HANDOFF.md` section 3.
 | D24 | **Streaming (resolves improvement 6):** stream raw tokens as a preview, then send a final `answer` event with the validated, renumbered answer that replaces the preview. | Server-side citation checking (D7) needs the whole answer. Sentence buffering is the alternative; Ivan can switch later. |
 | D25 | **Primary LLM: Anthropic** (prompt caching makes contextual chunking cheap); **fallback: OpenAI-compatible** (Groq); **local:** Ollama profile. Small and large model per task, set in `conf/models.yaml`. | Groq's free tier can't carry contextual chunking or agent runs. |
 | D26 | **Faithfulness is our own claim-level judge** (a different model from the answer model), calibrated against hand labels. RAGAS runs as an optional comparison script only. | Keeps LangChain out of the main dependencies (rule 4), and a judge we wrote is one we can explain and calibrate. |
+
+## D27 on: decided after the handoff
+
+| # | Decision | Why |
+|---|---|---|
+| D27 | **Corpora live outside git, in a versioned GitHub Release** (amends D9's "can be committed"). All four collections are packed together by `backend/scripts/build_corpora.py` into one reproducible tarball, `corpora-vN.tar.gz`, the only asset of the Release `corpora-vN` on this repository. Each collection's manifest travels inside the tarball, beside the files it lists. The repository keeps only the lock, `backend/conf/corpora.lock.json` (version, URL, sha256). The ingest and eval scripts download, verify and install the locked version into `backend/data/raw/`, which git ignores, and record in `data/raw/.corpora-version.json` the lock and every installed file's sha256; they make no request when the lock and the files still match. A missing lock is an error. **They never replace or delete local changes:** `data/raw/` is replaced only when it is missing, empty or exactly what its record says (so its Release restores it); changed, missing or added files stop the run with a list, whatever the lock. A `data/raw/` without a record is adopted if it matches the locked version byte for byte and refused otherwise. `GROUNDWORK_CORPORA=local` skips all checks for a maintainer iterating on Northwind, and says loudly that results from that run name no corpora version. A published corpora version never changes; publishing (`gh release create`) is a manual step, never CI. **`corpora-v1` holds exactly the bytes committed on the M1 branch** that the first four-collection baseline was measured on (209 files, byte-identical). From `corpora-v2` on, `fetch_filings.py` strips the `<script>` tag EDGAR injects into its HTML filings, so v2 differs from v1 in those files and needs an eval rerun. **Accepted risk:** Northwind is fictional and has no upstream; until it moves to a separate corpora repository (#128), the Release asset is its only copy outside Ivan's machine, and its edits have no history. | Committing about 17 MB of corpora made the M1 pull request unreviewable, and every refresh would have added bytes to history for good. The lock's sha256 makes each commit name the exact corpus bytes it expects, so every eval number names its data. Manifests inside the tarball can't drift from their files. The Docker image holds code only. PR #124 is squash-merged, so the corpus files its earlier commits add (about 3.8 MB) don't enter `main`'s history; the filings and books committed before M1 (about 14.8 MB) stay in it. |
 
 ## S1–S14: the standalone scaffold
 

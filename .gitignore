@@ -9,7 +9,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# Generated data (raw filings in backend/data/raw/ are committed)
+# Generated data. The corpora in backend/data/raw/ come from the corpora version locked in
+# backend/conf/corpora.lock.json, downloaded by the ingest and eval scripts (D27).
+backend/data/raw/
 backend/data/index/
 backend/data/uploads/
 
