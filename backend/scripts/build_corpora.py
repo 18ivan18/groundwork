@@ -23,25 +23,30 @@ Run from backend/:
 
 import argparse
 import hashlib
+import shlex
 import shutil
 import sys
 import tarfile
 import tempfile
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
-import httpx
 from fetch_books import COLLECTION as BOOKS_COLLECTION
 from fetch_books import fetch_books
 from fetch_engineering_docs import COLLECTION as ENGINEERING_COLLECTION
 from fetch_engineering_docs import fetch_engineering_docs
-from fetch_filings import fetch_filings, sec_client
+from fetch_filings import MISSING_USER_AGENT, fetch_filings, sec_client
 
 from groundwork.config import Settings
-from groundwork.ingestion.corpora_bundle import archive_name, pack, release_tag
-from groundwork.ingestion.corpus import SEC_COLLECTION
+from groundwork.ingestion.corpora_bundle import (
+    archive_name,
+    file_hashes,
+    http_client,
+    pack,
+    release_tag,
+)
+from groundwork.ingestion.corpus import MANIFEST, NORTHWIND_COLLECTION, SEC_COLLECTION, Manifest
 
-NORTHWIND_COLLECTION = "northwind"
 REPOSITORY = "18ivan18/groundwork"
 
 
@@ -63,7 +68,7 @@ def stage(raw_dir: Path, staging: Path, sec_user_agent: str) -> None:
     """Fetch the third-party collections into staging and copy Northwind beside them."""
     with sec_client(sec_user_agent) as client:
         fetch_filings(client, staging / SEC_COLLECTION)
-    with httpx.Client(timeout=60, follow_redirects=True) as client:
+    with http_client() as client:
         fetch_engineering_docs(client, staging / ENGINEERING_COLLECTION)
         fetch_books(client, staging / BOOKS_COLLECTION)
     shutil.copytree(raw_dir / NORTHWIND_COLLECTION, staging / NORTHWIND_COLLECTION)
@@ -71,7 +76,7 @@ def stage(raw_dir: Path, staging: Path, sec_user_agent: str) -> None:
 
 def compare(archive: Path, raw_dir: Path) -> Comparison:
     """Every file in archive against raw_dir, by sha256. Local files count only in the packed
-    collections' folders."""
+    collections' folders, hidden files not at all."""
     packed: dict[str, str] = {}
     with tarfile.open(archive) as tar:
         for member in tar.getmembers():
@@ -79,11 +84,11 @@ def compare(archive: Path, raw_dir: Path) -> Comparison:
             if file is not None:
                 packed[member.name] = hashlib.sha256(file.read()).hexdigest()
     collections = {name.split("/")[0] for name in packed}
+    # A collection missing locally has every packed file only in the archive.
     local = {
-        str(path.relative_to(raw_dir)): hashlib.sha256(path.read_bytes()).hexdigest()
+        f"{collection}/{name}": sha256
         for collection in collections
-        for path in (raw_dir / collection).iterdir()
-        if path.is_file() and not path.name.startswith(".")
+        for name, sha256 in file_hashes(raw_dir / collection).items()
     }
     shared = sorted(packed.keys() & local.keys())
     return Comparison(
@@ -109,6 +114,42 @@ def report(comparison: Comparison, raw_dir: Path) -> None:
             print(f"  {label}: {name}")
 
 
+def release_notes(archive: Path, sha256: str) -> str:
+    """The Release notes: each packed collection with its document count and licence, as its
+    manifest states it, then the tarball's sha256."""
+    manifests = []
+    with tarfile.open(archive) as tar:
+        for member in tar.getmembers():
+            if PurePosixPath(member.name).name == MANIFEST and (file := tar.extractfile(member)):
+                manifests.append(Manifest.model_validate_json(file.read()))
+    lines = [f"{len(manifests)} collections for Groundwork's demo and eval.", ""]
+    for manifest in sorted(manifests, key=lambda manifest: manifest.collection):
+        count = len(manifest.documents)
+        documents = "document" if count == 1 else "documents"
+        lines.append(f"- {manifest.collection} ({count} {documents}): {manifest.licence}")
+    lines += ["", f"sha256: {sha256}"]
+    return "\n".join(lines)
+
+
+def publish_command(archive: Path, version: int, sha256: str) -> str:
+    """The `gh release create` command that publishes archive as corpora version `version`."""
+    return shlex.join(
+        [
+            "gh",
+            "release",
+            "create",
+            release_tag(version),
+            str(archive.resolve()),
+            "--repo",
+            REPOSITORY,
+            "--title",
+            f"Corpora v{version}",
+            "--notes",
+            release_notes(archive, sha256),
+        ]
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("version", type=int, help="the corpora version number N")
@@ -124,7 +165,7 @@ def main() -> None:
 
     settings = Settings()
     if not args.from_local and not settings.sec_user_agent:
-        sys.exit('SEC_USER_AGENT is required by EDGAR. Set it in .env: "Your Name your@email"')
+        sys.exit(MISSING_USER_AGENT)
     raw_dir = settings.data_dir / "raw"
     out: Path = args.out or Path(tempfile.mkdtemp(prefix="corpora-"))
     out.mkdir(parents=True, exist_ok=True)
@@ -141,10 +182,9 @@ def main() -> None:
     print(f"Tarball: {archive.resolve()}")
     print(f"sha256:  {sha256}")
     report(compare(archive, raw_dir), raw_dir)
-    tag = release_tag(args.version)
     print()
     print("To publish (manual):")
-    print(f"  gh release create {tag} {archive.resolve()} --repo {REPOSITORY} --title {tag}")
+    print(publish_command(archive, args.version, sha256))
 
 
 if __name__ == "__main__":

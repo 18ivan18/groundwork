@@ -28,6 +28,8 @@ from groundwork.ingestion.loaders import is_supported
 
 MANIFEST = "manifest.json"
 SEC_COLLECTION = "sec-10k"
+# Fictional, with no upstream: its only source is the maintainer's data/raw/ (D27).
+NORTHWIND_COLLECTION = "northwind"
 
 _Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=40)]
 _Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]

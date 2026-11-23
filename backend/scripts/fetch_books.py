@@ -21,6 +21,7 @@ from pathlib import Path
 import httpx
 
 from groundwork.config import Settings
+from groundwork.ingestion.corpora_bundle import http_client
 from groundwork.ingestion.corpus import MANIFEST, Manifest, ManifestDocument, write_manifest
 
 COLLECTION = "books"
@@ -140,7 +141,7 @@ def fetch_books(client: httpx.Client, folder: Path) -> Manifest:
 
 def main() -> None:
     settings = Settings()
-    with httpx.Client(timeout=60, follow_redirects=True) as client:
+    with http_client() as client:
         fetch_books(client, settings.data_dir / "raw" / COLLECTION)
 
 
