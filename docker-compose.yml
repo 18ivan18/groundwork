@@ -20,6 +20,8 @@ services:
       # Local only: the port is bound to 127.0.0.1.
       POSTGRES_PASSWORD: groundwork
       POSTGRES_DB: groundwork
+    # Building an HNSW index in parallel takes about 64 MB of /dev/shm, which is all Docker gives.
+    shm_size: 256mb
     # 5434 on the host, because 5432 is often taken by a local Postgres.
     ports:
       - "127.0.0.1:${DB_PORT:-5434}:5432"
