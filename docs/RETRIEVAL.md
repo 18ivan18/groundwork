@@ -71,7 +71,8 @@ setting.
 
 ## 3. `hnsw.ef_search`
 
-The share of exact search's top 20 that HNSW returns, for one question:
+The share of exact search's top 20 that HNSW returns, for one question on one build (section 4 has
+all the questions, and several builds):
 
 | `ef_search` | Shared with exact | Time |
 |---|---|---|
@@ -96,10 +97,36 @@ any other delete until autovacuum cleans the graph, a search can still return to
 
 ## 4. HNSW against exact search, all 126 questions
 
-Searched through the store, as the app does, with the default `ef_search`: **the top 20 is
-identical for 123 questions**; the other 3 share 18 or 19 of 20. On this corpus HNSW changes
-nothing measurable: the retrieval eval's Success@6 matches Chroma's in every row (see
-`eval/decisions.md`), and the CI gate uses exact search anyway so the graph cannot make it flaky.
+Searched through the store with the default `ef_search` of 40, on the last full eval's 400-token
+index: **the top 20 is identical for 90 questions**; the other 36 differ, at worst sharing none (mean
+18.3 of 20 shared). An earlier version of this section said 123. That was wrong: the script ran both
+searches on one connection pool, where the prepared plan of one was reused for the other (the first
+trap below), so it compared a search with itself. Each has its own pool now.
+
+pgvector builds a partly random graph, so every build gives other numbers. The same stored vectors,
+one graph per row below, dense search alone, Success@6. "Northwind" is the collection the graph
+loses most: for some questions none of its documents are reached.
+
+| Chunk tokens | Northwind, exact | Northwind, HNSW, 11 rebuilds | Top 20 identical |
+|---|---|---|---|
+| 200 | 1.00 | 0.46 to 0.81 | 74 to 79 of 126 |
+| 300 | 1.00 | 0.62 to 0.81 | 81 to 91 of 126 |
+| 400 | 1.00 | 0.69 to 0.92 | 86 to 94 of 126 |
+
+`ef_search` on four more builds at 400 tokens:
+
+| `ef_search` | Northwind | Top 20 identical | Time per query |
+|---|---|---|---|
+| 40 (default) | 0.73 to 0.88 | 86 to 90 of 126 | 0.8 to 0.9 ms |
+| 100 | 0.88 to 0.92 | 104 to 106 | 1.0 to 1.1 ms |
+| 200 | 0.92 | 115 to 116 | 1.1 to 1.3 ms |
+| 400 | 1.00 | 120 to 122 | 1.6 to 1.9 ms |
+
+A larger graph (`m = 32`, `ef_construction = 200`) at `ef_search` 40 gave 0.96 and 109 to 114. The
+iterative scan changes nothing here, because 20 rows are found without it. After fusion and
+re-ranking, Success@6 was the same on Chroma (M1) and in both full runs on pgvector, because BM25 finds
+what the graph misses. The relevance gate reads the best dense similarity, so it is affected. The CI gate
+searches exactly.
 
 ## Prepared statements
 

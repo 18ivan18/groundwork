@@ -389,13 +389,36 @@ from. The answer runs
 holds the same files. Older answer runs had only the six filings and stay unlabelled.
 
 The same eval on pgvector (HNSW, `m = 16`, `ef_construction = 64`, `ef_search = 40`) against the
-M1 baseline on Chroma. **Success@6 is identical in every row**, for every collection, mode and
-chunk size. Differences appear only deeper: at 200 tokens sec-10k S@8 0.91 → 0.89 and MRR
-0.674 → 0.671; at 300 tokens books S@8 0.69 → 0.62; at 400 tokens books Recall@20 0.69 → 0.65.
-Those are ranks 7 to 20 moving, as they did between two Chroma builds (see *Run-to-run variance*).
+M1 baseline on Chroma. **After re-ranking, Success@6 is identical in every row**, for every
+collection and chunk size; only ranks 7 to 20 move. **Dense search alone is worse than on Chroma**:
+Northwind S@6 fell from 0.96 to 0.62 at 200 tokens and to 0.69 at 300, and hybrid before re-ranking
+from 0.96 to 0.88 at 200. This section first said that Success@6 was identical in every mode, and
+that HNSW's top 20 equals exact search's for 123 of the 126 questions. Both were wrong. The second
+came from a script that compared a search with itself (docs/RETRIEVAL.md, section 4).
 
-HNSW's top 20 equals exact search's for 123 of the 126 questions; the other 3 share 18 or 19
-(docs/RETRIEVAL.md). The CI gate searches exactly, so the graph cannot make it flaky.
+### After corpus sync and the eval database (#135)
+
+The full eval again, on a database of its own, built from scratch. `results.md` is this run. Against
+the M2 run above:
+
+- **Unchanged:** every chunk count, every BM25 and `ts_rank` row, and Success@6 of every re-ranked row.
+  At 400 tokens every re-ranked number is the same. The CI gate (exact search) equals its baseline.
+- **Changed:** 53 rows of dense, hybrid or re-ranked search, in both directions. Northwind dense S@6:
+  0.62 to 0.58 at 200 tokens, 0.69 to 0.81 at 300, 0.96 to 0.77 at 400. Books after re-ranking at 300:
+  S@8 0.62 to 0.69.
+- **Cause: the HNSW graph, which is partly random.** On the stored vectors of this run, exact search
+  finds Northwind at 1.00 at every size, and 11 rebuilt graphs range from 0.46 to 0.81 (200), 0.62 to
+  0.81 (300) and 0.69 to 0.92 (400). M2's 0.96 at 400 is one question above that range. How a search
+  for 20 candidates runs did not change.
+- **Relevance gate:** it reads the best dense similarity, so it moves with the graph. At 400 tokens the
+  answerable questions kept at 0.60 went from 107 to 103 of 111, and at 0.55 from 111 to 107. The app's
+  threshold is 0.58. The graph, not the threshold, loses these.
+- **Latency:** the 400-token rows were timed while the machine was busy (re-ranked median 2,575 ms
+  against 617) and can't be compared.
+
+Raising `ef_search` to 400 brings Northwind to 1.00 and the identical top 20s to 120 to 122 of 126,
+for about 1 ms more per search (docs/RETRIEVAL.md, section 4). Not changed here: it is Ivan's
+decision, because spec #135 keeps searches at 20 candidates as they were.
 
 ### BM25 against Postgres full-text search
 
