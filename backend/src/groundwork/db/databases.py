@@ -14,6 +14,11 @@ from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 from groundwork.db.pool import Pool, open_pool
+from groundwork.retrieval.indexes import HNSW_INDEX_PREFIX
+
+# The tables to truncate, with those that refer to them, for a database with no documents or
+# indexes.
+EMPTIED_TABLES = "indexes, documents, collections, users"
 
 
 class WrongDatabaseError(RuntimeError):
@@ -66,10 +71,11 @@ async def empty_database(pool: Pool, name: str) -> None:
         row = await cursor.fetchone()
         if row != (name,):
             raise WrongDatabaseError(f"Refusing to empty {row and row[0]}: it is not {name}")
-        await connection.execute("TRUNCATE indexes, documents, collections, users CASCADE")
+        await connection.execute(f"TRUNCATE {EMPTIED_TABLES} CASCADE")
         # Partial HNSW indexes outlive the rows they were built for.
         cursor = await connection.execute(
-            "SELECT indexname FROM pg_indexes WHERE indexname LIKE 'chunks_hnsw_%'"
+            "SELECT indexname FROM pg_indexes WHERE starts_with(indexname, %s)",
+            (HNSW_INDEX_PREFIX,),
         )
         for (index_name,) in await cursor.fetchall():
             await connection.execute(sql.SQL("DROP INDEX {}").format(sql.Identifier(index_name)))

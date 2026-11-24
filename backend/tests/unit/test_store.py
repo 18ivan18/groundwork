@@ -222,10 +222,10 @@ async def test_a_chunk_count_must_match_its_embeddings(store: ChunkStore) -> Non
 async def test_publishing_moves_the_generation_once_per_batch_of_writes(store: ChunkStore) -> None:
     await store.add(meta("acme"), "h1", chunks("a"), [vector(1)])
     await store.add(meta("beta"), "h2", chunks("b"), [vector(1)])
-    assert await store.generation() == 0
+    assert (await store.publication()).generation == 0
 
     assert await store.publish() == 1
-    assert await store.generation() == 1
+    assert (await store.publication()).generation == 1
 
 
 async def test_publishing_without_writes_does_nothing(store: ChunkStore) -> None:
@@ -235,7 +235,7 @@ async def test_publishing_without_writes_does_nothing(store: ChunkStore) -> None
     await store.publish()
 
     assert await store.publish() is None
-    assert await store.generation() == 1
+    assert (await store.publication()).generation == 1
 
 
 async def test_a_write_is_published_by_another_store_instance(open_store: OpenStore) -> None:
@@ -244,13 +244,13 @@ async def test_a_write_is_published_by_another_store_instance(open_store: OpenSt
 
     assert await later.publish() == 1
     assert await open_store().publish() is None
-    assert await open_store().generation() == 1
+    assert (await open_store().publication()).generation == 1
 
 
 async def test_a_write_can_be_published_as_it_is_stored(store: ChunkStore) -> None:
     await store.add(meta("acme"), "h1", chunks("a"), [vector(1)], publish=True)
 
-    assert await store.generation() == 1
+    assert (await store.publication()).generation == 1
     assert await store.publish() is None
 
 
@@ -258,7 +258,7 @@ async def test_publishing_a_write_publishes_the_ones_before_it(store: ChunkStore
     await store.add(meta("acme"), "h1", chunks("a"), [vector(1)])
     await store.add(meta("beta"), "h2", chunks("b"), [vector(1)], publish=True)
 
-    assert await store.generation() == 1
+    assert (await store.publication()).generation == 1
     assert await store.publish() is None
 
 

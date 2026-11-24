@@ -173,7 +173,7 @@ async def test_one_sync_moves_the_generation_once_and_a_rerun_does_not(
     assert list((await library.sync(raw)).published.values()) == [1]
 
     assert (await library.sync(raw)).published == {}
-    assert await library.store.generation() == 1
+    assert (await library.store.publication()).generation == 1
 
 
 async def test_a_changed_file_is_replaced(library: Library, tmp_path: Path) -> None:
@@ -185,7 +185,7 @@ async def test_a_changed_file_is_replaced(library: Library, tmp_path: Path) -> N
     assert report.names("replaced") == ["runbooks/pager-md"]
     assert await library.find("pagers") == []
     assert await library.find("phones") == ["pager"]
-    assert await library.store.generation() == 2
+    assert (await library.store.publication()).generation == 2
 
 
 @pytest.mark.parametrize(
@@ -557,7 +557,7 @@ async def test_after_a_sync_fails_partway_and_is_rerun_every_document_is_found(
         await library.sync(raw, FailsOn("disks"))
 
     assert await library.find("pagers") == ["pager"]
-    assert await library.store.generation() == 1
+    assert (await library.store.publication()).generation == 1
 
     report = await library.sync(raw)
 
@@ -565,7 +565,7 @@ async def test_after_a_sync_fails_partway_and_is_rerun_every_document_is_found(
     assert report.names("added") == ["runbooks/disk-md"]
     assert await library.find("pagers") == ["pager"]
     assert await library.find("disks") == ["disk"]
-    assert await library.store.generation() == 2
+    assert (await library.store.publication()).generation == 2
 
 
 async def test_a_failure_to_embed_keeps_the_old_document(library: Library, tmp_path: Path) -> None:
@@ -587,7 +587,7 @@ async def test_documents_that_left_are_gone_even_if_the_sync_fails_after(
         await library.sync(write(tmp_path / "v2", {"disk.md": about("disks")}), FailsOn("disks"))
 
     assert await library.find("pagers") == []
-    assert await library.store.generation() == 2
+    assert (await library.store.publication()).generation == 2
 
 
 async def test_what_a_killed_sync_stored_is_published_by_the_next_one(
@@ -663,7 +663,10 @@ async def test_indexes_that_lost_chunks_are_published_after_a_failure_too(
     with pytest.raises(RuntimeError, match="out of memory"):
         await a.sync(v2, FailsOn("platters"))
 
-    assert (await a.store.generation(), await b.store.generation()) == (2, 2)
+    assert ((await a.store.publication()).generation, (await b.store.publication()).generation) == (
+        2,
+        2,
+    )
     assert await b.find("pagers") == []
     assert await b.find("disks") == ["disk"]
 
@@ -743,7 +746,7 @@ async def test_two_syncs_at_once_store_each_document_once(library: Library, tmp_
     assert len(first.names("added")) + len(second.names("added")) == 2
     assert embedder.calls == 2
     assert await library.find("pagers") == ["pager"]
-    assert await library.store.generation() == 1
+    assert (await library.store.publication()).generation == 1
 
 
 async def test_a_sync_waits_for_the_one_before_it(library: Library, tmp_path: Path) -> None:

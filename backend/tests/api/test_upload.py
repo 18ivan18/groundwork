@@ -60,7 +60,7 @@ class Harness:
         return asyncio.run(self.store.count_chunks())
 
     def generation(self) -> int:
-        return asyncio.run(self.store.generation())
+        return asyncio.run(self.store.publication()).generation
 
     def upload(self, content: bytes = TEXT, name: str = "notes.txt", **form: str) -> Response:
         return self.client.post(

@@ -212,7 +212,7 @@ async def test_a_recreated_postgres_database_is_not_served_the_old_index(
     new = PgVectorStore(pool, await ensure_index(pool, spec))
     await publish_document(new, "roofs", "The warehouse roof leaks")
 
-    assert (new.index.id, await new.generation()) == (old.index.id, 1)
+    assert (new.index.id, (await new.publication()).generation) == (old.index.id, 1)
     assert await found(new, tmp_path, "anvils") == []
     assert await found(new, tmp_path, "roof") == ["1:0"]
 

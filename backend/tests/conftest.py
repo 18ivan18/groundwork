@@ -44,9 +44,7 @@ def database_url() -> str:
 async def recreate(pool: Pool) -> None:
     """Empty the test database and start its ids again, as in a newly created one."""
     async with pool.connection() as connection:
-        await connection.execute(
-            "TRUNCATE indexes, documents, collections, users RESTART IDENTITY CASCADE"
-        )
+        await connection.execute(f"TRUNCATE {databases.EMPTIED_TABLES} RESTART IDENTITY CASCADE")
 
 
 @asynccontextmanager

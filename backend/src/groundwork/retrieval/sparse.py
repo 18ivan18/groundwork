@@ -234,7 +234,8 @@ class SparseCache:
         self._check_seconds = check_seconds
         self._clock = clock
         self._index: SparseIndex | None = None
-        self._key: tuple[int, str] | None = None
+        # What `_index` was built from.
+        self._publication: Publication | None = None
         self._checked_at = 0.0
         self._lock = asyncio.Lock()
 
@@ -244,24 +245,22 @@ class SparseCache:
         async with self._lock:
             publication = await self._store.publication()
             self._checked_at = self._clock()
-            key = (publication.generation, publication.token)
-            if self._index is None or key != self._key:
+            if self._index is None or publication != self._publication:
                 self._index = await self._load_or_build(publication)
-                self._key = key
+                self._publication = publication
             return self._index
 
     async def _load_or_build(self, publication: Publication) -> SparseIndex:
-        path = self._root / f"{publication.generation}-{publication.token}"
+        path = self._root / publication.folder_name
         if path.exists():
             return await asyncio.to_thread(SparseIndex.load, path)
-        passages = await self._store.all_passages()
-        # Read after the passages: if nothing was written since the publication even now, they
-        # hold exactly what it published. Otherwise the index is this worker's only, because a
+        index = await build_sparse(self._store)
+        # Read after the build: if nothing was written since the publication even now, the index
+        # holds exactly what it published. Otherwise the index is this worker's only, because a
         # backup could bring the publication back without those writes.
         after = await self._store.publication()
-        index = await asyncio.to_thread(SparseIndex.build, passages)
         if after == publication and not after.written_since:
-            await asyncio.to_thread(self._save, index, path)
+            await asyncio.to_thread(self._save, index, publication)
         logger.info(
             "Built BM25 for index %s generation %s",
             self._store.index.name,
@@ -269,9 +268,10 @@ class SparseCache:
         )
         return index
 
-    def _save(self, index: SparseIndex, path: Path) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        staging = Path(tempfile.mkdtemp(dir=path.parent, prefix=".building-"))
+    def _save(self, index: SparseIndex, publication: Publication) -> None:
+        path = self._root / publication.folder_name
+        self._root.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(dir=self._root, prefix=".building-"))
         try:
             index.save(staging)
             os.rename(staging, path)
@@ -283,10 +283,10 @@ class SparseCache:
             shutil.rmtree(staging, ignore_errors=True)
         # Keep the previous generation for a worker still reading it; older ones go. So does this
         # generation with another token: it is from before the database was recreated or restored.
-        current = int(path.name.partition("-")[0])
-        for old in path.parent.iterdir():
-            number = old.name.partition("-")[0]
-            if not number.isdigit() or old == path:
+        current = publication.generation
+        for old in self._root.iterdir():
+            generation = Publication.generation_in(old.name)
+            if generation is None or old == path:
                 continue
-            if int(number) < current - 1 or int(number) == current:
+            if generation < current - 1 or generation == current:
                 shutil.rmtree(old, ignore_errors=True)

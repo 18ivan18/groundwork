@@ -250,9 +250,6 @@ class MemoryStore:
     async def count_document_chunks(self, doc_id: str) -> int:
         return len(self._data.chunks.get(doc_id, []))
 
-    async def generation(self) -> int:
-        return self._data.generation
-
     async def publication(self) -> Publication:
         return Publication(self._data.generation, self._data.token, self._data.unpublished)
 

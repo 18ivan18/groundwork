@@ -82,7 +82,7 @@ async def test_publishing_one_index_leaves_the_others(pool: Pool) -> None:
 
     assert await a.publish() == 1
 
-    assert await b.generation() == 0
+    assert (await b.publication()).generation == 0
     assert await b.publish() == 1
 
 

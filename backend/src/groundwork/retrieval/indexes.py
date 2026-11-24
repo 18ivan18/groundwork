@@ -61,12 +61,24 @@ class IndexInfo:
 @dataclass(frozen=True)
 class Publication:
     """The state of an index's chunks that BM25 is built from. The generation alone does not name
-    it: a recreated database, or one restored from a backup, counts through the same numbers."""
+    it: a recreated database, or one restored from a backup, counts through the same numbers. Two
+    with one generation and token are equal."""
 
     generation: int
     token: str
     # The index holds writes that are not in this publication.
-    written_since: bool
+    written_since: bool = field(compare=False)
+
+    @property
+    def folder_name(self) -> str:
+        """Of the BM25 index saved for it."""
+        return f"{self.generation}-{self.token}"
+
+    @staticmethod
+    def generation_in(folder_name: str) -> int | None:
+        """The generation a saved BM25 index is of, or None if the folder is not one."""
+        generation = folder_name.partition("-")[0]
+        return int(generation) if generation.isdigit() else None
 
 
 def model_slug(model: str) -> str:
@@ -87,8 +99,12 @@ def window_spec(chunk_tokens: int, chunk_overlap: int, model: str, dimension: in
     )
 
 
+# The names of the partial HNSW indexes start with this, and no other index's does.
+HNSW_INDEX_PREFIX = "chunks_hnsw_"
+
+
 def hnsw_index_name(index_id: int) -> str:
-    return f"chunks_hnsw_{index_id}"
+    return f"{HNSW_INDEX_PREFIX}{index_id}"
 
 
 def _int(value: int) -> int:

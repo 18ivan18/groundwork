@@ -149,11 +149,6 @@ class ChunkStore(Protocol):
 
     async def count_document_chunks(self, doc_id: str) -> int: ...
 
-    async def generation(self) -> int:
-        """Changes when writes are published, so a BM25 index built from the chunks knows it is
-        old."""
-        ...
-
     async def publication(self) -> Publication:
         """The last publication: what a saved BM25 index must match to be loaded."""
         ...

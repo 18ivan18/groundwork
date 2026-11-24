@@ -16,13 +16,14 @@ Run from backend/: uv run python scripts/ingest.py
 
 import asyncio
 import sys
+from typing import get_args
 
 from groundwork.config import Settings
 from groundwork.container import app_index, build_embedder, chunking
 from groundwork.db.pool import open_pool
 from groundwork.ingestion.corpora_bundle import ensure_corpora
 from groundwork.ingestion.corpus import corpus_entries
-from groundwork.ingestion.sync import SyncResult, sync_corpus
+from groundwork.ingestion.sync import SyncOutcome, SyncResult, sync_corpus
 from groundwork.retrieval.pgvector_store import PgVectorStore
 
 
@@ -53,7 +54,7 @@ async def main() -> None:
             chunk_overlap=chunk_overlap,
             on_result=print_result,
         )
-        outcomes = ("added", "replaced", "removed", "skipped", "too little text")
+        outcomes = get_args(SyncOutcome)
         print(", ".join(f"{len(report.names(outcome))} {outcome}" for outcome in outcomes))
         for name, generation in report.published.items():
             print(f"Published {name}: generation {generation}")

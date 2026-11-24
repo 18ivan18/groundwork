@@ -86,7 +86,7 @@ def test_startup_publishes_what_an_earlier_process_left(
     asyncio.run(add_document(store, "killed ingest", 1))
 
     with TestClient(create_app(settings, store=store)):
-        assert asyncio.run(store.generation()) == 1
+        assert asyncio.run(store.publication()).generation == 1
 
     assert asyncio.run(store.publish()) is None
 

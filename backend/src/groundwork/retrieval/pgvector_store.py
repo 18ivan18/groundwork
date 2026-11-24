@@ -474,9 +474,6 @@ class PgVectorStore:
             (int(doc_id),),
         )
 
-    async def generation(self) -> int:
-        return (await self.publication()).generation
-
     async def publication(self) -> Publication:
         return await indexes.publication(self._pool, self._id)
 
