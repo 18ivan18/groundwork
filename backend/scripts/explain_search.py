@@ -134,7 +134,10 @@ async def main() -> None:
 
         if args.questions:
             # Through the store, as the app searches: each search is its own transaction.
-            exact_store = PgVectorStore(pool, index, exact=True)
+            # Exact search has a pool of its own: on a shared connection the prepared plan of one
+            # would be reused for the other, and the two would agree whatever the graph does.
+            exact_pool = await open_pool(database_url)
+            exact_store = PgVectorStore(exact_pool, index, exact=True)
             lines = args.questions.read_text().splitlines()
             questions = [json.loads(line)["question"] for line in lines if line.strip()]
             overlaps = []
@@ -143,6 +146,7 @@ async def main() -> None:
                 approximate = {hit.chunk.chunk_id for hit in await store.search(query, N)}
                 exact_hits = {hit.chunk.chunk_id for hit in await exact_store.search(query, N)}
                 overlaps.append(len(approximate & exact_hits))
+            await exact_pool.close()
             differ = sum(overlap < N for overlap in overlaps)
             print(
                 f"\n## 4. HNSW against exact search, {len(questions)} questions\n\n"
