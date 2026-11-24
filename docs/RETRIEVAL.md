@@ -113,7 +113,8 @@ loses most: for some questions none of its documents are reached.
 | 300 | 1.00 | 0.62 to 0.81 | 81 to 91 of 126 |
 | 400 | 1.00 | 0.69 to 0.92 | 86 to 94 of 126 |
 
-`ef_search` on four more builds at 400 tokens:
+`ef_search` on four more builds at 400 tokens, with sequential scans off so that the graph is used,
+on a table of only ids and vectors:
 
 | `ef_search` | Northwind | Top 20 identical | Time per query |
 |---|---|---|---|
@@ -121,6 +122,20 @@ loses most: for some questions none of its documents are reached.
 | 100 | 0.88 to 0.92 | 104 to 106 | 1.0 to 1.1 ms |
 | 200 | 0.92 | 115 to 116 | 1.1 to 1.3 ms |
 | 400 | 1.00 | 120 to 122 | 1.6 to 1.9 ms |
+
+**On the real `chunks` table the planner doesn't use the graph at 400.** The app's unfiltered search
+over the 4,800 chunks of the default index, freshly ingested:
+
+| `ef_search` | Plan | Top 20 identical | Median |
+|---|---|---|---|
+| 40 (default) | graph | 92 of 126 | 1.1 ms |
+| 100 | graph, forced | 104 | 1.1 ms |
+| 200 | graph, forced | 115 | 1.3 ms |
+| 400 | graph, forced | 119 | 1.6 ms |
+| 400 | sequential scan, the planner's choice | 126 (exact) | 7.5 ms |
+
+It chose the graph at each setting tried up to 100 and the scan from 120 up, because the graph's
+estimated cost grows with `ef_search`. A larger table would move that point.
 
 A larger graph (`m = 32`, `ef_construction = 200`) at `ef_search` 40 gave 0.96 and 109 to 114. The
 iterative scan changes nothing here, because 20 rows are found without it. After fusion and

@@ -416,9 +416,10 @@ the M2 run above:
 - **Latency:** the 400-token rows were timed while the machine was busy (re-ranked median 2,575 ms
   against 617) and can't be compared.
 
-Raising `ef_search` to 400 brings Northwind to 1.00 and the identical top 20s to 120 to 122 of 126,
-for about 1 ms more per search (docs/RETRIEVAL.md, section 4). Not changed here: it is Ivan's
-decision, because spec #135 keeps searches at 20 candidates as they were.
+Raising `ef_search` to 400 makes the planner scan all 4,800 chunks instead of using the graph: exact,
+126 of 126 identical top 20s, 7.5 ms against 1.1. With the graph forced it is 119 of 126 in 1.6 ms
+(docs/RETRIEVAL.md, section 4). Not changed here: it is Ivan's decision, because spec #135 keeps
+searches at 20 candidates as they were.
 
 ### BM25 against Postgres full-text search
 
