@@ -112,7 +112,7 @@ are copied into `docs/DECISIONS.md` (created in M0) as they're made.
 |---|---|---|
 | D15 | **Continue in this repo; rename the product and package to `groundwork`** (`novabridge_qa` → `groundwork`). The version EPAM saw is tagged **`v1-submission`** (`12e8ea7`, the last `main` before M0). The `~/repos/groundwork` scaffold is reference only: M0 copies the files still referenced to `docs/archive/groundwork-scaffold/` and deletes the scaffold; its `DECISIONS.md` is ported to `docs/DECISIONS.md`, and its migration is read for ideas but not copied (section 5). The GitHub repo and the local folder are renamed to `groundwork`. | This repo has the history, the measured evals and 361 tests; the scaffold has one commit. The tag keeps the version EPAM saw. |
 | D16 | **PostgreSQL 16 + pgvector is the single source of truth** for documents, chunks, vectors, jobs, conversations, tickets and checkpoints. **Chroma is removed** once M2 shows eval parity. | ACL, transactions, a durable queue and several workers all need a real database. Keeping Chroma would mean writing every ACL filter twice. |
-| D17 | **bm25s stays, derived from Postgres**, one index per chunk index (D20), persisted on a shared volume and reloaded by each API worker when the index's `generation` changes. A Postgres full-text (`ts_rank`) retriever is added only as a measured comparison. | `ts_rank` has no IDF, so rare exact tokens ("Item 7A", figures, error codes) lose the weight that makes hybrid search work. BM25 found 0.90 of the TXT questions in its top 20 against dense's 0.81. |
+| D17 | **bm25s stays, derived from Postgres**, one index per chunk index (D20), persisted on a shared volume and reloaded by each API worker when the index's `generation` or `generation_token` changes. A saved index is loaded only for the publication it was built from (D28). A Postgres full-text (`ts_rank`) retriever is added only as a measured comparison. | `ts_rank` has no IDF, so rare exact tokens ("Item 7A", figures, error codes) lose the weight that makes hybrid search work. BM25 found 0.90 of the TXT questions in its top 20 against dense's 0.81. |
 | D18 | **Plain SQL through psycopg 3** (async pool) in the app; **Alembic with hand-written SQL** (`op.execute`) for migrations. No ORM. | Every index, cast and filter is visible and explainable. Same choice as the scaffold (S4 in `docs/DECISIONS.md`). |
 | D19 | **Vectors in an untyped `vector` column, with one partial HNSW expression index per chunk index**: `USING hnsw ((embedding::vector(384)) vector_cosine_ops) WHERE index_id = 7`. Queries repeat the same cast and predicate, with **`index_id` and the dimension written into the SQL as literals** (both are integers from the `indexes` table, never user input), not passed as parameters. | Different embedders have different dimensions, and HNSW needs a fixed one. This keeps one `chunks` table for every experiment. Literals matter: psycopg 3 prepares a statement server-side after 5 runs, Postgres may then choose a generic plan, and a generic plan can't prove `index_id = $1` matches the partial index's predicate, so the query silently falls back to a sequential scan. |
 | D20 | **Chunk indexes are first-class:** an `indexes` table records chunker, contextualizer, embedder and their parameters; chunks belong to one index; one index is marked active (an alias). Experiments build new indexes beside the active one. | Chunking and embedder experiments become side-by-side comparisons, and switching models becomes the blue/green index swap from interview answer Q17. |
@@ -137,8 +137,7 @@ dependency, migrations only), `pypdf`, `pyyaml`, `mcp` (official SDK), `opentele
 
 **Optional group `ragas` (M7):** `ragas`. Never in the Docker image.
 
-**Dev (M2):** `pytest-asyncio`, `testcontainers[postgres]` *or* a CI Postgres service (choose one in M2
-and record it).
+**Dev (M2):** `pytest-asyncio`. A CI Postgres service was chosen over `testcontainers[postgres]` (D28).
 
 **Frontend:** a router, added in M3b: **TanStack Router** by default (it pairs with TanStack Query
 and types route params and search params, which the library filters live in), or React Router if Ivan
@@ -239,7 +238,8 @@ chunks       (id bigserial PK, index_id int REFERENCES indexes ON DELETE CASCADE
               embedding vector,                -- untyped: see D19
               tsv tsvector GENERATED ALWAYS AS (to_tsvector('english', coalesce(context,'') || ' ' || text)) STORED,
               UNIQUE (index_id, document_id, ordinal))
-              -- GIN on access_groups, GIN on tsv, btree on (index_id, collection_id, doc_date),
+              -- GIN on access_groups, GIN on tsv, btree on (index_id, collection_id, doc_date) and on
+              -- document_id,
               -- one partial HNSW expression index per index row (created by code when the index is built)
 chunk_contexts (cache_key text PK, context text, model text, prompt_version text,
                 input_tokens int, output_tokens int, created_at timestamptz)   -- key: hash(doc, chunk, prompt, model)
@@ -408,24 +408,32 @@ alone.
 - **Publishing once per job, not per document:** every write that changes an index's chunks sets
   `unpublished` in the same transaction. Publishing moves the generation, gives it a new
   token and clears `unpublished`, and does nothing when there is nothing to publish. A corpus ingest
-  publishes when it ends, also after a failure, so bm25s is rebuilt once rather than once per file; an upload publishes in the transaction
-  that stores it; ingest and API start publish what a crashed process left.
+  publishes when it ends, also after a failure, so bm25s is rebuilt once rather than once per file; an
+  upload publishes in the transaction that stores it; ingest and API start publish what a crashed
+  process left.
 - **Corpus sync** (`ingestion/sync.py`): an ingest makes the index hold exactly the corpus documents
   the manifests describe, beside the uploads, which it never changes. Documents that left the corpus
   are removed first, from every index. A changed one (bytes, tags or access groups) is removed from
   every index and stored again in this one, in one transaction, after its text is embedded; another
   index gets it at its own next sync. An upload in this index with the same bytes, collection, groups
-  and owner stands in for a corpus document. Every index that lost chunks is published. One sync runs
-  at a time on a database; a sync with no corpus documents is refused.
+  and owner stands in for a corpus document. Every index that lost chunks is published, and a
+  sync that published anything vacuums `chunks` with `INDEX_CLEANUP ON`, so that no HNSW graph keeps
+  deleted chunks. A document that fails doesn't stop the others: it keeps its old copy unless its access
+  groups changed, when the old copy is removed from every index, and ingest names it and exits non-zero
+  (D28). One sync runs at a time on a database; a sync with no corpus documents is refused.
 - **Comparison retriever:** `ts_rank` on `tsv` as a fourth sparse option in the eval only (D17).
 - `docs/RETRIEVAL.md`: `EXPLAIN ANALYZE` of a dense query showing the HNSW index used, the same query
   with a selective filter, and what changes with `hnsw.ef_search`. Include the **sixth run of the same
   query through the app's pool** to show the partial index is still used once psycopg prepares the
   statement (D19).
-- **CI gate:** a Postgres service in CI, the fastembed model cached, `run_eval.py --ci` on the
+- **CI gate:** a Postgres service in CI (D28), the fastembed models and the corpora cached (the corpora
+  by the lock file's hash, and every file's hash is still checked), `run_eval.py --ci` on the
   `sec-10k` and `northwind` collections with **exact search** (`SET LOCAL enable_indexscan = off` for
-  the vector query) so CI is deterministic. Fails if Success@6 drops more than 3 points below
-  `eval/baseline.json`, per collection. Updating the baseline is a deliberate, reviewed commit.
+  the vector query) so CI is deterministic. It installs the locked corpora version and builds its
+  index from scratch in the eval database, the app's name plus `_eval` (D28). Fails if Success@6 drops
+  more than 3 points below `eval/baseline.json`, per collection; if a collection in the baseline has no
+  results; if the baseline names another corpora version; or if the corpora are local. Updating the
+  baseline is a deliberate, reviewed commit.
 
 **Tests:** store contract tests run against Postgres (marked `db`; required in CI, skipped locally
 without a database, as in the scaffold (S11 in `docs/DECISIONS.md`)); idempotent re-ingest, including an ownerless
@@ -468,7 +476,11 @@ document they can't see.
   is a 404, not a 403.
 - **Job queue** (D21): `jobs` table, `SKIP LOCKED` claim, heartbeat (`locked_at`), retry with backoff
   up to `max_attempts`, then `dead`. `ingestion/worker.py` as its own compose service; the corpus
-  ingest becomes jobs too. Job kinds: `ingest_document`, `build_index` (M6), `contextualize` (M6).
+  ingest becomes jobs too, but only to add: removals and replacements go through corpus sync (D28),
+  since a job per file can't see that a document left the corpus. A document stored without its manifest
+  key counts as an upload, and a sync leaves it alone. The worker doesn't keep "unpublished" in memory: the
+  store's record does that, and `publish` is the only way to move the generation. Job kinds:
+  `ingest_document`, `build_index` (M6), `contextualize` (M6).
 - API runs with several uvicorn workers (`--workers 2` in compose) to prove no in-process state is
   load-bearing.
 - **Library API** (the backend for the M3b Library screen):
@@ -478,12 +490,15 @@ document they can't see.
     `GET /api/documents/{id}/file` to download the original.
   - `PATCH /api/documents/{id}`: title, doc type, date, metadata and access groups (only groups the
     editor belongs to). Changing groups updates the copied `chunks.access_groups` in one transaction
-    and bumps each affected index's generation; no re-embedding.
+    that also marks each affected index as unpublished, and publishes them; no re-embedding. Anything
+    else that changes what BM25 holds (a title, for one) marks them the same way.
   - `DELETE /api/documents/{id}` and `POST /api/documents/delete` (bulk): owner or admin only. Deletes
-    the document row, which cascades to its chunks in every index and to cached contexts; bumps each
-    affected index's generation (bm25s rebuilds, the answer cache misses); cancels a running ingestion
-    job for it; deletes the stored file. Collections marked `protected` (the demo corpora) need
-    `admin`. For a document the user can't see, both return 404 (rule 8).
+    the document row, which cascades to its chunks in every index and to cached contexts; marks each affected
+    index as unpublished in the same transaction, and publishes it (bm25s rebuilds, the answer cache
+    misses); cancels a running ingestion job for it; deletes the stored file. Collections marked
+    `protected` (the demo corpora) need `admin`. Corpus documents are the manifests': the next sync
+    undoes an edit to one and brings back a deleted one, so M3 must choose. Recommended: the library
+    doesn't edit or delete them. For a document the user can't see, both return 404 (rule 8).
 - **Jobs API:** `GET /api/jobs` (own jobs; all for admin) with status filter, `POST
   /api/jobs/{id}/retry` for failed or dead jobs, `POST /api/jobs/{id}/cancel` for queued or running
   ones (a running job checks a cancel flag between embedding batches).
@@ -612,8 +627,8 @@ cache-read tokens with prompt caching on.
   switcher, collection filter.
 
 **Tests:** SSE event order; an error mid-stream; the gate path streams no tokens; cache key includes
-groups (alice can't get hana's cached answer, the M8 red-team test starts here); cache invalidates on
-generation bump; highlight ranges.
+groups (alice can't get hana's cached answer, the M8 red-team test starts here); cache invalidates when
+the index is published; highlight ranges.
 **Measure:** time to first token, total latency, cache hit rate on a repeated eval run, highlight
 accuracy on 30 real answers checked by hand.
 **Done when:** a follow-up question streams through nginx in the browser with highlighted sources,
@@ -667,7 +682,8 @@ and the contradiction question answers from the new policy while mentioning the 
 
 **Tests:** both chunkers respect sections and caps; semantic chunker on a synthetic text with a clear
 topic shift; contextualizer cache hit; the budget assertion (header + context + chunk ≤ embedder limit);
-building and activating an index bumps the generation; the eval never touches the active index.
+building an index publishes it and activating it moves every worker to it; the eval never touches the
+active index.
 **Measure:** `eval/chunking_results.md` from one command, with ingest cost (time, tokens, dollars) per
 configuration beside the retrieval scores; held-out set run once for the chosen configuration.
 `docs/CHUNKING.md` explains the methods, the results, and what was chosen and why.
