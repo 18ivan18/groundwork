@@ -32,6 +32,10 @@ removes them, uploads included:
 | `data` | The corpora (`raw/`), the original files of uploads (`uploads/`) and the saved BM25 indexes (`bm25/`) | The corpora are downloaded and BM25 is built again. Uploads stay searchable, but their original files are gone |
 | `ollama` | Models for the optional local LLM | They must be pulled again |
 
+After restoring a database from a backup, restart the API (`docker compose restart api`). It may hold a
+BM25 index in memory that includes writes the backup doesn't have, and starting publishes any writes the
+backup holds unpublished.
+
 ### Local development
 
 Settings come from the same `.env` in the repository root. Requires Docker for Postgres,
@@ -81,6 +85,11 @@ printed sha256 into `conf/corpora.lock.json`. A new corpora version needs an
 eval rerun unless the script reports it byte-identical to the local corpora. The CI gate fails until
 `eval/baseline.json` names the new version: `uv run python eval/run_eval.py --ci --update-baseline`
 rewrites it, and the change is reviewed with the lock.
+
+The retrieval eval and the gate empty and rebuild their own database, the app's name plus `_eval`, so
+run one at a time: a second run would empty it under the first. Test and `_eval` databases made before
+corpus sync have an older form of migration 0001, which Alembic counts as applied, and must be dropped once
+(`dropdb`); the app's database must be recreated the same way.
 
 ## Configuration
 
@@ -266,10 +275,10 @@ cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy
 cd frontend && npm run lint && npm run typecheck && npm test
 ```
 
-- **Backend (323 tests):** loaders (TXT and HTML), chunking, sections, RRF, re-ranking, citations, prompts, settings, the QA service with
+- **Backend (707 tests):** loaders (TXT, HTML and PDF), chunking, sections, RRF, re-ranking, citations, prompts, settings, the chunk store, corpus sync, the QA service with
   fakes, and the API through `TestClient`. No network or API keys needed. The `db` tests need Postgres
   (`docker compose up -d --wait db`) and are skipped without it, unless `REQUIRE_DB=1`.
-- **Frontend (38 tests):** citation rendering, retrieval details, API client errors, response schema checks and upload queue state. These are
+- **Frontend (46 tests):** citation rendering, retrieval details, API client errors, response schema checks and upload queue state. These are
   deliberately few. The full flow was checked by hand-written scripts in a real browser rather than
   automated tests in the repository.
 - **Retrieval quality:** `eval/run_eval.py`, run by hand, with results committed.
