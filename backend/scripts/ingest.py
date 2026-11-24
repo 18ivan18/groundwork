@@ -5,7 +5,12 @@ are replaced, and unchanged ones are skipped without embedding, so it is safe an
 With no active index yet, it creates and activates the window index the chunking settings
 describe. It publishes once, at the end, so each API worker rebuilds BM25 once: also after a
 failure, and also what an earlier ingest stored but did not publish. A document removed or
-replaced is gone from the database's other indexes too, which are published as well.
+replaced is gone from the database's other indexes too, which are published as well. After
+publishing anything it vacuums.
+
+A document that fails doesn't stop the others: the script names each one and its error at the end,
+without the document's text, and exits with status 1. A failed document keeps its old copy, unless
+its access groups changed: then the old copy is removed.
 
 First makes data/raw/ hold the corpora version locked in conf/corpora.lock.json, downloading it
 if needed. GROUNDWORK_CORPORA=local skips that and uses data/raw/ as it is, unchecked. Fails if it
@@ -28,10 +33,28 @@ from groundwork.retrieval.pgvector_store import PgVectorStore
 
 
 def print_result(result: SyncResult) -> None:
-    if result.chunks:
+    if result.outcome == "failed":
+        print(failure(result), file=sys.stderr)
+    elif result.chunks:
         print(f"{result.name}: {result.outcome}, {result.chunks} chunks in {result.seconds:.0f}s")
     elif result.outcome != "skipped":
         print(f"{result.name}: {result.outcome}")
+
+
+def failure(result: SyncResult) -> str:
+    line = f"{result.name}: {result.error}"
+    match result.old_copy:
+        case "kept":
+            return f"{line}. Its old copy was kept."
+        case "removed":
+            return f"{line}. Its access groups changed, so its old copy was removed."
+        case "not removed":
+            return (
+                f"{line}.\n  WARNING: {result.name} IS STILL READABLE BY ITS OLD ACCESS GROUPS. "
+                "They changed, but its old copy could not be removed. Run ingest again."
+            )
+        case None:
+            return f"{line}. It is not indexed."
 
 
 async def main() -> None:
@@ -60,6 +83,10 @@ async def main() -> None:
             print(f"Published {name}: generation {generation}")
         documents, chunks = await store.count_documents(), await store.count_chunks()
         print(f"Index: {documents} documents, {chunks} chunks")
+        if report.failures:
+            count = len(report.failures)
+            lines = [f"{count} {'document' if count == 1 else 'documents'} failed:"]
+            sys.exit("\n".join(lines + [failure(result) for result in report.failures]))
     finally:
         await pool.close()
 

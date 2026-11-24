@@ -548,14 +548,15 @@ class FailsOn(FakeEmbedder):
         return super().embed_documents(texts)
 
 
-async def test_after_a_sync_fails_partway_and_is_rerun_every_document_is_found(
+async def test_one_failing_document_does_not_stop_the_others(
     library: Library, tmp_path: Path
 ) -> None:
-    raw = write(tmp_path / "v1", {"pager.md": about("pagers"), "disk.md": about("disks")})
+    raw = write(tmp_path / "v1", {"disk.md": about("disks"), "pager.md": about("pagers")})
 
-    with pytest.raises(RuntimeError, match="out of memory"):
-        await library.sync(raw, FailsOn("disks"))
+    report = await library.sync(raw, FailsOn("disks"))
 
+    assert report.names("failed") == ["runbooks/disk-md"]
+    assert report.names("added") == ["runbooks/pager-md"]
     assert await library.find("pagers") == ["pager"]
     assert (await library.store.publication()).generation == 1
 
@@ -568,26 +569,180 @@ async def test_after_a_sync_fails_partway_and_is_rerun_every_document_is_found(
     assert (await library.store.publication()).generation == 2
 
 
-async def test_a_failure_to_embed_keeps_the_old_document(library: Library, tmp_path: Path) -> None:
-    await library.sync(write(tmp_path / "v1", {"pager.md": about("pagers")}))
+@pytest.mark.parametrize("tags", [{}, {"title": "Renamed"}, {"metadata": {"team": "core"}}])
+async def test_a_failed_document_with_the_same_readers_keeps_its_old_copy(
+    library: Library, tmp_path: Path, tags: dict[str, Any]
+) -> None:
+    before = doc("pager.md", title="Pager", access_groups=["hr", "everyone"])
+    after = {**before, "access_groups": ["everyone", "hr"], **tags}
+    write_collection(tmp_path / "v1", "runbooks", [before], texts={"pager.md": about("pagers")})
+    text = about("pagers") + ("More." if not tags else "")
+    write_collection(tmp_path / "v2", "runbooks", [after], texts={"pager.md": text})
+    await library.sync(tmp_path / "v1")
 
-    with pytest.raises(RuntimeError, match="out of memory"):
-        await library.sync(write(tmp_path / "v2", {"pager.md": about("phones")}), FailsOn("phones"))
+    report = await library.sync(tmp_path / "v2", FailsOn("pagers"))
 
+    [failed] = report.failures
+    assert (failed.name, failed.old_copy) == ("runbooks/pager-md", "kept")
+    assert await library.find("pagers") == ["Pager"]
+
+
+async def test_a_document_after_a_failed_one_is_found_only_under_its_new_groups(
+    library: Library, tmp_path: Path
+) -> None:
+    def version(name: str, groups: list[str]) -> Path:
+        documents = [doc("a.md", title="a"), doc("b.md", title="b", access_groups=groups)]
+        texts = {"a.md": about(f"{name} alarms"), "b.md": about("budgets")}
+        write_collection(tmp_path / name, "runbooks", documents, texts=texts)
+        return tmp_path / name
+
+    await library.sync(version("v1", ["everyone"]))
+    await library.find("budgets")
+
+    report = await library.sync(version("v2", ["hr"]), FailsOn("alarms"))
+
+    assert report.names("failed") == ["runbooks/a-md"]
+    assert report.names("replaced") == ["runbooks/b-md"]
+    assert await library.find("alarms") == ["a"]
+    found = await library.search("budgets")
+    for mode in ("dense", "sparse"):
+        assert {p.document.access_groups for p in found[mode]} == {("hr",)}
+
+
+async def test_a_failed_document_whose_groups_changed_is_found_by_nobody(
+    library: Library, tmp_path: Path
+) -> None:
+    texts = {"pager.md": about("pagers")}
+    await library.sync(write(tmp_path / "v1", texts, access_groups=["everyone"]))
+    await library.find("pagers")
+    v2 = write(tmp_path / "v2", texts, access_groups=["hr"])
+
+    report = await library.sync(v2, FailsOn("pagers"))
+
+    [failed] = report.failures
+    assert (failed.name, failed.old_copy) == ("runbooks/pager-md", "removed")
+    assert await library.search("pagers") == {"dense": [], "sparse": []}
+    assert await library.store.documents() == []
+
+    assert (await library.sync(v2)).names("added") == ["runbooks/pager-md"]
+
+
+async def test_a_failed_document_whose_groups_changed_to_no_less_is_removed_too(
+    library: Library, tmp_path: Path
+) -> None:
+    """Also when the new groups only add readers, and when its bytes changed as well."""
+    texts = {"pager.md": about("pagers")}
+    await library.sync(write(tmp_path / "v1", texts, access_groups=["hr"]))
+    v2 = write(tmp_path / "v2", {"pager.md": about("phones")}, access_groups=["everyone", "hr"])
+
+    report = await library.sync(v2, FailsOn("phones"))
+
+    assert [failed.old_copy for failed in report.failures] == ["removed"]
+    assert await library.find("pagers") == []
+
+
+async def test_an_old_copy_that_cannot_be_removed_is_reported(
+    library: Library, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    texts = {"pager.md": about("pagers")}
+    await library.sync(write(tmp_path / "v1", texts, access_groups=["everyone"]))
+    v2 = write(tmp_path / "v2", texts, access_groups=["hr"])
+
+    async def fails(doc_ids: Sequence[str]) -> None:
+        raise ConnectionError("the database went away")
+
+    monkeypatch.setattr(library.store, "remove_corpus_documents", fails)
+    report = await library.sync(v2, FailsOn("pagers"))
+
+    [failed] = report.failures
+    assert failed.old_copy == "not removed"
+
+
+async def test_a_document_that_cannot_be_read_or_loaded_fails_alone(
+    library: Library, tmp_path: Path
+) -> None:
+    raw = write(tmp_path / "v1", {"disk.md": about("disks"), "pager.md": about("pagers")})
+    write_collection(
+        raw, "broken", [doc("broken.pdf", title="broken")], texts={"broken.pdf": "not a PDF"}
+    )
+    entries = corpus_entries(raw)
+    (raw / "runbooks" / "disk.md").unlink()
+
+    report = await sync_corpus(
+        entries, FakeEmbedder(), library.store, chunk_tokens=100, chunk_overlap=10
+    )
+
+    assert report.names("failed") == ["broken/broken-pdf", "runbooks/disk-md"]
     assert await library.find("pagers") == ["pager"]
 
 
-async def test_documents_that_left_are_gone_even_if_the_sync_fails_after(
+async def test_a_document_that_cannot_be_stored_fails_alone(
+    library: Library, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = write(tmp_path / "v1", {"disk.md": about("disks"), "pager.md": about("pagers")})
+    add = library.store.add_corpus_document
+
+    async def fails_once(*args: Any, **kwargs: Any) -> Any:
+        if kwargs["manifest_key"] == "disk-md":
+            raise ValueError("not stored")
+        return await add(*args, **kwargs)
+
+    monkeypatch.setattr(library.store, "add_corpus_document", fails_once)
+    report = await library.sync(raw)
+
+    assert report.names("failed") == ["runbooks/disk-md"]
+    assert await library.find("pagers") == ["pager"]
+
+
+async def test_a_sync_whose_every_document_fails_ends_and_reports(
+    library: Library, tmp_path: Path
+) -> None:
+    await library.sync(write(tmp_path / "v1", {"pager.md": about("pagers")}))
+    v2 = write(tmp_path / "v2", {"pager.md": about("phones"), "disk.md": about("disks")})
+
+    report = await library.sync(v2, FailsOn(""))
+
+    assert [(f.name, f.old_copy) for f in report.failures] == [
+        ("runbooks/pager-md", "kept"),
+        ("runbooks/disk-md", None),
+    ]
+    assert report.published == {}
+    assert await library.find("pagers") == ["pager"]
+
+
+async def test_documents_that_left_are_gone_even_if_the_others_fail(
     library: Library, tmp_path: Path
 ) -> None:
     await library.sync(write(tmp_path / "v1", {"pager.md": about("pagers")}))
     await library.find("pagers")
 
-    with pytest.raises(RuntimeError, match="out of memory"):
-        await library.sync(write(tmp_path / "v2", {"disk.md": about("disks")}), FailsOn("disks"))
+    report = await library.sync(write(tmp_path / "v2", {"disk.md": about("disks")}), FailsOn(""))
 
+    assert report.names("failed") == ["runbooks/disk-md"]
     assert await library.find("pagers") == []
     assert (await library.store.publication()).generation == 2
+
+
+async def test_errors_name_what_went_wrong_without_the_documents_text(
+    library: Library, tmp_path: Path
+) -> None:
+    class Quoting(FakeEmbedder):
+        def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
+            raise RuntimeError(f"cannot embed {texts}") from ValueError(texts[0])
+
+    raw = write(tmp_path / "v1", {"pager.md": about("pagers"), "disk.md": about("disks")})
+    entries = corpus_entries(raw)
+    (raw / "runbooks" / "disk.md").unlink()
+
+    report = await sync_corpus(
+        entries, Quoting(), library.store, chunk_tokens=100, chunk_overlap=10
+    )
+
+    embedding, reading = report.failures
+    assert embedding.error is not None and reading.error is not None
+    assert "RuntimeError" in embedding.error and "prepare_document" in embedding.error
+    assert "FileNotFoundError" in reading.error and "No such file" in reading.error
+    assert "pagers" not in repr(report)
 
 
 async def test_what_a_killed_sync_stored_is_published_by_the_next_one(
@@ -660,15 +815,29 @@ async def test_indexes_that_lost_chunks_are_published_after_a_failure_too(
     await b.find("pagers")
     v2 = write(tmp_path / "v2", {"pager.md": about("phones"), "disk.md": about("platters")})
 
-    with pytest.raises(RuntimeError, match="out of memory"):
-        await a.sync(v2, FailsOn("platters"))
+    report = await a.sync(v2, FailsOn("platters"))
 
-    assert ((await a.store.publication()).generation, (await b.store.publication()).generation) == (
-        2,
-        2,
-    )
+    assert report.names("failed") == ["runbooks/disk-md"]
+    assert report.published == {"a": 2, "b": 2}
     assert await b.find("pagers") == []
     assert await b.find("disks") == ["disk"]
+
+
+@pytest.mark.db
+async def test_a_failed_document_whose_groups_changed_is_gone_from_every_index(
+    two_libraries: tuple[Library, Library], tmp_path: Path
+) -> None:
+    a, b = two_libraries
+    texts = {"pager.md": about("pagers")}
+    v1 = write(tmp_path / "v1", texts, access_groups=["everyone"])
+    await a.sync(v1)
+    await b.sync(v1)
+    await b.find("pagers")
+
+    await a.sync(write(tmp_path / "v2", texts, access_groups=["hr"]), FailsOn("pagers"))
+
+    for library in (a, b):
+        assert await library.search("pagers") == {"dense": [], "sparse": []}
 
 
 @pytest.mark.db

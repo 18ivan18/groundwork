@@ -2,22 +2,32 @@
 the users' uploads, which a sync never changes."""
 
 import asyncio
+import os
 import time
+import traceback
 from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal
 
+import groundwork
 from groundwork.domain.models import content_hash
 from groundwork.ingestion.corpus import CorpusEntry
 from groundwork.ingestion.loaders import loader_for
 from groundwork.ingestion.pipeline import PreparedDocument, prepare_document
 from groundwork.retrieval.embedder import Embedder
-from groundwork.retrieval.store import ChunkStore, CorpusDocument
+from groundwork.retrieval.store import ChunkStore, CorpusDocument, normalized_groups
 
 # "removed" is also the outcome of a document that nothing replaces: its new text is too little to
 # index, or an upload stands in for it.
-SyncOutcome = Literal["added", "replaced", "removed", "skipped", "too little text"]
+SyncOutcome = Literal["added", "replaced", "removed", "skipped", "too little text", "failed"]
+# What became of the stored copy of a document that failed. It is removed, from every index, when
+# the document's access groups changed. "not removed" is when that failed too: the text can still
+# be read by its old groups.
+OldCopy = Literal["kept", "removed", "not removed"]
+
+_PACKAGE = Path(groundwork.__file__).parent
 
 
 @dataclass(frozen=True)
@@ -28,6 +38,10 @@ class SyncResult:
     # Stored by this sync.
     chunks: int = 0
     seconds: float = 0.0
+    # Of a failed document: what went wrong, without any of the document's text.
+    error: str | None = None
+    # Of a failed document that was stored before.
+    old_copy: OldCopy | None = None
 
 
 @dataclass
@@ -40,6 +54,10 @@ class SyncReport:
 
     def names(self, outcome: SyncOutcome) -> list[str]:
         return [result.name for result in self.results if result.outcome == outcome]
+
+    @property
+    def failures(self) -> list[SyncResult]:
+        return [result for result in self.results if result.outcome == "failed"]
 
 
 # Receives what became of each document as it happens.
@@ -64,10 +82,17 @@ async def sync_corpus(
     empty the library.
 
     Documents that left the corpus go first, from every index. A changed one is replaced in one
-    transaction, after its new text is embedded, so a failure leaves the old one; the other
-    indexes lose it too, and get the new one at their own next sync. Every index with writes to
-    publish is published once at the end: also after a failure, and also what an earlier process
-    wrote and never published. After that, if it published anything, it vacuums.
+    transaction, after its new text is embedded; the other indexes lose it too, and get the new
+    one at their own next sync.
+
+    A document that can't be read, loaded, chunked, embedded or stored fails, and the sync goes on
+    with the others: the caller must look at `failures`. It keeps its old copy, unless its access
+    groups changed. Then the old copy is removed from every index, so that no one reads it through
+    the groups it had. Anything but an Exception, such as cancellation, stops the sync.
+
+    Every index with writes to publish is published once at the end: also after a failure or a
+    stop, and also what an earlier process wrote and never published. After that, if it published
+    anything, it vacuums.
 
     One sync runs at a time on a database. Uploads may be stored beside it."""
     if not entries:
@@ -98,10 +123,14 @@ async def sync_corpus(
                 for entry in entries:
                     name = _name(entry.meta.collection_id, entry.key)
                     started = time.perf_counter()
-                    outcome, chunks = await _sync_document(
-                        entry, stored.get(name), embedder, store, chunk_tokens, chunk_overlap
-                    )
-                    add_result(SyncResult(name, outcome, chunks, time.perf_counter() - started))
+                    try:
+                        outcome, chunks = await _sync_document(
+                            entry, stored.get(name), embedder, store, chunk_tokens, chunk_overlap
+                        )
+                        result = SyncResult(name, outcome, chunks, time.perf_counter() - started)
+                    except Exception as error:
+                        result = await _failed(name, error, entry, stored.get(name), store)
+                    add_result(result)
             finally:
                 report.published = await store.publish_all()
     finally:
@@ -110,6 +139,44 @@ async def sync_corpus(
         if report.published:
             await store.vacuum()
     return report
+
+
+async def _failed(
+    name: str,
+    error: Exception,
+    entry: CorpusEntry,
+    stored: CorpusDocument | None,
+    store: ChunkStore,
+) -> SyncResult:
+    """The result of a document that failed, after removing its old copy if its groups changed."""
+    if stored is None:
+        return SyncResult(name, "failed", error=_describe(error))
+    if stored.document.access_groups == normalized_groups(entry.meta.access_groups):
+        return SyncResult(name, "failed", error=_describe(error), old_copy="kept")
+    try:
+        await store.remove_corpus_documents([stored.document.doc_id])
+    except Exception as removal:
+        both = f"{_describe(error)}; removing the old copy: {_describe(removal)}"
+        return SyncResult(name, "failed", error=both, old_copy="not removed")
+    return SyncResult(name, "failed", error=_describe(error), old_copy="removed")
+
+
+def _describe(error: Exception) -> str:
+    """The error's type and where in this package it came from. Not its message, which may quote
+    the document: an embedder's its input, a database's the row. For Python's own operating system
+    errors, the text of their number is added."""
+    kind = type(error)
+    description = kind.__qualname__
+    if isinstance(error, OSError) and kind.__module__ == "builtins" and error.errno is not None:
+        description += f" ({os.strerror(error.errno)})"
+    frames = [
+        frame.f_code
+        for frame, _ in traceback.walk_tb(error.__traceback__)
+        if Path(frame.f_code.co_filename).is_relative_to(_PACKAGE)
+    ]
+    if frames:
+        description += f" in {Path(frames[-1].co_filename).name}, {frames[-1].co_name}"
+    return description
 
 
 async def _sync_document(
