@@ -89,7 +89,7 @@ rewrites it, and the change is reviewed with the lock.
 The retrieval eval and the gate empty and rebuild their own database, the app's name plus `_eval`, so
 run one at a time: a second run would empty it under the first. Test and `_eval` databases made before
 corpus sync have an older form of migration 0001, which Alembic counts as applied, and must be dropped once
-(`dropdb`); the app's database must be recreated the same way.
+(`dropdb`). The app's database must be recreated too: see "Updating an existing Docker install" below.
 
 ## Configuration
 
@@ -252,8 +252,19 @@ from a text passage instead, but the loader bug is still open. Each is a single 
   stated. There is no period filter yet.
 - **Formats:** TXT, Markdown, HTML (inline XBRL included) and PDF with a text layer. Scanned PDFs need OCR, which is not supported.
 - **Updating an existing Docker install:** a `data` volume from before the corpora left git has no
-  record of its version, so ingest stops if its files differ from the locked version. Run
-  `docker compose down -v` once. It also removes uploads.
+  record of its version, so ingest stops if its files differ from the locked version. Remove only its
+  corpora, which the next start downloads again; uploads stay:
+
+  ```bash
+  docker compose build
+  docker compose run --rm --no-deps ingest rm -rf data/raw
+  docker compose up
+  ```
+
+  A `pgdata` volume from before corpus sync has an older form of migration 0001, which Alembic counts as
+  applied, so it must be recreated: `docker compose down`, then `docker volume rm groundwork_pgdata`. Uploads
+  are then gone from the library and must be uploaded again; their original files stay in the `data`
+  volume.
 - **Embedders:** a comparison of `bge-small` with Qwen3-0.6B and harrier-0.6b is planned.
 - **Tables:** in HTML a table is kept in one chunk when it fits (88% of them). A longer table, and
   most tables in the TXT filings, can lose the header row in later chunks.
