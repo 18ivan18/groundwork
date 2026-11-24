@@ -1,0 +1,180 @@
+# Retrieval on Postgres
+
+How the dense query runs on pgvector, measured on the evaluation's 400-token index: 4,800 chunks
+from the 205 documents of `corpora-v1` in four collections, `bge-small-en-v1.5` (384 dimensions),
+pgvector 0.8.7, HNSW with `m = 16`, `ef_construction = 64`. Every number here comes from
+
+```sh
+uv run python eval/run_eval.py    # leaves its indexes in the eval database
+uv run python scripts/explain_search.py --eval --index window-400-header-bge-small \
+    --questions eval/questions.jsonl
+```
+
+run on a laptop with the whole table in shared buffers. Timings are single runs; the plans are
+what matter.
+
+## The query
+
+One `chunks` table holds every index (D18). The vector column is untyped, so each index has its
+own partial HNSW index over a cast to its dimension, and the query repeats that expression:
+
+```sql
+CREATE INDEX chunks_hnsw_4 ON chunks USING hnsw ((embedding::vector(384)) vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64) WHERE index_id = 4;
+
+SELECT <document and chunk columns>, c.distance FROM (
+    SELECT c.*, (c.embedding::vector(384)) <=> $1::vector(384) AS distance
+    FROM chunks c WHERE c.index_id = 4 <AND filters>
+    ORDER BY distance LIMIT 20
+) c JOIN documents d ON d.id = c.document_id ORDER BY c.distance
+```
+
+The index id and the limit are written into the SQL; only the query vector and filter values
+are parameters (see [Prepared statements](#prepared-statements)).
+
+## 1. No filter: the HNSW index
+
+```
+Sort (actual time=0.404..0.406 rows=20 loops=1)
+  ->  Hash Join (actual time=0.330..0.388 rows=20 loops=1)
+        ->  Limit (actual time=0.244..0.298 rows=20 loops=1)
+              ->  Index Scan using chunks_hnsw_4 on chunks c (actual time=0.244..0.296 rows=20 loops=1)
+                    Order By: ((embedding)::vector(384) <=> <query>::vector(384))
+                    Buffers: shared hit=604
+        ->  Hash (actual time=0.084..0.084 rows=205 loops=1)
+              ->  Seq Scan on documents d (actual time=0.003..0.028 rows=205 loops=1)
+Execution Time: 0.420 ms
+```
+
+A sequential scan of the same chunks takes about 10 ms, and grows with the table.
+
+## 2. A selective filter: exact search, chosen by the planner
+
+Filtered to `northwind` (132 of the 4,800 chunks), the planner leaves the graph alone. It reads
+those rows through the btree on `(index_id, collection_id, doc_date)` and sorts them by distance,
+which is exact search and still under a millisecond:
+
+```
+->  Limit (actual time=0.587..0.589 rows=20 loops=1)
+      ->  Sort (actual time=0.587..0.588 rows=20 loops=1)
+            Sort Method: top-N heapsort  Memory: 42kB
+            ->  Index Scan using chunks_filters on chunks c_1 (actual time=0.043..0.553 rows=132 loops=1)
+                  Index Cond: ((index_id = 4) AND (collection_id = ANY ('{northwind}'::text[])))
+Execution Time: 0.663 ms
+```
+
+When the planner does use the graph with a filter, HNSW finds its `ef_search` nearest neighbours
+first and filters after, so a restrictive filter can return fewer than n rows. Filtered searches
+set `hnsw.iterative_scan = strict_order` (pgvector 0.8), which keeps scanning until n rows pass.
+M3's access groups make every user's search filtered; its tests show the failure without the
+setting.
+
+## 3. `hnsw.ef_search`
+
+The share of exact search's top 20 that HNSW returns, for one question on one build (section 4 has
+all the questions, and several builds):
+
+| `ef_search` | Shared with exact | Time |
+|---|---|---|
+| 10 | 10 / 20 | 0.33 ms |
+| 40 (default) | 19 / 20 | 0.43 ms |
+| 100 | 19 / 20 | 1.63 ms |
+
+`ef_search` must be at least the limit (20) to fill it from the graph alone. The default is
+kept at 20 candidates, and at any number up to 40.
+
+Without an iterative scan the graph returns at most `ef_search` rows, so a search for more than
+40 candidates sets `hnsw.ef_search` to that number, up to pgvector's limit of 1000. Filtered
+searches do the same and keep their iterative scan. The setting is `SET LOCAL`, so it ends with
+the search's transaction. Exact search doesn't use the graph, so it is never set there.
+
+An unfiltered search can return fewer rows than it asked for when it wants more than 1000, or
+when some of the rows the graph finds were deleted and not yet vacuumed. The second is true at 20
+candidates too. A corpus sync vacuums `chunks` after publishing, with `INDEX_CLEANUP ON`: a plain
+`VACUUM` skips the indexes when under 2% of the table's pages hold deleted rows, so a few deleted
+documents would stay in the graph. Between a removal and the end of that sync's vacuum, and after
+any other delete until autovacuum cleans the graph, a search can still return too few.
+
+## 4. HNSW against exact search, all 126 questions
+
+Searched through the store with the default `ef_search` of 40, on the last full eval's 400-token
+index: **the top 20 is identical for 90 questions**; the other 36 differ, at worst sharing none (mean
+18.3 of 20 shared). An earlier version of this section said 123. That was wrong: the script ran both
+searches on one connection pool, where the prepared plan of one was reused for the other (the first
+trap below), so it compared a search with itself. Each has its own pool now.
+
+pgvector builds a partly random graph, so every build gives other numbers. The same stored vectors,
+one graph per row below, dense search alone, Success@6. "Northwind" is the collection the graph
+loses most: for some questions none of its documents are reached.
+
+| Chunk tokens | Northwind, exact | Northwind, HNSW, 11 rebuilds | Top 20 identical |
+|---|---|---|---|
+| 200 | 1.00 | 0.46 to 0.81 | 74 to 79 of 126 |
+| 300 | 1.00 | 0.62 to 0.81 | 81 to 91 of 126 |
+| 400 | 1.00 | 0.69 to 0.92 | 86 to 94 of 126 |
+
+`ef_search` on four more builds at 400 tokens, with sequential scans off so that the graph is used,
+on a table of only ids and vectors:
+
+| `ef_search` | Northwind | Top 20 identical | Time per query |
+|---|---|---|---|
+| 40 (default) | 0.73 to 0.88 | 86 to 90 of 126 | 0.8 to 0.9 ms |
+| 100 | 0.88 to 0.92 | 104 to 106 | 1.0 to 1.1 ms |
+| 200 | 0.92 | 115 to 116 | 1.1 to 1.3 ms |
+| 400 | 1.00 | 120 to 122 | 1.6 to 1.9 ms |
+
+**On the real `chunks` table the planner doesn't use the graph at 400.** The app's unfiltered search
+over the 4,800 chunks of the default index, freshly ingested:
+
+| `ef_search` | Plan | Top 20 identical | Median |
+|---|---|---|---|
+| 40 (default) | graph | 92 of 126 | 1.1 ms |
+| 100 | graph, forced | 104 | 1.1 ms |
+| 200 | graph, forced | 115 | 1.3 ms |
+| 400 | graph, forced | 119 | 1.6 ms |
+| 400 | sequential scan, the planner's choice | 126 (exact) | 7.5 ms |
+
+It chose the graph at each setting tried up to 100 and the scan from 120 up, because the graph's
+estimated cost grows with `ef_search`. A larger table would move that point.
+
+A larger graph (`m = 32`, `ef_construction = 200`) at `ef_search` 40 gave 0.96 and 109 to 114. The
+iterative scan changes nothing here, because 20 rows are found without it. After fusion and
+re-ranking, Success@6 was the same on Chroma (M1) and in both full runs on pgvector, because BM25 finds
+what the graph misses. The relevance gate reads the best dense similarity, so it is affected. The CI gate
+searches exactly.
+
+## Prepared statements
+
+psycopg prepares a statement on its fifth run on a connection, and after five custom plans
+Postgres may switch to one generic plan, planned without the parameter values:
+
+- **With the index id as a parameter, the generic plan cannot use the partial index**: Postgres
+  does not know the rows match `WHERE index_id = 4`. That is why the id is written into the SQL
+  (D19; `tests/unit/test_indexes.py` checks a forced generic plan).
+- **With the limit as a parameter**, Postgres judged the generic plan worse and kept re-planning
+  every search (7 custom plans, 0 generic). Written in, it settles on a generic plan that still
+  uses the index, and planning is skipped. A search after 259 others on one pooled connection:
+
+```
+Prepared as _pg3_0: 5 custom plans, then 254 generic.
+
+->  Limit (actual time=0.300..0.581 rows=20 loops=1)
+      ->  Index Scan using chunks_hnsw_4 on chunks c (actual time=0.299..0.561 rows=20 loops=1)
+            Order By: ((embedding)::vector(384) <=> ($1)::vector(384))
+Execution Time: 0.731 ms
+```
+
+Both values are ints from the code, never user input.
+
+## Two traps, found while measuring
+
+- **A prepared statement keeps its plan when planner settings change.** A search run with
+  `enable_indexscan = off` (the exact store) can leave a sequential-scan plan cached on the
+  connection for the searches after it. The app never turns index scans off; the CI gate's exact
+  store is the only user, and it runs alone.
+- **`SET LOCAL` on a pooled connection is only as local as its transaction.** psycopg's pool hands
+  out connections outside autocommit: if anything runs before `connection.transaction()`, that
+  block becomes a savepoint inside an implicit transaction, and the setting lasts until the
+  connection goes back to the pool. The store always opens its transaction first, so its
+  `SET LOCAL` ends with the search. The first versions of the measuring script did not, and
+  reported sequential scans that the app never runs.

@@ -6,22 +6,57 @@ x-backend: &backend
   image: groundwork-api
   env_file: .env
   environment:
-    # Overrides .env, whose ./data is the path for running outside Docker.
+    # Override .env, whose values are for running outside Docker.
     DATA_DIR: /app/data
+    DATABASE_URL: postgresql://groundwork:groundwork@db:5432/groundwork
   volumes:
     - data:/app/data
 
 services:
-  # Runs before the API and exits. It cannot run beside it: Chroma's local store is for one
-  # process at a time. Files already indexed are skipped, so later starts take a few seconds.
-  ingest:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: groundwork
+      # Local only: the port is bound to 127.0.0.1.
+      POSTGRES_PASSWORD: groundwork
+      POSTGRES_DB: groundwork
+    # Building an HNSW index in parallel takes about 64 MB of /dev/shm, which is all Docker gives.
+    shm_size: 256mb
+    # 5434 on the host, because 5432 is often taken by a local Postgres.
+    ports:
+      - "127.0.0.1:${DB_PORT:-5434}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U groundwork -d groundwork"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Applies the migrations, then exits.
+  migrate:
     <<: *backend
     build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Downloads the locked corpora version into the `data` volume if it isn't there, makes the index
+  # hold exactly its documents beside the uploads, and exits. Unchanged documents are skipped, so
+  # later starts take a few seconds. A document that fails doesn't stop the others, but the exit is
+  # non-zero, so `api` doesn't start.
+  ingest:
+    <<: *backend
+    pull_policy: never
     command: ["python", "scripts/ingest.py"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
   api:
     <<: *backend
-    # Uses the image that `ingest` builds. Building it in both would race on the same tag.
+    # Uses the image that `migrate` builds. Building it in both would race on the same tag.
     pull_policy: never
     depends_on:
       ingest:
@@ -67,5 +102,8 @@ services:
       retries: 3
 
 volumes:
+  # The corpora, the original files of uploads and the saved BM25 indexes.
   data:
+  # Postgres: every document, uploads included, with its chunks and vectors.
+  pgdata:
   ollama:

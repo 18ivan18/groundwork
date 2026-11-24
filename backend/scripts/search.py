@@ -1,18 +1,20 @@
-"""Search the index and print the passages.
+"""Search the active index and print the passages.
 
 Run from backend/: uv run python scripts/search.py "your question" [--k 6] [--mode reranked]
 """
 
 import argparse
+import asyncio
 from typing import get_args
 
 from groundwork.config import Settings
-from groundwork.container import build_dense_index, build_embedder, build_retriever
+from groundwork.container import bm25_root, build_reranker, make_retriever, open_app_store
 from groundwork.domain.models import section_label
 from groundwork.retrieval.hybrid import SearchMode
+from groundwork.retrieval.sparse import SparseCache
 
 
-def main() -> None:
+async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("query")
     parser.add_argument("--k", type=int, default=None)
@@ -20,8 +22,12 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = Settings()
-    retriever = build_retriever(settings, build_embedder(settings), build_dense_index(settings))
-    passages = retriever.search(args.query, args.k or settings.top_k, mode=args.mode)
+    async with open_app_store(settings) as opened:
+        sparse = SparseCache(opened.store, bm25_root(settings))
+        retriever = make_retriever(
+            settings, opened.embedder, opened.store, sparse, build_reranker(settings)
+        )
+        passages = await retriever.search(args.query, args.k or settings.top_k, mode=args.mode)
 
     for rank, passage in enumerate(passages, start=1):
         excerpt = " ".join(passage.chunk.text.split())[:240]
@@ -35,4 +41,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -60,8 +60,7 @@ def _to_filters(request: AskRequest) -> SearchFilters | None:
     )
 
 
-# A plain `def`, so FastAPI runs it in a thread: an `async def` would block the event loop while
-# waiting for the embedder and the LLM.
+# Async all the way down: the embedder, BM25, the re-ranker and the LLM client run in threads.
 @router.post(
     "/ask",
     summary="Ask a question",
@@ -74,10 +73,10 @@ def _to_filters(request: AskRequest) -> SearchFilters | None:
     ),
     responses={502: {"model": ErrorResponse, "description": "The LLM provider failed."}},
 )
-def ask(request: AskRequest, service: QAServiceDep) -> AskResponse:
+async def ask(request: AskRequest, service: QAServiceDep) -> AskResponse:
     # Questions can reveal client work, so they stay out of logs in production.
     logger.debug("Question: %s", request.question)
-    answer = service.ask(request.question, _to_filters(request), request.top_k)
+    answer = await service.ask(request.question, _to_filters(request), request.top_k)
     return AskResponse(
         answer=answer.text,
         insufficient_evidence=answer.insufficient_evidence,

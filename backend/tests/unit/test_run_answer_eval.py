@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -12,11 +13,15 @@ from run_answer_eval import (
     ask_all,
     normalize_answer,
     read_run,
+    report,
+    resume_problem,
+    run_header,
     score_record,
     score_run,
 )
 from run_eval import Question
 
+from groundwork.config import Settings
 from groundwork.domain.models import Chunk, Document, DocumentMeta, ScoredPassage, SearchFilters
 from groundwork.ingestion.corpus import CorpusEntry
 from groundwork.llm.base import Completion, LLMError, RateLimitError
@@ -135,7 +140,9 @@ DOCUMENT = Document(
 
 
 class StubRetriever:
-    def retrieve(self, query: str, k: int, filters: SearchFilters | None = None) -> SearchResult:
+    async def retrieve(
+        self, query: str, k: int, filters: SearchFilters | None = None
+    ) -> SearchResult:
         chunk = Chunk("doc:0", "doc", "ACME sold 10 anvils.", ("Item 7",), None, 0, 20)
         return SearchResult([ScoredPassage(chunk, DOCUMENT, 1, 1, 0.03, 0.9)], 0.9)
 
@@ -154,7 +161,7 @@ def no_pacing() -> TokenPacer:
 def run(
     path: Path, questions: Sequence[Question], qa: QAService, only: set[str] | None = None
 ) -> bool:
-    return ask_all(questions, qa, path, no_pacing(), only=only, log=lambda _: None)
+    return asyncio.run(ask_all(questions, qa, path, no_pacing(), only=only, log=lambda _: None))
 
 
 def test_ask_saves_the_answer_and_its_sources(tmp_path: Path) -> None:
@@ -313,3 +320,46 @@ def test_score_run_groups_by_filing_format_then_unanswerable_kind() -> None:
         ("q2", "sec-10k · TXT (1)"),
         ("u1", "Off-topic (1)"),
     ]
+
+
+@pytest.mark.parametrize(
+    ("version", "label"),
+    [("corpora-v1", "Corpora version: `corpora-v1`."), (None, "Corpora: **local and unchecked**")],
+)
+def test_the_report_names_the_corpora_version_the_run_was_asked_on(
+    version: str | None, label: str
+) -> None:
+    header = run_header(Settings(_env_file=None), 4800, version)
+
+    text = report("run", header, [], [], version)
+
+    assert label in text
+    assert "At scoring" not in text
+
+
+def test_the_report_says_when_a_run_was_scored_on_other_corpora() -> None:
+    header = run_header(Settings(_env_file=None), 4800, "corpora-v1")
+
+    text = report("run", header, [], [], "corpora-v2")
+
+    assert "Corpora version: `corpora-v1`. At scoring: Corpora version: `corpora-v2`." in text
+
+
+def test_a_run_recorded_before_corpora_versions_is_not_given_one() -> None:
+    header = run_header(Settings(_env_file=None), 1028, "corpora-v1")
+    del header["corpora_version"]
+
+    text = report("run", header, [], [], "corpora-v1")
+
+    assert "Corpora version: not recorded." in text
+
+
+def test_a_run_is_resumed_only_with_the_same_model_on_the_same_corpora() -> None:
+    header = run_header(Settings(_env_file=None), 4800, "corpora-v1")
+
+    assert resume_problem(header, {**header, "commit": "another"}) is None
+    assert "model" in (resume_problem(header, {**header, "model": "other"}) or "")
+    assert "corpora-v2" in (
+        resume_problem(header, {**header, "corpora_version": "corpora-v2"}) or ""
+    )
+    assert "local" in (resume_problem(header, {**header, "corpora_version": None}) or "")

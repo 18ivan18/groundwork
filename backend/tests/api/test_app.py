@@ -1,11 +1,20 @@
+import asyncio
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from api_helpers import add_document
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from groundwork import container, main
 from groundwork.config import Settings
+from groundwork.db.pool import Pool
 from groundwork.main import create_app
+from groundwork.retrieval.embedder import FakeEmbedder
+from groundwork.retrieval.indexes import activate, ensure_index, window_spec
+from groundwork.retrieval.memory_store import MemoryStore
+from groundwork.retrieval.pgvector_store import PgVectorStore
 
 ORIGIN = "http://localhost:5173"
 
@@ -67,3 +76,45 @@ def test_startup_fails_fast_without_an_llm_model(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="requires LLM_MODEL"), TestClient(app):
         pass
+
+
+def test_startup_publishes_what_an_earlier_process_left(
+    tmp_path: Path, store: MemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(container, "build_embedder", lambda settings: FakeEmbedder())
+    settings = Settings(_env_file=None, data_dir=tmp_path, llm_model="any", reranker_model="")
+    asyncio.run(add_document(store, "killed ingest", 1))
+
+    with TestClient(create_app(settings, store=store)):
+        assert asyncio.run(store.publication()).generation == 1
+
+    assert asyncio.run(store.publish()) is None
+
+
+@pytest.mark.db
+async def test_startup_publishes_every_index_an_earlier_process_left(
+    tmp_path: Path, database_url: str, pool: Pool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A sync also takes documents out of indexes the app does not search."""
+    monkeypatch.setattr(main, "build_embedder", lambda settings: FakeEmbedder())
+    settings = Settings(
+        _env_file=None,
+        data_dir=tmp_path,
+        database_url=database_url,
+        llm_model="any",
+        reranker_model="",
+    )
+    spec = window_spec(400, 60, settings.embedding_model, FakeEmbedder().dimension)
+    active = PgVectorStore(pool, await ensure_index(pool, spec))
+    other = PgVectorStore(pool, await ensure_index(pool, replace(spec, name="other")))
+    await activate(pool, active.index.id)
+    for index in (active, other):
+        await add_document(index, "killed ingest", 1)
+
+    app = create_app(settings)
+    async with app.router.lifespan_context(app):
+        pass
+
+    for index in (active, other):
+        assert (await index.publication()).generation == 1
+        assert await index.publish() is None

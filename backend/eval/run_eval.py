@@ -2,24 +2,41 @@
 
 Run from backend/: uv run python eval/run_eval.py
 
-It first makes data/raw/ hold the locked corpora version, as scripts/ingest.py does.
+It first makes data/raw/ hold the locked corpora version, as scripts/ingest.py does. Needs Postgres
+(`docker compose up db`).
 
-For each chunk size the collections the questions are about are indexed into a temporary
-directory, so the real index is untouched. A question counts as found when a passage from one of
-its `documents` (manifest keys) contains one of its `evidence` patterns. That is stricter than
-matching a section, which can span dozens of chunks.
+Every run, the CI gate's included, chunks, embeds and indexes the corpora from scratch in the eval
+database: the app's database name with `_eval` added, on the same server. It is created and
+migrated if needed and emptied when a run starts, so only one run can use it at a time, and the
+app's database is untouched. The full run builds one index per chunk size, over the collections
+the questions are about. They stay until the next run, for scripts/explain_search.py --eval.
+
+A question counts as found when a passage from one of its `documents` (manifest keys) contains one
+of its `evidence` patterns. That is stricter than matching a section, which can span dozens of
+chunks.
 
 Scores are reported per document format, which separates the TXT filings from the HTML ones.
 
 Each retriever hands its top `retrieval_candidates` passages to fusion, so recall at that depth
 is the most hybrid search can find. The candidate table compares it with what survives fusion
 and the cut to `top_k`.
+
+`--ci` is the regression gate: Success@6 of the full pipeline on the sec-10k and northwind
+collections at the configured chunk size, with exact vector search so the result does not depend
+on the HNSW graph. It fails when a collection falls more than 3 points below eval/baseline.json,
+when a collection in the baseline has no results, or when the baseline was measured on another
+corpora version. `--ci --update-baseline` rewrites that file: a deliberate, reviewed commit.
+
+Every report and the baseline name the corpora version they were measured on. A run on local
+corpora (GROUNDWORK_CORPORA=local) says so instead, fails the gate and can't make a baseline.
 """
 
+import argparse
+import asyncio
 import json
 import re
 import statistics
-import tempfile
+import sys
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -27,21 +44,30 @@ from pathlib import Path
 from typing import Literal, get_args
 
 from pydantic import BaseModel, ConfigDict
+from tsrank import ts_rank_search
 
 from groundwork.config import Settings
 from groundwork.container import build_embedder, build_reranker, make_retriever
+from groundwork.db.databases import open_eval_database
+from groundwork.db.pool import Pool
 from groundwork.domain.models import Document, ScoredPassage
-from groundwork.ingestion.corpora_bundle import ensure_corpora
+from groundwork.ingestion.corpora_bundle import LOCAL_CORPORA_ENV, corpora_version, ensure_corpora
 from groundwork.ingestion.corpus import CorpusEntry, corpus_entries
 from groundwork.ingestion.loaders import load_file
 from groundwork.ingestion.pipeline import ingest_file
-from groundwork.retrieval.dense import DenseIndex
 from groundwork.retrieval.embedder import Embedder
 from groundwork.retrieval.hybrid import HybridRetriever, SearchMode
+from groundwork.retrieval.indexes import ensure_index, window_spec
+from groundwork.retrieval.pgvector_store import PgVectorStore
 from groundwork.retrieval.reranker import Reranker
-from groundwork.retrieval.sparse import SparseIndex
+from groundwork.retrieval.sparse import FixedSparse, build_sparse
 
 EVAL_DIR = Path(__file__).parent
+BASELINE = EVAL_DIR / "baseline.json"
+UPDATE_BASELINE = "`uv run python eval/run_eval.py --ci --update-baseline`"
+CI_COLLECTIONS = ("sec-10k", "northwind")
+# Success@6 may fall this far below the baseline, in points, before CI fails.
+CI_TOLERANCE = 0.03
 CHUNK_SIZES = (200, 300, 400)
 K_VALUES = (1, 3, 6, 8, 10, 20)
 # Recall@k is reported at the answer's depth (top_k) and at the candidates' depth.
@@ -260,26 +286,40 @@ def validate(questions: Sequence[Question], texts: dict[DocumentKey, str]) -> No
             raise ValueError(f"{question.id}: {question.absent!r} does occur in the collection")
 
 
-def build_retriever(
+async def eval_store(
+    pool: Pool,
     settings: Settings,
     entries: Sequence[CorpusEntry],
     embedder: Embedder,
-    reranker: Reranker | None,
     chunk_tokens: int,
-    directory: Path,
-) -> tuple[HybridRetriever, DenseIndex]:
-    dense = DenseIndex(directory, settings.embedding_model)
+    *,
+    exact: bool = False,
+) -> PgVectorStore:
+    """A new index over `entries` for this chunk size, in the emptied eval database."""
+    spec = window_spec(
+        chunk_tokens, settings.chunk_overlap, settings.embedding_model, embedder.dimension
+    )
+    store = PgVectorStore(pool, await ensure_index(pool, spec), exact=exact)
     for entry in entries:
-        ingest_file(
+        await ingest_file(
             entry.path,
             entry.meta,
             embedder,
-            dense,
+            store,
             chunk_tokens=chunk_tokens,
             chunk_overlap=settings.chunk_overlap,
         )
-    sparse = SparseIndex.build(dense.all_passages())
-    return make_retriever(settings, embedder, dense, sparse, reranker), dense
+    return store
+
+
+async def build_retriever(
+    settings: Settings,
+    store: PgVectorStore,
+    embedder: Embedder,
+    reranker: Reranker | None,
+) -> HybridRetriever:
+    sparse = FixedSparse(await build_sparse(store))
+    return make_retriever(settings, embedder, store, sparse, reranker)
 
 
 @dataclass(frozen=True)
@@ -386,10 +426,117 @@ def gate_table(answerable: list[float], off_topic: list[float], in_domain: list[
     return "\n".join(lines)
 
 
-def main() -> None:
+class Baseline(BaseModel):
+    """What the CI gate compares with: Success@6 per collection on one corpora version."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    corpora_version: str
+    success: dict[str, float]
+
+
+def corpora_label(version: str | None) -> str:
+    """The sentence that names a report's corpora version. None means the corpora were local."""
+    if version is None:
+        return (
+            f"Corpora: **local and unchecked** (`{LOCAL_CORPORA_ENV}=local`). "
+            "These results belong to no corpora version."
+        )
+    return f"Corpora version: `{version}`."
+
+
+def baseline_check(
+    found: dict[str, float],
+    baseline: Baseline,
+    version: str | None,
+    tolerance: float = CI_TOLERANCE,
+) -> list[str]:
+    """Why the gate fails, one line each: the baseline is of another corpora version than the one
+    measured (None: local corpora), or, for a collection, its Success@6 fell more than `tolerance`
+    below its baseline, or it has no baseline or no results."""
+    if version is None:
+        return [
+            f"The corpora are local and unchecked, so they can't be compared with the baseline of "
+            f"{baseline.corpora_version}. Unset {LOCAL_CORPORA_ENV} to gate the locked corpora."
+        ]
+    if version != baseline.corpora_version:
+        return [
+            f"The baseline was measured on {baseline.corpora_version}, but the locked corpora are "
+            f"{version}. If the new version is deliberate, run {UPDATE_BASELINE} and commit "
+            f"eval/{BASELINE.name} to be reviewed with the lock."
+        ]
+    failures = []
+    for collection in sorted(found.keys() | baseline.success.keys()):
+        if collection not in baseline.success:
+            failures.append(f"{collection}: no baseline. Run --ci --update-baseline.")
+        elif collection not in found:
+            failures.append(
+                f"{collection}: no results, baseline {baseline.success[collection]:.3f}. "
+                f"If it was dropped deliberately, run {UPDATE_BASELINE}."
+            )
+        elif found[collection] < baseline.success[collection] - tolerance - 1e-9:
+            failures.append(
+                f"{collection}: Success@6 {found[collection]:.3f}, "
+                f"baseline {baseline.success[collection]:.3f}"
+            )
+    return failures
+
+
+async def ci(update_baseline: bool) -> int:
+    settings = Settings()
+    questions = [
+        q for q in load_questions(EVAL_DIR / "questions.jsonl") if q.collection in CI_COLLECTIONS
+    ]
+    raw_dir = ensure_corpora(settings)
+    version = corpora_version(raw_dir)
+    print(corpora_label(version))
+    if update_baseline and version is None:
+        print("FAIL The baseline must name a corpora version, so local corpora can't make one.")
+        return 1
+    entries = corpus_entries(raw_dir, frozenset(CI_COLLECTIONS))
+    keys = DocumentKeys(entries)
+    validate(
+        questions,
+        {(e.meta.collection_id, e.key): normalize(load_file(e.path).text) for e in entries},
+    )
+    # Restricted questions are asked by a user who must not find the document: from M3 the ACL
+    # makes them misses, which would read as a regression here.
+    answerable = [q for q in questions if q.answerable and q.type != "restricted"]
+    embedder = build_embedder(settings)
+    pool = await open_eval_database(settings.database_url)
+    try:
+        store = await eval_store(
+            pool, settings, entries, embedder, settings.chunk_tokens, exact=True
+        )
+        retriever = await build_retriever(settings, store, embedder, build_reranker(settings))
+        found: dict[str, list[EvidenceRanks]] = {}
+        for q in answerable:
+            passages = await retriever.search(q.question, settings.top_k)
+            found.setdefault(q.collection, []).append(evidence_ranks(passages, q, keys))
+    finally:
+        await pool.close()
+    success = {
+        c: score(ranks, [settings.top_k]).success[settings.top_k] for c, ranks in found.items()
+    }
+    for collection, value in sorted(success.items()):
+        count = len(found[collection])
+        print(f"{collection}: Success@{settings.top_k} {value:.3f} ({count} questions)")
+    if update_baseline and version is not None:
+        updated = Baseline(corpora_version=version, success=dict(sorted(success.items())))
+        BASELINE.write_text(updated.model_dump_json(indent=2) + "\n")
+        print(f"Wrote {BASELINE.name}")
+        return 0
+    failures = baseline_check(success, Baseline.model_validate_json(BASELINE.read_text()), version)
+    for failure in failures:
+        print(f"FAIL {failure}")
+    return 1 if failures else 0
+
+
+async def main() -> None:
     settings = Settings()
     questions = load_questions(EVAL_DIR / "questions.jsonl")
     raw_dir = ensure_corpora(settings)
+    version = corpora_version(raw_dir)
     entries = corpus_entries(raw_dir, eval_collections(questions))
     keys = DocumentKeys(entries)
     by_key = {(e.meta.collection_id, e.key): e for e in entries}
@@ -404,59 +551,70 @@ def main() -> None:
     misses: list[str] = []
     gate_sections: list[str] = []
     latencies: list[str] = []
+    ts_rows: list[Row] = []
+    pool = await open_eval_database(settings.database_url)
     for chunk_tokens in CHUNK_SIZES:
-        with tempfile.TemporaryDirectory() as directory:
-            retriever, dense = build_retriever(
-                settings, entries, embedder, reranker, chunk_tokens, Path(directory)
+        dense = await eval_store(pool, settings, entries, embedder, chunk_tokens)
+        retriever = await build_retriever(settings, dense, embedder, reranker)
+        chunk_count = await dense.count_chunks()
+        ranks_by_mode: dict[str, list[int | None]] = {}
+        for mode in get_args(SearchMode):
+            found: list[EvidenceRanks] = []
+            seconds = []
+            for q in answerable:
+                started = time.perf_counter()
+                passages = await retriever.search(q.question, max(K_VALUES), mode=mode)
+                seconds.append(time.perf_counter() - started)
+                found.append(evidence_ranks(passages, q, keys))
+            ranks = [first_hit(evidence) for evidence in found]
+            ranks_by_mode[mode] = ranks
+            latencies.append(
+                f"| {chunk_tokens} | {mode} | {statistics.median(seconds) * 1000:.0f} "
+                f"| {max(seconds) * 1000:.0f} |"
             )
-            ranks_by_mode: dict[str, list[int | None]] = {}
-            for mode in get_args(SearchMode):
-                found: list[EvidenceRanks] = []
-                seconds = []
-                for q in answerable:
-                    started = time.perf_counter()
-                    passages = retriever.search(q.question, max(K_VALUES), mode=mode)
-                    seconds.append(time.perf_counter() - started)
-                    found.append(evidence_ranks(passages, q, keys))
-                ranks = [first_hit(evidence) for evidence in found]
-                ranks_by_mode[mode] = ranks
-                latencies.append(
-                    f"| {chunk_tokens} | {mode} | {statistics.median(seconds) * 1000:.0f} "
-                    f"| {max(seconds) * 1000:.0f} |"
-                )
-                for name, positions in sets.items():
-                    scores = score([found[p] for p in positions], K_VALUES)
-                    rows.append(Row(chunk_tokens, dense.count_chunks(), mode, name, scores))
-                for question, rank in zip(answerable, ranks, strict=True):
-                    if rank is None or rank > settings.top_k:
-                        misses.append(f"| {chunk_tokens} | {mode} | {question.id} | {rank} |")
             for name, positions in sets.items():
-                candidates = candidate_recall(
-                    [answerable[p].id for p in positions],
-                    {m: [r[p] for p in positions] for m, r in ranks_by_mode.items()},
-                    settings.retrieval_candidates,
-                    settings.top_k,
-                )
-                candidate_rows.append((chunk_tokens, name, candidates))
-
-            top: dict[str, float] = {
-                q.id: dense.search(embedder.embed_query(q.question), 1)[0].similarity
-                for q in questions
-            }
-            kept = [top[q.id] for q in answerable]
-            off_topic = [top[q.id] for q in questions if q.type == "unanswerable_off_topic"]
-            in_domain = [top[q.id] for q in questions if q.type == "unanswerable_in_domain"]
-            gate_sections.append(
-                f"### {chunk_tokens} tokens\n\n"
-                f"Best dense similarity: answerable min {min(kept):.3f}, "
-                f"median {statistics.median(kept):.3f}; off-topic max {max(off_topic):.3f}; "
-                f"in-domain unanswerable max {max(in_domain):.3f}.\n\n"
-                + gate_table(kept, off_topic, in_domain)
+                scores = score([found[p] for p in positions], K_VALUES)
+                rows.append(Row(chunk_tokens, chunk_count, mode, name, scores))
+            for question, rank in zip(answerable, ranks, strict=True):
+                if rank is None or rank > settings.top_k:
+                    misses.append(f"| {chunk_tokens} | {mode} | {question.id} | {rank} |")
+        for name, positions in sets.items():
+            candidates = candidate_recall(
+                [answerable[p].id for p in positions],
+                {m: [r[p] for p in positions] for m, r in ranks_by_mode.items()},
+                settings.retrieval_candidates,
+                settings.top_k,
             )
+            candidate_rows.append((chunk_tokens, name, candidates))
 
+        ts_found = [
+            evidence_ranks(await ts_rank_search(dense, q.question, max(K_VALUES)), q, keys)
+            for q in answerable
+        ]
+        for name, positions in sets.items():
+            scores = score([ts_found[p] for p in positions], K_VALUES)
+            ts_rows.append(Row(chunk_tokens, chunk_count, "ts_rank", name, scores))
+
+        top: dict[str, float] = {}
+        for q in questions:
+            [hit] = await dense.search(embedder.embed_query(q.question), 1)
+            top[q.id] = hit.similarity
+        kept = [top[q.id] for q in answerable]
+        off_topic = [top[q.id] for q in questions if q.type == "unanswerable_off_topic"]
+        in_domain = [top[q.id] for q in questions if q.type == "unanswerable_in_domain"]
+        gate_sections.append(
+            f"### {chunk_tokens} tokens\n\n"
+            f"Best dense similarity: answerable min {min(kept):.3f}, "
+            f"median {statistics.median(kept):.3f}; off-topic max {max(off_topic):.3f}; "
+            f"in-domain unanswerable max {max(in_domain):.3f}.\n\n"
+            + gate_table(kept, off_topic, in_domain)
+        )
+
+    await pool.close()
     report = "\n\n".join(
         [
             "# Retrieval evaluation",
+            corpora_label(version),
             f"Embedder: `{settings.embedding_model}`. Overlap: {settings.chunk_overlap} tokens. "
             f"Candidates per retriever: {settings.retrieval_candidates}. RRF k: {settings.rrf_k}. "
             f"Re-ranker: `{settings.reranker_model or 'off'}` on the top "
@@ -481,6 +639,11 @@ def main() -> None:
             "A rank of None means the passage was not in the top "
             f"{max(K_VALUES)}.\n\n| Chunk tokens | Mode | Question | Rank |\n|---|---|---|---|\n"
             + "\n".join(misses),
+            "## BM25 and Postgres ts_rank",
+            "The same sparse search with Postgres full-text search in place of bm25s, for "
+            "comparison only (D17): `ts_rank` has no inverse document frequency. Compare with "
+            "the *sparse* rows above.\n\n"
+            + retrieval_table([row for row in rows if row.mode == "sparse"] + ts_rows),
             "## Search latency",
             "Wall time of one search on this machine, embedding the question included. One run, "
             "so only differences of tens of milliseconds mean anything.\n\n"
@@ -495,4 +658,14 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--ci", action="store_true", help="Run the regression gate.")
+    parser.add_argument(
+        "--update-baseline", action="store_true", help="With --ci: rewrite eval/baseline.json."
+    )
+    args = parser.parse_args()
+    if args.ci:
+        sys.exit(asyncio.run(ci(args.update_baseline)))
+    if args.update_baseline:
+        parser.error("--update-baseline needs --ci")
+    asyncio.run(main())

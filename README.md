@@ -23,17 +23,29 @@ docker compose up --build
 Open <http://localhost:8080>. The API docs are at <http://localhost:8080/api/docs>.
 
 The first start builds the images, downloads the corpora (see [Corpora](#corpora)) and indexes them.
-Later starts take about 10 seconds. The corpora, uploads and the index live in the `data` volume, so
-`docker compose down` keeps them and `docker compose down -v` removes them.
+Later starts take about 10 seconds. `docker compose down` keeps the volumes and `docker compose down -v`
+removes them, uploads included:
+
+| Volume | Holds | If it is deleted |
+|---|---|---|
+| `pgdata` | The Postgres database: every document, uploads included, with its chunks and vectors | The next start indexes the corpora again. Uploads are gone from the library and must be uploaded again |
+| `data` | The corpora (`raw/`), the original files of uploads (`uploads/`) and the saved BM25 indexes (`bm25/`) | The corpora are downloaded and BM25 is built again. Uploads stay searchable, but their original files are gone |
+| `ollama` | Models for the optional local LLM | They must be pulled again |
+
+After restoring a database from a backup, restart the API (`docker compose restart api`). It may hold a
+BM25 index in memory that includes writes the backup doesn't have, and starting publishes any writes the
+backup holds unpublished.
 
 ### Local development
 
-Settings come from the same `.env` in the repository root. Requires [uv](https://docs.astral.sh/uv/)
-and Node 22.
+Settings come from the same `.env` in the repository root. Requires Docker for Postgres,
+[uv](https://docs.astral.sh/uv/) and Node 22.
 
 ```bash
+docker compose up -d --wait db      # Postgres on port 5434, as in DATABASE_URL
 cd backend
 uv sync
+uv run alembic upgrade head         # applies the migrations
 uv run python scripts/ingest.py     # downloads the locked corpora version on the first run
 uv run uvicorn groundwork.main:create_app --factory
 
@@ -70,7 +82,14 @@ gh release create corpora-vN <tarball> ...   # the command the script prints; pu
 Then write the version, the asset's URL
 (`https://github.com/18ivan18/groundwork/releases/download/corpora-vN/corpora-vN.tar.gz`) and the
 printed sha256 into `conf/corpora.lock.json`. A new corpora version needs an
-eval rerun unless the script reports it byte-identical to the local corpora.
+eval rerun unless the script reports it byte-identical to the local corpora. The CI gate fails until
+`eval/baseline.json` names the new version: `uv run python eval/run_eval.py --ci --update-baseline`
+rewrites it, and the change is reviewed with the lock.
+
+The retrieval eval and the gate empty and rebuild their own database, the app's name plus `_eval`, so
+run one at a time: a second run would empty it under the first. Test and `_eval` databases made before
+corpus sync have an older form of migration 0001, which Alembic counts as applied, and must be dropped once
+(`dropdb`). The app's database must be recreated too: see "Updating an existing Docker install" below.
 
 ## Configuration
 
@@ -90,8 +109,8 @@ a change to `.env`, followed by a restart:
 flowchart TD
     subgraph Ingestion["Ingestion (CLI script or upload job)"]
         F[File] --> L[Loader] --> S[Section detection] --> C[Chunker] --> E[Embedder]
-        E --> V[(Chroma: text, metadata, vectors)]
-        V --> B[(BM25, rebuilt from Chroma)]
+        E --> V[(Postgres + pgvector: documents, chunks, vectors)]
+        V --> B[(BM25 per index, rebuilt when its generation moves)]
     end
     subgraph Question["Answering a question"]
         Q[Question] --> D[Dense search, top 20]
@@ -112,8 +131,8 @@ flowchart TD
 - `backend/src/groundwork/`: `ingestion/`, `retrieval/`, `llm/`, `qa/`, `api/`, with `domain/` for
   shared types. `container.py` does the wiring.
 - `frontend/src/`: React, with TanStack Query for server state.
-- Compose runs `ingest` once, then `api` (uvicorn), then `web` (nginx serving the build and
-  proxying `/api`).
+- Compose runs `db` (Postgres 16 with pgvector), `migrate` (Alembic) and `ingest` once, then `api`
+  (uvicorn), then `web` (nginx serving the build and proxying `/api`).
 
 ## Design decisions and trade-offs
 
@@ -125,7 +144,7 @@ flowchart TD
 | **`bge-small-en-v1.5` through fastembed** | Small ONNX model that is fast on CPU, local and free | 512-token limit, so chunks stay at 400 |
 | **Hybrid search with hand-written RRF** | Filings mix exact terms, where BM25 wins, with paraphrased questions, where dense wins. RRF needs no score calibration. | Two indexes to keep in step |
 | **Cross-encoder re-ranker** (`jina-reranker-v1-tiny-en`) on the top 20 after RRF | RRF ranks a passage found by both retrievers above any passage found by one, which dropped 6 of the 9 misses. Reading the question and passage together raised R@6 at 400 tokens from 0.83 to 0.92 (HTML) and 0.76 to 0.81 (TXT). Chosen from six fastembed models on recall, speed and license. | About 0.5 s more per question on CPU, and 129 MB more model in the image. `RERANKER_MODEL=` turns it off |
-| **Chroma as the source of truth** | Embedded with no operations work. BM25 is derived from it and can always be rebuilt. | One process at a time, which is why ingest runs before the API |
+| **Postgres with pgvector as the source of truth** (D16–D19) | Documents, chunks and vectors in one database, with transactions, filters in the vector query and room for the ACL, jobs and conversations. Each chunk index has its own partial HNSW index; BM25 is derived from it and rebuilt when the index's generation moves. | A database to run; Docker Compose starts it |
 | **Citations checked on the server** | The model's citations are parsed, invalid numbers dropped, the rest renumbered. No valid citation counts as no answer. | A correct answer with no parsable citation is discarded |
 | **Two no-evidence layers** | A similarity gate stops off-topic questions without calling the LLM, and the model can refuse the rest | The gate cannot catch in-domain questions (see below) |
 | **Title and section added to indexed text** | Filings say "the Company", so chunks had no link to the company a question names. Stored and cited text stays verbatim. | Slightly more text to embed |
@@ -232,8 +251,20 @@ from a text passage instead, but the loader bug is still open. Each is a single 
   and its 2026 10-K (HTML). A question without a year can get both, with the period of each figure
   stated. There is no period filter yet.
 - **Formats:** TXT, Markdown, HTML (inline XBRL included) and PDF with a text layer. Scanned PDFs need OCR, which is not supported.
-- **Updating an existing Docker install:** the filings are copied into the `data` volume only when
-  it is empty, so an older volume keeps its old manifest. Run `docker compose down -v` once.
+- **Updating an existing Docker install:** a `data` volume from before the corpora left git has no
+  record of its version, so ingest stops if its files differ from the locked version. Remove only its
+  corpora, which the next start downloads again; uploads stay:
+
+  ```bash
+  docker compose build
+  docker compose run --rm --no-deps ingest rm -rf data/raw
+  docker compose up
+  ```
+
+  A `pgdata` volume from before corpus sync has an older form of migration 0001, which Alembic counts as
+  applied, so it must be recreated: `docker compose down`, then `docker volume rm groundwork_pgdata`. Uploads
+  are then gone from the library and must be uploaded again; their original files stay in the `data`
+  volume.
 - **Embedders:** a comparison of `bge-small` with Qwen3-0.6B and harrier-0.6b is planned.
 - **Tables:** in HTML a table is kept in one chunk when it fits (88% of them). A longer table, and
   most tables in the TXT filings, can lose the header row in later chunks.
@@ -255,16 +286,18 @@ cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy
 cd frontend && npm run lint && npm run typecheck && npm test
 ```
 
-- **Backend (323 tests):** loaders (TXT and HTML), chunking, sections, RRF, re-ranking, citations, prompts, settings, the QA service with
-  fakes, and the API through `TestClient`. No network or API keys needed.
-- **Frontend (38 tests):** citation rendering, retrieval details, API client errors, response schema checks and upload queue state. These are
+- **Backend (707 tests):** loaders (TXT, HTML and PDF), chunking, sections, RRF, re-ranking, citations, prompts, settings, the chunk store, corpus sync, the QA service with
+  fakes, and the API through `TestClient`. No network or API keys needed. The `db` tests need Postgres
+  (`docker compose up -d --wait db`) and are skipped without it, unless `REQUIRE_DB=1`.
+- **Frontend (46 tests):** citation rendering, retrieval details, API client errors, response schema checks and upload queue state. These are
   deliberately few. The full flow was checked by hand-written scripts in a real browser rather than
   automated tests in the repository.
 - **Retrieval quality:** `eval/run_eval.py`, run by hand, with results committed.
 - **Answer quality:** `eval/run_answer_eval.py ask` runs every question through the real LLM, paced
   under the rate limit and resumable, and saves raw answers in `eval/answer_runs/`.
   `eval/run_answer_eval.py score` checks them offline and writes `eval/answer_results.md`.
-- CI runs the backend and frontend checks and builds both Docker images on every push.
+- CI runs the backend and frontend checks, the retrieval gate (`eval/run_eval.py --ci`) and builds both
+  Docker images on every push.
 
 ## AI assistance
 

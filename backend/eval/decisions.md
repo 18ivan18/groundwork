@@ -378,3 +378,75 @@ tokens, re-ranked:
   they must be misses for `alice`.
 - **The relevance gate** still separates at 0.58, narrowly: the lowest answerable question scores
   0.589 and the highest off-topic one 0.574.
+
+## Postgres in place of Chroma (M2)
+
+**Measured on corpora version `corpora-v1`**: every number in this section, `results.md`,
+`baseline.json` and `docs/RETRIEVAL.md`. The runs read the corpora then committed in
+`backend/data/raw/`, the same 209 files as in M1's baseline above, which `corpora-v1` was packed
+from. The answer runs
+`2026-11-18-answer-1-ab` and `2026-11-18-answer-2` are labelled for the same reason: their commit
+holds the same files. Older answer runs had only the six filings and stay unlabelled.
+
+The same eval on pgvector (HNSW, `m = 16`, `ef_construction = 64`, `ef_search = 40`) against the
+M1 baseline on Chroma. **After re-ranking, Success@6 is identical in every row**, for every
+collection and chunk size; only ranks 7 to 20 move. **Dense search alone is worse than on Chroma**:
+Northwind S@6 fell from 0.96 to 0.62 at 200 tokens and to 0.69 at 300, and hybrid before re-ranking
+from 0.96 to 0.88 at 200. This section first said that Success@6 was identical in every mode, and
+that HNSW's top 20 equals exact search's for 123 of the 126 questions. Both were wrong. The second
+came from a script that compared a search with itself (docs/RETRIEVAL.md, section 4).
+
+### After corpus sync and the eval database (#135)
+
+The full eval again, on a database of its own, built from scratch. `results.md` is this run. Against
+the M2 run above:
+
+- **Unchanged:** every chunk count, every BM25 and `ts_rank` row, and Success@6 of every re-ranked row.
+  At 400 tokens every re-ranked number is the same. The CI gate (exact search) equals its baseline.
+- **Changed:** 53 rows of dense, hybrid or re-ranked search, in both directions. Northwind dense S@6:
+  0.62 to 0.58 at 200 tokens, 0.69 to 0.81 at 300, 0.96 to 0.77 at 400. Books after re-ranking at 300:
+  S@8 0.62 to 0.69.
+- **Cause: the HNSW graph, which is partly random.** On the stored vectors of this run, exact search
+  finds Northwind at 1.00 at every size, and 11 rebuilt graphs range from 0.46 to 0.81 (200), 0.62 to
+  0.81 (300) and 0.69 to 0.92 (400). M2's 0.96 at 400 is one question above that range. How a search
+  for 20 candidates runs did not change.
+- **Relevance gate:** it reads the best dense similarity, so it moves with the graph. At 400 tokens the
+  answerable questions kept at 0.60 went from 107 to 103 of 111, and at 0.55 from 111 to 107. The app's
+  threshold is 0.58. The graph, not the threshold, loses these.
+- **Latency:** the 400-token rows were timed while the machine was busy (re-ranked median 2,575 ms
+  against 617) and can't be compared.
+
+Raising `ef_search` to 400 makes the planner scan all 4,800 chunks instead of using the graph: exact,
+126 of 126 identical top 20s, 7.5 ms against 1.1. With the graph forced it is 119 of 126 in 1.6 ms
+(docs/RETRIEVAL.md, section 4). Not changed here: it is Ivan's decision, because spec #135 keeps
+searches at 20 candidates as they were.
+
+### BM25 against Postgres full-text search
+
+D17 keeps bm25s and derives it from Postgres. `ts_rank` over the chunks' `tsv` column, the
+question's words ORed, is the alternative that needs no second index. At 400 tokens, alone:
+
+| Collection | bm25s S@1 / S@6 / MRR | ts_rank S@1 / S@6 / MRR |
+|---|---|---|
+| sec-10k (45) | 0.36 / 0.71 / 0.512 | 0.27 / 0.80 / 0.502 |
+| engineering (27) | 0.56 / 0.89 / 0.703 | 0.56 / 0.89 / 0.680 |
+| northwind (26) | 0.69 / 1.00 / 0.817 | 0.54 / 0.96 / 0.729 |
+| books (13) | 0.31 / 0.54 / 0.434 | 0.31 / 0.77 / 0.467 |
+
+bm25s ranks the evidence first more often, as expected of a ranking with inverse document
+frequency. But `ts_rank` puts more of it in the top 6 on the filings and the books. Without IDF,
+a long passage that repeats the question's common words scores high; on those two collections
+that is often the right passage. This compares the sparse retrievers alone: what matters is the
+hybrid after fusion and re-ranking, which this table does not measure. Worth trying as M6's
+sparse candidate before deciding bm25s stays; D17 is unchanged for now.
+
+### The CI gate
+
+`eval/baseline.json`: Success@6 at 400 tokens, exact search, re-ranked, sec-10k 0.867 (45
+questions), northwind 1.000 (23; restricted questions excluded). The file names its corpora version,
+and the gate fails if that isn't the locked one or if a collection in it has no results. With
+`RETRIEVAL_CANDIDATES=3` instead of 20, sec-10k falls to 0.756 and the gate fails:
+
+```
+FAIL sec-10k: Success@6 0.756, baseline 0.867
+```

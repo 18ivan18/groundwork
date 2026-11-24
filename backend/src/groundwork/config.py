@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     embedding_device: str = "cpu"
 
+    # Postgres with pgvector: `docker compose up db` serves this one.
+    database_url: str = "postgresql://groundwork:groundwork@localhost:5434/groundwork"
     data_dir: Path = Path("./data")
     users_file: Path = Path("./conf/users.yaml")
     chunk_tokens: int = 400

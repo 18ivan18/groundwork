@@ -16,6 +16,7 @@ from groundwork.domain.models import DocumentMeta
 from groundwork.ingestion.corpora_bundle import (
     CorporaError,
     CorporaLock,
+    corpora_version,
     ensure,
     ensure_corpora,
     ensure_locked,
@@ -440,6 +441,35 @@ def test_scripts_ensure_the_corpora_locked_in_the_working_directorys_conf(
     assert raw == tmp_path / "volume" / "raw"
     assert entries(raw) == entries(source)
     assert "Installed corpora-v1" in capsys.readouterr().out
+
+
+def test_the_corpora_version_of_a_run_is_the_installed_one(tmp_path: Path) -> None:
+    _, archive = packed(tmp_path)
+    raw = tmp_path / "data" / "raw"
+    with Server(archive).client() as client:
+        ensure(raw, corpora_lock(archive, version=3), client)
+
+    assert corpora_version(raw) == "corpora-v3"
+
+
+def test_a_run_on_local_corpora_has_no_version_even_when_one_is_installed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, archive = packed(tmp_path)
+    raw = tmp_path / "data" / "raw"
+    with Server(archive).client() as client:
+        ensure(raw, corpora_lock(archive), client)
+    monkeypatch.setenv("GROUNDWORK_CORPORA", "local")
+
+    assert corpora_version(raw) is None
+
+
+def test_corpora_no_lock_installed_are_not_given_a_version(tmp_path: Path) -> None:
+    raw = tmp_path / "raw"
+    two_collections(raw)
+
+    with pytest.raises(CorporaError, match=r"no \.corpora-version\.json"):
+        corpora_version(raw)
 
 
 # Local changes: Northwind's only source is the maintainer's data/raw, so ensure never loses them.

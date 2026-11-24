@@ -4,15 +4,17 @@ version = "0.1.0"
 description = "groundwork knowledge assistant: grounded answers with verifiable citations."
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "alembic>=1.16",
     "anthropic>=2.6.0",
     "beautifulsoup4>=4.15.0",
     "bm25s>=0.3.16",
-    "chromadb>=1.5.9",
     "fastapi>=0.162.0",
     "fastembed>=0.9.1",
     "httpx>=0.28.1",
     "lxml>=6.1.3",
     "openai>=3.46.0",
+    "pgvector>=0.4",
+    "psycopg[binary,pool]>=3.2",
     "pydantic>=2",
     "pydantic-settings>=2.16.2",
     "pypdf>=7.1.0",
@@ -36,6 +38,7 @@ dev = [
     "httpx2>=2.16.0",
     "mypy>=2.4.1",
     "pytest>=9.2.0",
+    "pytest-asyncio>=1.0",
     "ruff>=0.17.4",
     "types-pyyaml>=6.0.12.20261113",
 ]
@@ -70,6 +73,11 @@ testpaths = ["tests"]
 pythonpath = ["scripts", "eval", "tests", "tests/api"]
 # importlib mode lets tests/unit and tests/api hold same-named files without __init__.py packages.
 addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "db: needs Postgres at TEST_DATABASE_URL. Skipped when there is none, unless REQUIRE_DB=1 (CI).",
+]
 
 # PyPI's Linux torch wheels bundle CUDA (gigabytes). This project embeds on CPU, so use the CPU index.
 [tool.uv.sources]

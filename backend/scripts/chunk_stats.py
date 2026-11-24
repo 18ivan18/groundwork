@@ -1,5 +1,7 @@
 """Chunk the supported files in data/raw/ and print statistics and random samples.
 
+It first makes data/raw/ hold the locked corpora version, as scripts/ingest.py does.
+
 Run from backend/: uv run python scripts/chunk_stats.py [--samples 5] [--seed 1]
 """
 
@@ -11,6 +13,7 @@ from collections import Counter
 from groundwork.config import Settings
 from groundwork.container import build_embedder
 from groundwork.domain.models import Chunk, section_label
+from groundwork.ingestion.corpora_bundle import ensure_corpora
 from groundwork.ingestion.corpus import load_corpus
 from groundwork.ingestion.pipeline import chunk_file
 
@@ -30,11 +33,12 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = Settings()
+    raw_dir = ensure_corpora(settings)
     embedder = build_embedder(settings)
 
     all_chunks: list[tuple[str, Chunk]] = []
     all_sizes: list[int] = []
-    for path, meta in load_corpus(settings.data_dir / "raw"):
+    for path, meta in load_corpus(raw_dir):
         chunks = chunk_file(
             path,
             meta,

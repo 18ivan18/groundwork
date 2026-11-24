@@ -11,14 +11,64 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: groundwork
+          POSTGRES_PASSWORD: groundwork
+          POSTGRES_DB: groundwork
+        ports: ["5434:5432"]
+        options: >-
+          --health-cmd "pg_isready -U groundwork -d groundwork"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      # The `db` tests must run here, not skip.
+      REQUIRE_DB: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.3
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run mypy src
+      - run: uv run mypy src scripts eval
       - run: uv run pytest
+
+  # The retrieval regression gate: Success@6 per collection against eval/baseline.json, with
+  # exact vector search so the result does not depend on the HNSW graph.
+  eval:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: groundwork
+          POSTGRES_PASSWORD: groundwork
+          POSTGRES_DB: groundwork
+        ports: ["5434:5432"]
+        options: >-
+          --health-cmd "pg_isready -U groundwork -d groundwork"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.fastembed
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv sync --locked
+      # The embedder and the re-ranker, about 200 MB, downloaded once per lock file.
+      - uses: actions/cache@v5
+        with:
+          path: .fastembed
+          key: fastembed-${{ hashFiles('backend/uv.lock') }}
+      # The corpora, downloaded once per corpora version. The gate still verifies every file's hash.
+      - uses: actions/cache@v5
+        with:
+          path: backend/data/raw
+          key: corpora-${{ hashFiles('backend/conf/corpora.lock.json') }}
+      - run: uv run python eval/run_eval.py --ci
 
   frontend:
     runs-on: ubuntu-latest

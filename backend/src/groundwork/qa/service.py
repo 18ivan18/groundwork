@@ -1,5 +1,6 @@
 """Answer a question: retrieve, gate, generate, then check the citations."""
 
+import asyncio
 import logging
 import time
 from dataclasses import dataclass, replace
@@ -79,12 +80,12 @@ class QAService:
         self._min_relevance = min_relevance
         self._max_tokens = max_tokens
 
-    def ask(
+    async def ask(
         self, question: str, filters: SearchFilters | None = None, top_k: int | None = None
     ) -> Answer:
         """Answer from the indexed documents. Raises LLMError if the provider fails."""
         started = time.perf_counter()
-        result = self._retriever.retrieve(question, top_k or self._top_k, filters)
+        result = await self._retriever.retrieve(question, top_k or self._top_k, filters)
         passages = tuple(result.passages)
         retrieval_ms = _elapsed_ms(started)
 
@@ -99,7 +100,9 @@ class QAService:
             )
 
         started = time.perf_counter()
-        completion = self._llm.complete(
+        # The LLM clients are still synchronous; M4 replaces them with async ones.
+        completion = await asyncio.to_thread(
+            self._llm.complete,
             SYSTEM_PROMPT,
             [ChatMessage("user", build_user_message(question, passages))],
             max_tokens=self._max_tokens,

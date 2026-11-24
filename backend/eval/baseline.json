@@ -1,0 +1,7 @@
+{
+  "corpora_version": "corpora-v1",
+  "success": {
+    "northwind": 1.0,
+    "sec-10k": 0.8666666666666667
+  }
+}

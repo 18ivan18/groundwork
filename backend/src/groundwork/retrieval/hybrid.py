@@ -1,15 +1,16 @@
 """Hybrid retrieval: dense and BM25 candidates merged with Reciprocal Rank Fusion, then re-ranked
 by a cross-encoder."""
 
+import asyncio
 from dataclasses import dataclass, replace
 from typing import Literal, Protocol
 
 from groundwork.domain.models import ScoredPassage, SearchFilters, indexed_text
-from groundwork.retrieval.dense import DenseIndex
 from groundwork.retrieval.embedder import Embedder
 from groundwork.retrieval.fusion import rrf
 from groundwork.retrieval.reranker import Reranker
-from groundwork.retrieval.sparse import SparseIndex
+from groundwork.retrieval.sparse import SparseSource
+from groundwork.retrieval.store import ChunkStore, DenseHit
 
 # "reranked" is the full pipeline; the others exist for the evaluation. Without a re-ranker,
 # "reranked" is the same as "hybrid".
@@ -32,17 +33,20 @@ def _ranks(chunk_ids: list[str]) -> dict[str, int]:
 
 
 class Retriever(Protocol):
-    def retrieve(
+    async def retrieve(
         self, query: str, k: int, filters: SearchFilters | None = None
     ) -> SearchResult: ...
 
 
 class HybridRetriever:
+    """Embedding, BM25 and re-ranking are CPU work, so they run in threads off the event loop
+    (ONNX Runtime and bm25s's numpy release the GIL); the store is awaited."""
+
     def __init__(
         self,
         embedder: Embedder,
-        dense: DenseIndex,
-        sparse: SparseIndex,
+        store: ChunkStore,
+        sparse: SparseSource,
         *,
         candidates: int,
         rrf_k: int,
@@ -50,27 +54,23 @@ class HybridRetriever:
         rerank_candidates: int = 20,
     ) -> None:
         self._embedder = embedder
-        self._dense = dense
+        self._store = store
         self._sparse = sparse
         self._candidates = candidates
         self._rrf_k = rrf_k
         self._reranker = reranker
         self._rerank_candidates = rerank_candidates
 
-    def replace_sparse(self, sparse: SparseIndex) -> None:
-        """Swap in a rebuilt BM25 index. A search already running keeps the one it started with."""
-        self._sparse = sparse
-
-    def search(
+    async def search(
         self,
         query: str,
         k: int,
         filters: SearchFilters | None = None,
         mode: SearchMode = "reranked",
     ) -> list[ScoredPassage]:
-        return self.retrieve(query, k, filters, mode).passages
+        return (await self.retrieve(query, k, filters, mode)).passages
 
-    def retrieve(
+    async def retrieve(
         self,
         query: str,
         k: int,
@@ -79,15 +79,15 @@ class HybridRetriever:
     ) -> SearchResult:
         """Return the top k passages. RRF of a single list keeps its order, so "dense" and
         "sparse" return that retriever's own ranking."""
-        dense_hits = []
+        dense_hits: list[DenseHit] = []
         if mode != "sparse":
-            query_vector = self._embedder.embed_query(query)
-            dense_hits = self._dense.search(query_vector, self._candidates, filters)
+            query_vector = await asyncio.to_thread(self._embedder.embed_query, query)
+            dense_hits = await self._store.search(query_vector, self._candidates, filters)
 
         sparse_ids: list[str] = []
         if mode != "dense":
-            allowed = self._dense.matching_ids(filters) if filters else None
-            sparse_hits = self._sparse.search(query, self._candidates, allowed)
+            sparse = await self._sparse.current()
+            sparse_hits = await asyncio.to_thread(sparse.search, query, self._candidates, filters)
             sparse_ids = [chunk_id for chunk_id, _ in sparse_hits]
 
         rerank = mode == "reranked" and self._reranker is not None
@@ -98,14 +98,17 @@ class HybridRetriever:
 
         hits_by_id = {hit.chunk.chunk_id: hit for hit in dense_hits}
         stored = {chunk_id: (hit.chunk, hit.document) for chunk_id, hit in hits_by_id.items()}
-        # A chunk found only by BM25 still has to be fetched from Chroma.
+        # A chunk found only by BM25 still has to be fetched from the store.
         missing = [chunk_id for chunk_id, _ in fused if chunk_id not in stored]
-        stored.update(self._dense.get(missing))
+        stored.update(await self._store.get(missing))
 
         dense_ranks = _ranks(dense_ids)
         sparse_ranks = _ranks(sparse_ids)
         passages = []
         for chunk_id, score in fused:
+            if chunk_id not in stored:
+                # Deleted since this worker's BM25 index was built.
+                continue
             chunk, document = stored[chunk_id]
             hit = hits_by_id.get(chunk_id)
             passages.append(
@@ -119,7 +122,7 @@ class HybridRetriever:
                 )
             )
         if rerank:
-            passages = self._rerank(query, passages)
+            passages = await asyncio.to_thread(self._rerank, query, passages)
 
         best = max((hit.similarity for hit in dense_hits), default=None)
         return SearchResult(passages[:k], best)

@@ -22,6 +22,19 @@ _Avoid_: index, catalogue
 A numbered, unchanging release of all corpora together; every eval result names the one it was measured on.
 _Avoid_: dataset version, data release, snapshot
 
+**Corpus sync**:
+The step that makes an index hold exactly the corpus documents the manifests describe, and leaves uploads alone.
+_Avoid_: re-ingest, refresh, import
+
+**Upload**:
+A document a user added. It has no manifest key, whichever collection it is in, so no corpus sync changes it.
+_Avoid_: user document, custom document
+
+**Publication**:
+A state of an index's contents that keyword search is built from, named by its generation and a random token;
+a write isn't searchable by keyword until it is published.
+_Avoid_: release, bump, version
+
 **Eval set**:
 The questions written to measure retrieval and answers, each pointing at corpus documents by manifest key.
 _Avoid_: test data, benchmark, golden set

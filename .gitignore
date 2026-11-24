@@ -13,6 +13,7 @@ __pycache__/
 # backend/conf/corpora.lock.json, downloaded by the ingest and eval scripts (D27).
 backend/data/raw/
 backend/data/index/
+backend/data/bm25/
 backend/data/uploads/
 
 # Frontend

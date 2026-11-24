@@ -62,7 +62,8 @@ export const AskResponseSchema = z.object({
 
 export const UploadResponseSchema = z.object({
   job_id: z.string(),
-  doc_id: z.string(),
+  // Null for a new file: it gets its ID once indexed.
+  doc_id: z.string().nullable(),
 });
 
 export const JobSchema = z.object({
