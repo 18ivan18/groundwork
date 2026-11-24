@@ -89,7 +89,10 @@ the search's transaction. Exact search doesn't use the graph, so it is never set
 
 An unfiltered search can return fewer rows than it asked for when it wants more than 1000, or
 when some of the rows the graph finds were deleted and not yet vacuumed. The second is true at 20
-candidates too.
+candidates too. A corpus sync vacuums `chunks` after publishing, with `INDEX_CLEANUP ON`: a plain
+`VACUUM` skips the indexes when under 2% of the table's pages hold deleted rows, so a few deleted
+documents would stay in the graph. Between a removal and the end of that sync's vacuum, and after
+any other delete until autovacuum cleans the graph, a search can still return too few.
 
 ## 4. HNSW against exact search, all 126 questions
 

@@ -7,10 +7,9 @@ from datetime import date
 
 import pytest
 from conftest import empty_database
-from psycopg.conninfo import make_conninfo
 from psycopg.errors import DataException
 
-from groundwork.db.pool import Pool, open_pool
+from groundwork.db.pool import Pool
 from groundwork.domain.models import Chunk, DocumentMeta, SearchFilters
 from groundwork.retrieval.indexes import IndexSpec, ensure_index
 from groundwork.retrieval.memory_store import MemoryData, MemoryStore, memory_index
@@ -463,18 +462,6 @@ async def test_a_failed_replacement_changes_no_index(pool: Pool) -> None:
 def arc(count: int) -> list[list[float]]:
     """Distinct directions fanning out from vector(1), nearest first."""
     return [vector(math.cos(i / count), math.sin(i / count)) for i in range(count)]
-
-
-@pytest.fixture
-async def hnsw_pool(database_url: str, pool: Pool) -> AsyncIterator[Pool]:
-    """One connection that has to use the HNSW index. The test tables are tiny, so the planner
-    would rightly sort every chunk by distance; taking the sort away leaves the graph."""
-    options = "-c enable_seqscan=off -c enable_sort=off"
-    opened = await open_pool(make_conninfo(database_url, options=options), max_size=1)
-    try:
-        yield opened
-    finally:
-        await opened.close()
 
 
 async def hnsw_store(pool: Pool) -> PgVectorStore:

@@ -67,7 +67,7 @@ async def sync_corpus(
     transaction, after its new text is embedded, so a failure leaves the old one; the other
     indexes lose it too, and get the new one at their own next sync. Every index with writes to
     publish is published once at the end: also after a failure, and also what an earlier process
-    wrote and never published.
+    wrote and never published. After that, if it published anything, it vacuums.
 
     One sync runs at a time on a database. Uploads may be stored beside it."""
     if not entries:
@@ -83,26 +83,32 @@ async def sync_corpus(
         if on_result:
             on_result(result)
 
-    async with store.syncing():
-        try:
-            stored = {
-                _name(item.document.collection_id, item.key): item
-                for item in await store.corpus_documents()
-            }
-            gone = {name: item for name, item in stored.items() if name not in names}
-            if gone:
-                await store.remove_corpus_documents([i.document.doc_id for i in gone.values()])
-                for name in gone:
-                    add_result(SyncResult(name, "removed"))
-            for entry in entries:
-                name = _name(entry.meta.collection_id, entry.key)
-                started = time.perf_counter()
-                outcome, chunks = await _sync_document(
-                    entry, stored.get(name), embedder, store, chunk_tokens, chunk_overlap
-                )
-                add_result(SyncResult(name, outcome, chunks, time.perf_counter() - started))
-        finally:
-            report.published = await store.publish_all()
+    try:
+        async with store.syncing():
+            try:
+                stored = {
+                    _name(item.document.collection_id, item.key): item
+                    for item in await store.corpus_documents()
+                }
+                gone = {name: item for name, item in stored.items() if name not in names}
+                if gone:
+                    await store.remove_corpus_documents([i.document.doc_id for i in gone.values()])
+                    for name in gone:
+                        add_result(SyncResult(name, "removed"))
+                for entry in entries:
+                    name = _name(entry.meta.collection_id, entry.key)
+                    started = time.perf_counter()
+                    outcome, chunks = await _sync_document(
+                        entry, stored.get(name), embedder, store, chunk_tokens, chunk_overlap
+                    )
+                    add_result(SyncResult(name, outcome, chunks, time.perf_counter() - started))
+            finally:
+                report.published = await store.publish_all()
+    finally:
+        # After the lock and its transaction, and not on an unchanged rerun. What was published
+        # rather than what this sync did, so that it includes what a killed one removed.
+        if report.published:
+            await store.vacuum()
     return report
 
 

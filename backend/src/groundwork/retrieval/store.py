@@ -163,3 +163,9 @@ class ChunkStore(Protocol):
         """As `publish`, for every index with writes to publish, not only this one. The new
         generation of each, by index name."""
         ...
+
+    async def vacuum(self) -> None:
+        """Clear out the chunks removed and replaced since the last time, in every index. Until
+        then a dense search with no filters may meet them in place of others and return too few.
+        Other reads and writes go on meanwhile."""
+        ...

@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 import psycopg
 import pytest
+from psycopg.conninfo import make_conninfo
 
 from groundwork.config import Settings
 from groundwork.db import databases
@@ -62,3 +63,15 @@ async def empty_database(database_url: str) -> AsyncIterator[Pool]:
 async def pool(database_url: str) -> AsyncIterator[Pool]:
     async with empty_database(database_url) as opened:
         yield opened
+
+
+@pytest.fixture
+async def hnsw_pool(database_url: str, pool: Pool) -> AsyncIterator[Pool]:
+    """One connection that has to use the HNSW index. The test tables are tiny, so the planner
+    would rightly sort every chunk by distance; taking the sort away leaves the graph."""
+    options = "-c enable_seqscan=off -c enable_sort=off"
+    opened = await open_pool(make_conninfo(database_url, options=options), max_size=1)
+    try:
+        yield opened
+    finally:
+        await opened.close()

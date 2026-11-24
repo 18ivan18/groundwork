@@ -260,6 +260,9 @@ class MemoryStore:
         generation = self._publish()
         return {} if generation is None else {self._index.name: generation}
 
+    async def vacuum(self) -> None:
+        """Nothing to do: a removed chunk leaves nothing behind."""
+
     def _publish(self) -> int | None:
         if not self._data.unpublished:
             return None

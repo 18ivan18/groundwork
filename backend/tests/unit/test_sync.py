@@ -720,6 +720,102 @@ async def test_an_index_without_the_upload_gets_a_settled_duplicate_back(
     assert await b.find("pagers") == ["pager"]
 
 
+# Vacuuming
+
+
+def many(count: int, subject: str) -> str:
+    """Text of well over `count` chunks, no two alike."""
+    return " ".join(f"{subject} item{i % (count * 7)}" for i in range(count * 45))
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("change", ["removed", "replaced"])
+async def test_an_unfiltered_search_is_full_after_documents_near_it_are_gone(
+    pool: Pool, hnsw_pool: Pool, tmp_path: Path, change: str
+) -> None:
+    """The gone chunks are the nearest to the query, and few of all the chunks: the HNSW graph
+    still leads to them until they are vacuumed, and a plain VACUUM leaves so few in the graph."""
+    library = await open_library(pool, tmp_path)
+    others = {f"other{i}.md": many(300, f"other{i}") for i in range(16)}
+    await library.sync(write(tmp_path / "v1", {"near.md": many(60, "near"), **others}))
+    chunks = await library.store.count_chunks()
+    v2 = others if change == "removed" else {"near.md": about("telegrams"), **others}
+
+    report = await library.sync(write(tmp_path / "v2", v2))
+
+    assert report.names("removed" if change == "removed" else "replaced") == ["runbooks/near-md"]
+    assert chunks - await library.store.count_chunks() > 40
+    searched = PgVectorStore(hnsw_pool, library.store.index)
+    query = FakeEmbedder().embed_query(many(1, "near"))
+    assert len(await searched.search(query, 20)) == 20
+
+
+class VacuumLog:
+    """Counts a store's vacuums, each of which must come after its sync: published, and with the
+    lock released."""
+
+    def __init__(self, store: ChunkStore, patch: pytest.MonkeyPatch) -> None:
+        self.count = 0
+        self._store = store
+        patch.setattr(store, "vacuum", self._vacuum)
+
+    async def _vacuum(self) -> None:
+        async with asyncio.timeout(5), self._store.syncing():
+            assert not (await self._store.publication()).written_since
+        self.count += 1
+
+
+async def test_a_sync_vacuums_unless_nothing_changed(
+    library: Library, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    vacuums = VacuumLog(library.store, monkeypatch)
+    raw = write(tmp_path / "v1", {"pager.md": about("pagers"), "disk.md": about("disks")})
+    await library.sync(raw)
+    assert vacuums.count == 1
+
+    await library.sync(raw)
+    assert vacuums.count == 1
+
+    await library.sync(write(tmp_path / "v2", {"disk.md": about("disks")}))
+    assert vacuums.count == 2
+
+
+async def test_a_sync_vacuums_what_a_killed_one_removed(
+    library: Library, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await library.sync(
+        write(tmp_path / "v1", {"pager.md": about("pagers"), "disk.md": about("disks")})
+    )
+    [gone, _] = await library.store.corpus_documents()
+    await library.store.remove_corpus_documents([gone.document.doc_id])
+    vacuums = VacuumLog(library.store, monkeypatch)
+
+    report = await library.sync(write(tmp_path / "v2", {"disk.md": about("disks")}))
+
+    assert report.names("skipped") == ["runbooks/disk-md"]
+    assert vacuums.count == 1
+
+
+async def test_a_sync_that_stops_publishes_and_vacuums(
+    library: Library, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await library.sync(write(tmp_path / "v1", {"pager.md": about("pagers")}))
+    vacuums = VacuumLog(library.store, monkeypatch)
+    gate = Gate()
+    sync = asyncio.create_task(
+        library.sync(write(tmp_path / "v2", {"disk.md": about("disks")}), gate)
+    )
+    await asyncio.to_thread(gate.reached.wait, 10)
+
+    sync.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await sync
+    gate.opened.set()
+
+    assert await library.find("pagers") == []
+    assert vacuums.count == 1
+
+
 # Syncs and uploads at the same time
 
 

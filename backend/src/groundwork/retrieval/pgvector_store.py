@@ -496,6 +496,17 @@ class PgVectorStore:
                 published[name] = generation
         return published
 
+    async def vacuum(self) -> None:
+        async with self._pool.connection() as connection:
+            # VACUUM can't run in a transaction.
+            await connection.set_autocommit(True)
+            try:
+                # Left to itself, VACUUM skips the indexes when few of the table's pages hold
+                # removed chunks, and the HNSW graphs would go on leading to them.
+                await connection.execute("VACUUM (INDEX_CLEANUP ON) chunks")
+            finally:
+                await connection.set_autocommit(False)
+
     async def _count(self, sql: str, params: tuple[Any, ...] = ()) -> int:
         async with self._pool.connection() as connection:
             cursor = await connection.execute(sql, params)
