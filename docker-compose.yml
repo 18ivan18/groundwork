@@ -40,8 +40,10 @@ services:
       db:
         condition: service_healthy
 
-  # Downloads the locked corpora version into the `data` volume if it isn't there, indexes it and
-  # exits. Documents already indexed are skipped, so later starts take a few seconds.
+  # Downloads the locked corpora version into the `data` volume if it isn't there, makes the index
+  # hold exactly its documents beside the uploads, and exits. Unchanged documents are skipped, so
+  # later starts take a few seconds. A document that fails doesn't stop the others, but the exit is
+  # non-zero, so `api` doesn't start.
   ingest:
     <<: *backend
     pull_policy: never
