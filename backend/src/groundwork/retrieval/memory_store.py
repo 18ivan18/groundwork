@@ -100,23 +100,49 @@ class MemoryStore:
         chunks: Sequence[Chunk],
         embeddings: Sequence[Sequence[float]],
         *,
-        manifest_key: str | None = None,
         publish: bool = False,
     ) -> Document:
+        uploads = [s for s in self._identical(content_hash, meta) if s.manifest_key is None]
+        existing = uploads[0].document if uploads else None
+        document = self._store(meta, content_hash, chunks, embeddings, existing, None)
+        if publish:
+            self._publish()
+        return document
+
+    async def add_corpus_document(
+        self,
+        meta: DocumentMeta,
+        content_hash: str,
+        chunks: Sequence[Chunk],
+        embeddings: Sequence[Sequence[float]],
+        *,
+        manifest_key: str,
+    ) -> Document | None:
+        uploaded = await self.find_upload(content_hash, meta) is not None
+        existing: Document | None = None
+        for item in await self.corpus_documents():
+            if (item.document.collection_id, item.key) == (meta.collection_id, manifest_key):
+                current = item.is_current(content_hash, meta)
+                if not current or (uploaded and item.in_index):
+                    await self.remove_corpus_documents([item.document.doc_id])
+                else:
+                    existing = item.document
+        if uploaded:
+            return None
+        return self._store(meta, content_hash, chunks, embeddings, existing, manifest_key)
+
+    def _store(
+        self,
+        meta: DocumentMeta,
+        content_hash: str,
+        chunks: Sequence[Chunk],
+        embeddings: Sequence[Sequence[float]],
+        document: Document | None,
+        manifest_key: str | None,
+    ) -> Document:
+        """Store the chunks of `document`, or of a new one."""
         if len(chunks) != len(embeddings):
             raise ValueError("Every chunk needs one embedding")
-        document: Document | None = None
-        if manifest_key is None:
-            for stored in self._identical(content_hash, meta):
-                if stored.manifest_key is None:
-                    document = stored.document
-        else:
-            for item in await self.corpus_documents():
-                if (item.document.collection_id, item.key) == (meta.collection_id, manifest_key):
-                    if item.is_current(content_hash, meta):
-                        document = item.document
-                    else:
-                        await self.remove_corpus_documents([item.document.doc_id])
         if document is None:
             document = Document(
                 title=meta.title,
@@ -139,8 +165,6 @@ class MemoryStore:
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=True))
         ]
         self._data.unpublished = True
-        if publish:
-            self._publish()
         return document
 
     async def corpus_documents(self) -> list[CorpusDocument]:

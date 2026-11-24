@@ -15,8 +15,8 @@ from groundwork.ingestion.pipeline import PreparedDocument, prepare_document
 from groundwork.retrieval.embedder import Embedder
 from groundwork.retrieval.store import ChunkStore, CorpusDocument
 
-# "removed" is also the outcome of a changed document that nothing replaces: its new text is too
-# little to index, or an upload already holds it.
+# "removed" is also the outcome of a document that nothing replaces: its new text is too little to
+# index, or an upload stands in for it.
 SyncOutcome = Literal["added", "replaced", "removed", "skipped", "too little text"]
 
 
@@ -119,6 +119,16 @@ async def _sync_document(
     raw = await asyncio.to_thread(entry.path.read_bytes)
     digest = content_hash(raw)
     current = stored is not None and stored.is_current(digest, entry.meta)
+    # An upload that says the same to the same readers stands in for the corpus document, in the
+    # indexes that hold the upload's chunks. This is what becomes of the corpus document then: one
+    # that only other indexes hold stays, because the upload does not stand in there.
+    stood_in: SyncOutcome = (
+        "removed" if stored is not None and (stored.in_index or not current) else "skipped"
+    )
+    if await store.find_upload(digest, entry.meta) is not None:
+        if stored is not None and stood_in == "removed":
+            await store.remove_corpus_documents([stored.document.doc_id])
+        return stood_in, 0
     if stored is not None and current and stored.in_index:
         return "skipped", 0
 
@@ -132,15 +142,16 @@ async def _sync_document(
             chunk_overlap=chunk_overlap,
         )
 
-    # An upload that says the same to the same readers stands in for the corpus document.
-    uploaded = await store.find_upload(digest, entry.meta) is not None
-    prepared = None if uploaded else await asyncio.to_thread(prepare)
-    if prepared is None or not prepared.chunks:
+    prepared = await asyncio.to_thread(prepare)
+    if not prepared.chunks:
         if stored is not None and not current:
             await store.remove_corpus_documents([stored.document.doc_id])
             return "removed", 0
-        return ("skipped" if uploaded else "too little text"), 0
-    await store.add(
+        return "too little text", 0
+    document = await store.add_corpus_document(
         entry.meta, digest, prepared.chunks, prepared.embeddings, manifest_key=entry.key
     )
+    if document is None:
+        # The upload was stored while this was embedding.
+        return stood_in, 0
     return ("added" if stored is None or current else "replaced"), len(prepared.chunks)

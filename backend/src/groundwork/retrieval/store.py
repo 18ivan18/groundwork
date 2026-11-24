@@ -88,17 +88,30 @@ class ChunkStore(Protocol):
         chunks: Sequence[Chunk],
         embeddings: Sequence[Sequence[float]],
         *,
-        manifest_key: str | None = None,
         publish: bool = False,
     ) -> Document:
-        """Store a document and its chunks, which get their ids here: the chunk at position i
-        becomes `<doc_id>:<i>`. The same transaction records that the index has writes to publish,
-        or with `publish` publishes them.
+        """Store an upload and its chunks, which get their ids here: the chunk at position i
+        becomes `<doc_id>:<i>`. One stored before keeps its tags, and its chunks in this index are
+        replaced. The same transaction records that the index has writes to publish, or with
+        `publish` publishes them."""
+        ...
 
-        Without a manifest key the document is an upload. One stored before keeps its tags, and
-        its chunks in this index are replaced. With one it is that key's corpus document, and one
-        stored from other bytes or tags is removed from every index in the same transaction.
-        Neither ever becomes the other."""
+    async def add_corpus_document(
+        self,
+        meta: DocumentMeta,
+        content_hash: str,
+        chunks: Sequence[Chunk],
+        embeddings: Sequence[Sequence[float]],
+        *,
+        manifest_key: str,
+    ) -> Document | None:
+        """As `add`, but the corpus document of this collection and key. One stored from other
+        bytes or tags is removed from every index in the same transaction. An upload never becomes
+        a corpus document, nor the other way round.
+
+        None if this index holds an upload with the same bytes, collection, groups and owner. The
+        upload stands in: nothing is stored, and the corpus document is removed as a changed one
+        is if it has chunks in this index or was stored from other bytes or tags."""
         ...
 
     async def corpus_documents(self) -> list[CorpusDocument]:

@@ -116,26 +116,38 @@ class PgVectorStore:
         return self._pool
 
     async def find_document(self, content_hash: str, meta: DocumentMeta) -> str | None:
-        return await self._find(content_hash, meta, "")
+        async with self._pool.connection() as connection:
+            return await self._find(connection, content_hash, meta)
 
     async def find_upload(self, content_hash: str, meta: DocumentMeta) -> str | None:
-        return await self._find(content_hash, meta, "AND d.manifest_key IS NULL ")
-
-    async def _find(self, content_hash: str, meta: DocumentMeta, only: str) -> str | None:
         async with self._pool.connection() as connection:
-            cursor = await connection.execute(
-                f"SELECT d.id FROM documents d WHERE d.content_hash = %s AND d.collection_id = %s "
-                f"AND d.access_groups = %s AND d.owner_id IS NOT DISTINCT FROM %s {only}"
-                f"AND EXISTS (SELECT 1 FROM chunks c WHERE c.index_id = {self._id} "
-                f"AND c.document_id = d.id) ORDER BY d.manifest_key IS NOT NULL, d.id LIMIT 1",
-                (
-                    content_hash,
-                    meta.collection_id,
-                    list(normalized_groups(meta.access_groups)),
-                    meta.owner_id,
-                ),
-            )
-            row = await cursor.fetchone()
+            return await self._find_upload(connection, content_hash, meta)
+
+    async def _find_upload(
+        self, connection: AsyncConnection[TupleRow], content_hash: str, meta: DocumentMeta
+    ) -> str | None:
+        return await self._find(connection, content_hash, meta, "AND d.manifest_key IS NULL ")
+
+    async def _find(
+        self,
+        connection: AsyncConnection[TupleRow],
+        content_hash: str,
+        meta: DocumentMeta,
+        only: str = "",
+    ) -> str | None:
+        cursor = await connection.execute(
+            f"SELECT d.id FROM documents d WHERE d.content_hash = %s AND d.collection_id = %s "
+            f"AND d.access_groups = %s AND d.owner_id IS NOT DISTINCT FROM %s {only}"
+            f"AND EXISTS (SELECT 1 FROM chunks c WHERE c.index_id = {self._id} "
+            f"AND c.document_id = d.id) ORDER BY d.manifest_key IS NOT NULL, d.id LIMIT 1",
+            (
+                content_hash,
+                meta.collection_id,
+                list(normalized_groups(meta.access_groups)),
+                meta.owner_id,
+            ),
+        )
+        row = await cursor.fetchone()
         return str(row[0]) if row else None
 
     async def add(
@@ -145,79 +157,112 @@ class PgVectorStore:
         chunks: Sequence[Chunk],
         embeddings: Sequence[Sequence[float]],
         *,
-        manifest_key: str | None = None,
         publish: bool = False,
     ) -> Document:
-        if len(chunks) != len(embeddings):
-            raise ValueError("Every chunk needs one embedding")
         async with self._pool.connection() as connection, connection.transaction():
             # Every writer locks in the same order, so two can't deadlock: the collection, the
             # document, its chunks, and last the rows of the indexes, by id.
-            await connection.execute(
-                "INSERT INTO collections (id, name) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-                (meta.collection_id, meta.collection_id),
-            )
-            changed = {self._id}
-            if manifest_key is None:
-                document = await self._upsert_upload(connection, meta, content_hash)
-            else:
-                stored = await self._corpus_documents(
-                    connection,
-                    "WHERE d.collection_id = %s AND d.manifest_key = %s FOR UPDATE OF d",
-                    (meta.collection_id, manifest_key),
-                )
-                if stored and stored[0].is_current(content_hash, meta):
-                    document = stored[0].document
-                else:
-                    changed |= await self._remove(
-                        connection, [item.document.doc_id for item in stored]
-                    )
-                    document = await self._insert_document(
-                        connection, meta, content_hash, manifest_key
-                    )
-            rows = [
-                (
-                    self._id,
-                    int(document.doc_id),
-                    ordinal,
-                    chunk.text,
-                    chunk_header(chunk, document),
-                    list(chunk.section_path),
-                    chunk.page,
-                    chunk.char_start,
-                    chunk.char_end,
-                    list(document.access_groups),
-                    document.collection_id,
-                    document.doc_date,
-                    np.asarray(embedding, dtype=np.float32),
-                )
-                for ordinal, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=True))
-            ]
-            async with connection.cursor() as cursor:
-                await cursor.executemany(
-                    "INSERT INTO chunks (index_id, document_id, ordinal, text, context, "
-                    "section_path, page, char_start, char_end, access_groups, collection_id, "
-                    "doc_date, embedding) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
-                    "ON CONFLICT (index_id, document_id, ordinal) DO UPDATE SET "
-                    "text = EXCLUDED.text, context = EXCLUDED.context, "
-                    "section_path = EXCLUDED.section_path, page = EXCLUDED.page, "
-                    "char_start = EXCLUDED.char_start, char_end = EXCLUDED.char_end, "
-                    "access_groups = EXCLUDED.access_groups, "
-                    "collection_id = EXCLUDED.collection_id, doc_date = EXCLUDED.doc_date, "
-                    "embedding = EXCLUDED.embedding",
-                    rows,
-                )
-            # A document chunked again into fewer chunks leaves none of the old ones behind.
-            await connection.execute(
-                f"DELETE FROM chunks WHERE index_id = {self._id} AND document_id = %s "
-                f"AND ordinal >= %s",
-                (int(document.doc_id), len(chunks)),
-            )
-            await self._mark_unpublished(connection, changed)
+            await self._ensure_collection(connection, meta)
+            document = await self._upsert_upload(connection, meta, content_hash)
+            await self._store_chunks(connection, document, chunks, embeddings)
+            await self._mark_unpublished(connection, {self._id})
             if publish:
                 await indexes.publish(connection, self._id)
         return document
+
+    async def add_corpus_document(
+        self,
+        meta: DocumentMeta,
+        content_hash: str,
+        chunks: Sequence[Chunk],
+        embeddings: Sequence[Sequence[float]],
+        *,
+        manifest_key: str,
+    ) -> Document | None:
+        # Locks in the same order as `add`.
+        async with self._pool.connection() as connection, connection.transaction():
+            await self._ensure_collection(connection, meta)
+            stored = await self._corpus_documents(
+                connection,
+                "WHERE d.collection_id = %s AND d.manifest_key = %s FOR UPDATE OF d",
+                (meta.collection_id, manifest_key),
+            )
+            uploaded = await self._find_upload(connection, content_hash, meta) is not None
+            outdated = [
+                item
+                for item in stored
+                if not item.is_current(content_hash, meta) or (uploaded and item.in_index)
+            ]
+            changed = await self._remove(connection, [item.document.doc_id for item in outdated])
+            document = None
+            if not uploaded:
+                if stored and not outdated:
+                    document = stored[0].document
+                else:
+                    document = await self._insert_document(
+                        connection, meta, content_hash, manifest_key
+                    )
+                await self._store_chunks(connection, document, chunks, embeddings)
+                changed.add(self._id)
+            await self._mark_unpublished(connection, changed)
+        return document
+
+    @staticmethod
+    async def _ensure_collection(connection: AsyncConnection[TupleRow], meta: DocumentMeta) -> None:
+        await connection.execute(
+            "INSERT INTO collections (id, name) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            (meta.collection_id, meta.collection_id),
+        )
+
+    async def _store_chunks(
+        self,
+        connection: AsyncConnection[TupleRow],
+        document: Document,
+        chunks: Sequence[Chunk],
+        embeddings: Sequence[Sequence[float]],
+    ) -> None:
+        """Make this index hold exactly these chunks of the document."""
+        if len(chunks) != len(embeddings):
+            raise ValueError("Every chunk needs one embedding")
+        rows = [
+            (
+                self._id,
+                int(document.doc_id),
+                ordinal,
+                chunk.text,
+                chunk_header(chunk, document),
+                list(chunk.section_path),
+                chunk.page,
+                chunk.char_start,
+                chunk.char_end,
+                list(document.access_groups),
+                document.collection_id,
+                document.doc_date,
+                np.asarray(embedding, dtype=np.float32),
+            )
+            for ordinal, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=True))
+        ]
+        async with connection.cursor() as cursor:
+            await cursor.executemany(
+                "INSERT INTO chunks (index_id, document_id, ordinal, text, context, "
+                "section_path, page, char_start, char_end, access_groups, collection_id, "
+                "doc_date, embedding) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                "ON CONFLICT (index_id, document_id, ordinal) DO UPDATE SET "
+                "text = EXCLUDED.text, context = EXCLUDED.context, "
+                "section_path = EXCLUDED.section_path, page = EXCLUDED.page, "
+                "char_start = EXCLUDED.char_start, char_end = EXCLUDED.char_end, "
+                "access_groups = EXCLUDED.access_groups, "
+                "collection_id = EXCLUDED.collection_id, doc_date = EXCLUDED.doc_date, "
+                "embedding = EXCLUDED.embedding",
+                rows,
+            )
+        # A document chunked again into fewer chunks leaves none of the old ones behind.
+        await connection.execute(
+            f"DELETE FROM chunks WHERE index_id = {self._id} AND document_id = %s "
+            f"AND ordinal >= %s",
+            (int(document.doc_id), len(chunks)),
+        )
 
     async def _upsert_upload(
         self, connection: AsyncConnection[TupleRow], meta: DocumentMeta, content_hash: str
@@ -278,8 +323,8 @@ class PgVectorStore:
             params,
         )
         return [
-            CorpusDocument(_document(row[:10]), key=row[10], content_hash=row[11], in_index=row[12])
-            for row in await cursor.fetchall()
+            CorpusDocument(_document(document), key, content_hash, in_index)
+            for *document, key, content_hash, in_index in await cursor.fetchall()
         ]
 
     async def remove_corpus_documents(self, doc_ids: Sequence[str]) -> None:

@@ -3,6 +3,7 @@
 import asyncio
 import threading
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +14,8 @@ from conftest import empty_database
 from groundwork.db.pool import Pool
 from groundwork.domain.models import DocumentMeta, ScoredPassage, SearchFilters, content_hash
 from groundwork.ingestion.corpus import corpus_entries
-from groundwork.ingestion.pipeline import ingest_file
+from groundwork.ingestion.loaders import loader_for
+from groundwork.ingestion.pipeline import ingest_file, prepare_document
 from groundwork.ingestion.sync import SyncReport, sync_corpus
 from groundwork.ingestion.uploads import UploadService
 from groundwork.retrieval.embedder import FakeEmbedder
@@ -430,6 +432,47 @@ async def test_files_ingested_without_a_key_are_not_removed(
     assert await library.find("pagers") == ["pager"]
 
 
+async def store_duplicate(library: Library, raw: Path) -> str:
+    """Store the only corpus document of `raw` as an upload too, as when both are stored at once
+    and neither can see the other. The upload's document id."""
+    [entry] = corpus_entries(raw)
+    content = entry.path.read_bytes()
+    prepared = prepare_document(
+        loader_for(entry.path.name)(content),
+        entry.meta,
+        "x",
+        FakeEmbedder(),
+        chunk_tokens=100,
+        chunk_overlap=10,
+    )
+    meta = replace(entry.meta, title="mine.md")
+    upload = await library.store.add(
+        meta, content_hash(content), prepared.chunks, prepared.embeddings, publish=True
+    )
+    return upload.doc_id
+
+
+async def test_a_duplicate_of_an_upload_is_settled_by_the_next_sync(
+    library: Library, tmp_path: Path
+) -> None:
+    raw = write(tmp_path / "v1", {"pager.md": about("pagers")})
+    await library.sync(raw)
+    doc_id = await store_duplicate(library, raw)
+    assert await library.find("pagers") == ["pager", "mine.md"]
+
+    report = await library.sync(raw)
+
+    assert report.names("removed") == ["runbooks/pager-md"]
+    assert await library.find("pagers") == ["mine.md"]
+    [(document, _)] = await library.store.documents()
+    assert document.doc_id == doc_id
+
+    again = await library.sync(raw)
+
+    assert again.names("skipped") == ["runbooks/pager-md"]
+    assert again.published == {}
+
+
 # Access groups
 
 
@@ -482,7 +525,9 @@ async def test_a_replaced_document_is_gone_before_bm25_is_rebuilt(
         access_groups=("hr",),
     )
 
-    await library.store.add(moved, "h2", [chunk], [[1.0] * DIMENSION], manifest_key="pager-md")
+    await library.store.add_corpus_document(
+        moved, "h2", [chunk], [[1.0] * DIMENSION], manifest_key="pager-md"
+    )
 
     assert await library.retriever.search("pagers", 10, None, "sparse") == []
     dense = await library.retriever.search("pagers", 10, None, "dense")
@@ -644,6 +689,34 @@ async def test_a_document_is_stored_in_an_index_whose_uploads_do_not_include_it(
     assert await b.find("pagers") == []
 
 
+@pytest.mark.db
+async def test_an_index_without_the_upload_gets_a_settled_duplicate_back(
+    two_libraries: tuple[Library, Library], tmp_path: Path
+) -> None:
+    """Settling takes the corpus document out of every index. One the upload is not in stores it
+    again at its own next sync, and the two indexes stay that way."""
+    a, b = two_libraries
+    raw = write(tmp_path / "v1", {"pager.md": about("pagers")})
+    await a.sync(raw)
+    await b.sync(raw)
+    await store_duplicate(a, raw)
+
+    report = await a.sync(raw)
+
+    assert report.names("removed") == ["runbooks/pager-md"]
+    assert list(report.published) == ["a", "b"]
+    assert await a.find("pagers") == ["mine.md"]
+    assert await b.find("pagers") == []
+
+    report = await b.sync(raw)
+
+    assert report.names("added") == ["runbooks/pager-md"]
+    for library in (a, b):
+        assert (await library.sync(raw)).names("skipped") == ["runbooks/pager-md"]
+    assert await a.find("pagers") == ["mine.md"]
+    assert await b.find("pagers") == ["pager"]
+
+
 # Syncs and uploads at the same time
 
 
@@ -724,6 +797,42 @@ async def test_an_upload_of_a_document_being_replaced_is_never_lost(
     await sync
     await library.sync(write(tmp_path / "v3", {"disk.md": about("disks")}))
 
+    assert await library.find("phones") == ["mine.md"]
+
+
+async def test_an_upload_stored_while_its_corpus_document_embeds_stands_in_for_it(
+    library: Library, tmp_path: Path
+) -> None:
+    raw = write(tmp_path / "v1", {"pager.md": about("pagers")})
+    gate = Gate()
+    sync = asyncio.create_task(library.sync(raw, gate))
+    await asyncio.to_thread(gate.reached.wait, 10)
+
+    doc_id = await library.upload("mine.md", about("pagers"), "runbooks")
+    gate.opened.set()
+    report = await sync
+
+    assert report.names("skipped") == ["runbooks/pager-md"]
+    assert await library.find("pagers") == ["mine.md"]
+    [passage, *_] = (await library.search("pagers"))["sparse"]
+    assert passage.document.doc_id == doc_id
+
+
+async def test_an_upload_stored_while_a_replacement_embeds_stands_in_for_it(
+    library: Library, tmp_path: Path
+) -> None:
+    await library.sync(write(tmp_path / "v1", {"pager.md": about("pagers")}))
+    gate = Gate()
+    v2 = write(tmp_path / "v2", {"pager.md": about("phones")})
+    sync = asyncio.create_task(library.sync(v2, gate))
+    await asyncio.to_thread(gate.reached.wait, 10)
+
+    await library.upload("mine.md", about("phones"), "runbooks")
+    gate.opened.set()
+    report = await sync
+
+    assert report.names("removed") == ["runbooks/pager-md"]
+    assert await library.find("pagers") == []
     assert await library.find("phones") == ["mine.md"]
 
 
